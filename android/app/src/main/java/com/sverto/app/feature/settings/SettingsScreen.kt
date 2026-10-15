@@ -67,6 +67,8 @@ import com.sverto.app.BuildConfig
 import com.sverto.app.SvertoApp
 import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.ai.CategorySuggestionConsent
+import com.sverto.app.core.components.AppUpdateBanner
+import com.sverto.app.core.components.UpdateBannerPlacement
 import com.sverto.app.core.icons.LucideIcon
 import com.sverto.app.core.theme.LocalClerkTheme
 import com.sverto.app.feature.assets.components.CurrencyPickerSheet
@@ -192,6 +194,7 @@ fun SettingsScreen(
                         .fillMaxSize()
                         .verticalScroll(rememberScrollState()),
             ) {
+                AppUpdateBanner(UpdateBannerPlacement.SETTINGS, Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
                 AccountHeader(displayName = displayName, email = email)
                 HorizontalDivider(
                     modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),

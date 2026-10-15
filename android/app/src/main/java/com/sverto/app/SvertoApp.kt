@@ -6,6 +6,9 @@ import android.net.Network
 import com.clerk.api.Clerk
 import com.clerk.api.network.serialization.ClerkResult
 import com.sverto.app.core.ai.CategorySuggester
+import com.sverto.app.core.update.AppUpdateController
+import com.sverto.app.core.update.UpdateChannelSelector
+import com.sverto.app.core.update.UpdatePreferences
 import com.sverto.app.feature.server.KeystoreCredentialStore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,6 +49,7 @@ class SvertoApp : Application() {
     private val connectivityScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     val categorySuggester by lazy { CategorySuggester(this) }
+    val appUpdates by lazy { AppUpdateController(UpdateChannelSelector.select(this), UpdatePreferences(this)) }
 
     lateinit var appStore: AppStore
         private set

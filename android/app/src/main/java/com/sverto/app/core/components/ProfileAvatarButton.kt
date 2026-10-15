@@ -1,8 +1,11 @@
 package com.sverto.app.core.components
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -23,6 +26,7 @@ fun ProfileAvatarButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     sessionViewModel: AppSessionViewModel? = null,
+    showUpdateBadge: Boolean = false,
 ) {
     val clerkUser = if (Clerk.isInitialized.value) Clerk.user else null
 
@@ -52,26 +56,32 @@ fun ProfileAvatarButton(
 
     IconButton(
         onClick = onClick,
-        modifier = modifier.semantics { contentDescription = "Profile and settings" },
+        modifier =
+            modifier.semantics {
+                contentDescription =
+                    if (showUpdateBadge) "Profile and settings, update available" else "Profile and settings"
+            },
     ) {
-        Surface(
-            shape = CircleShape,
-            color = MaterialTheme.colorScheme.primaryContainer,
-            modifier = Modifier.size(32.dp),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                if (initials.isNotBlank()) {
-                    Text(
-                        text = initials,
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onPrimaryContainer,
-                    )
-                } else {
-                    LucideIcon(
-                        name = "user",
-                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                        modifier = Modifier.size(18.dp),
-                    )
+        BadgedBox(badge = { if (showUpdateBadge) Badge(Modifier.offset(x = (-4).dp, y = 4.dp)) }) {
+            Surface(
+                shape = CircleShape,
+                color = MaterialTheme.colorScheme.primaryContainer,
+                modifier = Modifier.size(32.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    if (initials.isNotBlank()) {
+                        Text(
+                            text = initials,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        )
+                    } else {
+                        LucideIcon(
+                            name = "user",
+                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
                 }
             }
         }

@@ -74,6 +74,8 @@ val envFile =
 val appEnv = project.findProperty("APP_ENV") as String? ?: envFile["APP_ENV"] ?: "dev"
 val isProd = appEnv == "prod"
 
+fun devIntSetting(name: String): String = ((project.findProperty(name) as String?) ?: envFile[name] ?: "-1").toInt().toString()
+
 android {
     namespace = "com.sverto.app"
     compileSdk = 37
@@ -130,10 +132,14 @@ android {
         create("dev") {
             dimension = "environment"
             applicationId = "com.sverto.app.dev"
+            buildConfigField("int", "FAKE_UPDATE_PRIORITY", devIntSetting("FAKE_UPDATE_PRIORITY"))
+            buildConfigField("int", "FAKE_UPDATE_STALENESS_DAYS", devIntSetting("FAKE_UPDATE_STALENESS_DAYS"))
         }
         create("prod") {
             dimension = "environment"
             applicationId = "com.sverto.app"
+            buildConfigField("int", "FAKE_UPDATE_PRIORITY", "-1")
+            buildConfigField("int", "FAKE_UPDATE_STALENESS_DAYS", "-1")
         }
     }
 
@@ -225,6 +231,7 @@ dependencies {
     implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.compose)
     implementation(libs.lifecycle.runtime.compose)
+    implementation(libs.lifecycle.process)
     implementation(libs.core.ktx)
 
     // DataStore for server preferences and credential storage
@@ -248,6 +255,7 @@ dependencies {
 
     implementation(libs.icons.lucide)
     implementation(libs.mlkit.genai.prompt)
+    implementation(libs.play.app.update)
 
     // Image loading for chat attachments (coil-network-okhttp is required for remote https URLs;
     // coil-compose alone only handles local content:// uris)

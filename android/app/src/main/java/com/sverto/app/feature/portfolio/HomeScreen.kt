@@ -23,15 +23,24 @@ import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sverto.app.SvertoApp
 import com.sverto.app.core.SvertoViewModelFactory
+import com.sverto.app.core.components.AppUpdateBanner
+import com.sverto.app.core.components.UpdateBannerPlacement
 import com.sverto.app.core.ui.HoldingsListSkeleton
 import com.sverto.app.core.ui.PortfolioChartSkeleton
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.map
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
@@ -42,6 +51,15 @@ fun PortfolioScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    val context = LocalContext.current
+    val appUpdates = remember { (context.applicationContext as SvertoApp).appUpdates }
+    LaunchedEffect(appUpdates) {
+        appUpdates.presentation
+            .map { it.autoPromptFlexible }
+            .distinctUntilChanged()
+            .filter { it }
+            .collect { appUpdates.autoPrompt() }
+    }
 
     val pullToRefreshState = rememberPullToRefreshState()
 
@@ -67,6 +85,7 @@ fun PortfolioScreen(
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Spacer(Modifier.height(8.dp))
+            AppUpdateBanner(UpdateBannerPlacement.HOME)
 
             when {
                 state.isLoading && state.holdings.isEmpty() -> {

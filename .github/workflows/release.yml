@@ -28,6 +28,7 @@ jobs:
       android: ${{ steps.diff.outputs.android }}
       ios: ${{ steps.diff.outputs.ios }}
       version: ${{ steps.version.outputs.version }}
+      update_priority: ${{ steps.priority.outputs.update_priority }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -36,6 +37,49 @@ jobs:
         run: |
           VERSION=${GITHUB_REF_NAME#v}
           echo "version=${VERSION%%-*}" >> "$GITHUB_OUTPUT"
+      - id: priority
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          BODY=""
+          FOUND=false
+          ALL_NOT_FOUND=true
+          LAST_ERROR=""
+          ERR_FILE=$(mktemp)
+          for ATTEMPT in 1 2 3 4 5 6; do
+            if BODY=$(gh release view "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --json body --jq .body 2>"$ERR_FILE"); then
+              FOUND=true
+              break
+            fi
+            LAST_ERROR=$(<"$ERR_FILE")
+            if ! grep -qi "release not found" "$ERR_FILE"; then
+              ALL_NOT_FOUND=false
+            fi
+            if [ "$ATTEMPT" -lt 6 ]; then
+              sleep 5
+            fi
+          done
+          if [ "$FOUND" != true ]; then
+            if [ "$ALL_NOT_FOUND" != true ]; then
+              echo "::error::Failed to read GitHub release $GITHUB_REF_NAME: ${LAST_ERROR//$'\n'/%0A}"
+              exit 1
+            fi
+            echo "::warning::No GitHub release for $GITHUB_REF_NAME; using Update-Priority 0"
+            BODY=""
+          fi
+          PATTERN='Update-Priority:[[:space:]]*(-?[[:alnum:].]+)'
+          PRIORITY=0
+          shopt -s nocasematch
+          if [[ $BODY =~ $PATTERN ]]; then
+            PRIORITY=${BASH_REMATCH[1]}
+          fi
+          shopt -u nocasematch
+          if ! [[ $PRIORITY =~ ^[0-5]$ ]]; then
+            echo "::error::Update-Priority must be 0-5, got '$PRIORITY'"
+            exit 1
+          fi
+          echo "update_priority=$PRIORITY" >> "$GITHUB_OUTPUT"
       - id: diff
         env:
           BEFORE: ${{ github.event.before }}
@@ -146,6 +190,7 @@ jobs:
           releaseFiles: android/app/build/outputs/bundle/prodRelease/app-prod-release.aab
           mappingFile: android/app/build/outputs/mapping/prodRelease/mapping.txt
           tracks: internal
+          inAppUpdatePriority: ${{ needs.changes.outputs.update_priority }}
 
   ios:
     needs: [changes, core]

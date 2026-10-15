@@ -52,6 +52,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -95,8 +96,8 @@ import com.sverto.app.feature.assets.AssetSearchAppBar
 import com.sverto.app.feature.assets.CustomAssetsScreen
 import com.sverto.app.feature.categories.CustomCategoriesScreen
 import com.sverto.app.feature.connectors.BindingSetupScreen
-import com.sverto.app.feature.connectors.ConnectTrading212Screen
 import com.sverto.app.feature.connectors.ConnectEnableBankingScreen
+import com.sverto.app.feature.connectors.ConnectTrading212Screen
 import com.sverto.app.feature.connectors.ConnectTrueLayerScreen
 import com.sverto.app.feature.connectors.ConnectionDetailScreen
 import com.sverto.app.feature.connectors.ConnectorDetailScreen
@@ -120,6 +121,8 @@ import com.sverto.app.feature.transactions.quickupload.QuickUploadUiItem
 import com.sverto.app.feature.transactions.quickupload.QuickUploadViewModel
 import com.sverto.app.feature.transactions.quickupload.prepareQuickUpload
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.sverto_core.ConnectionStatus
@@ -223,6 +226,17 @@ fun MainScreen(
         currentRoute == TopLevelRoute.Transactions.route && selectedTransactionIds.isNotEmpty()
 
     val appStore = remember { (context.applicationContext as SvertoApp).appStore }
+    val appUpdates = remember { (context.applicationContext as SvertoApp).appUpdates }
+    val updatePresentation = appUpdates.presentation.collectAsStateWithLifecycle()
+    val showUpdateBadge by remember { derivedStateOf { updatePresentation.value.showBadge } }
+    val aiStreaming =
+        aiChatViewModel?.let { vm ->
+            remember(vm) { vm.uiState.map { it.isStreaming }.distinctUntilChanged() }
+                .collectAsStateWithLifecycle(initialValue = false)
+                .value
+        } == true
+    val restartSafe = isTopLevel && !aiStreaming
+    LaunchedEffect(restartSafe) { appUpdates.setRestartSafe(restartSafe) }
 
     DisposableEffect(navController) {
         val listener =
@@ -393,6 +407,7 @@ fun MainScreen(
                                 actions = {
                                     ProfileAvatarButton(
                                         onClick = { navController.navigate("settings") },
+                                        showUpdateBadge = showUpdateBadge,
                                     )
                                 },
                                 colors =
