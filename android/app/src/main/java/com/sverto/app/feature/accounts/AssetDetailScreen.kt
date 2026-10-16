@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
@@ -16,6 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
@@ -60,6 +62,7 @@ fun AssetDetailScreen(
     accountId: String,
     assetId: Int,
     onBack: () -> Unit,
+    onViewTransactions: (title: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AssetDetailViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
@@ -273,6 +276,21 @@ fun AssetDetailScreen(
                         }
                     }
 
+                    AnimatedVisibility(
+                        visible = lotsVisible,
+                        enter =
+                            fadeIn(motionScheme.defaultEffectsSpec()) +
+                                slideInVertically(motionScheme.defaultSpatialSpec()) { it / 4 },
+                    ) {
+                        FilledTonalButton(
+                            onClick = {
+                                onViewTransactions(state.ticker.ifBlank { state.name }.ifBlank { "Transactions" })
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        ) {
+                            Text("View transactions")
+                        }
+                    }
                     Spacer(modifier = Modifier.height(8.dp))
                 }
             }

@@ -146,7 +146,9 @@ export function useCompleteOauthSession(userId: UserId) {
       },
       updates: [],
       invalidate: connectorInvalidations(userId),
-      meta: { errorContext: "The provider consent step could not be completed" },
+      meta: {
+        errorContext: "The provider consent step could not be completed",
+      },
     })
   )
 }

@@ -29,10 +29,10 @@ nonisolated final class AccountDetailObserverBridge: AccountDetailObserver {
     func onAccountDetailChanged(state: AccountDetailState) { handler(state) }
 }
 
-nonisolated final class AccountTransactionsObserverBridge: AccountTransactionsObserver {
-    private let handler: @Sendable (AccountTransactionsState) -> Void
-    init(_ handler: @escaping @Sendable (AccountTransactionsState) -> Void) { self.handler = handler }
-    func onAccountTransactionsChanged(state: AccountTransactionsState) { handler(state) }
+nonisolated final class ScopedTransactionsObserverBridge: ScopedTransactionsObserver {
+    private let handler: @Sendable (ScopedTransactionsState) -> Void
+    init(_ handler: @escaping @Sendable (ScopedTransactionsState) -> Void) { self.handler = handler }
+    func onScopedTransactionsChanged(state: ScopedTransactionsState) { handler(state) }
 }
 
 nonisolated final class AssetDetailObserverBridge: AssetDetailObserver {

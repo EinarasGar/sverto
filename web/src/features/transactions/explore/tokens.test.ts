@@ -17,6 +17,7 @@ const LABELS: TokenLabels = {
     accountId === "a1" ? "Lloyds Current" : accountId,
   categoryName: (categoryId) =>
     categoryId === 7 ? "Groceries" : `Category ${String(categoryId)}`,
+  assetName: (assetId) => `Asset ${String(assetId)}`,
 }
 
 function tokens(search: ExploreSearch) {
@@ -124,6 +125,7 @@ describe("clearing a token", () => {
   it("clears every filter dimension at once and keeps grouping", () => {
     expect(Object.keys(CLEARED_SEARCH).sort()).toEqual([
       "account",
+      "asset",
       "category",
       "from",
       "q",

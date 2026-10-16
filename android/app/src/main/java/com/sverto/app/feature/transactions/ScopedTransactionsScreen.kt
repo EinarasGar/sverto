@@ -1,4 +1,4 @@
-package com.sverto.app.feature.accounts
+package com.sverto.app.feature.transactions
 
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
@@ -46,9 +46,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.ui.RowDivider
-import com.sverto.app.feature.transactions.TransactionAmount
-import com.sverto.app.feature.transactions.TransactionGlyph
 import uniffi.sverto_core.TransactionListItem
+import uniffi.sverto_core.TransactionListScope
 import uniffi.sverto_core.TransactionVisibility
 import java.time.Instant
 import java.time.LocalDate
@@ -58,25 +57,26 @@ import java.time.format.DateTimeFormatter
 @Suppress("LongMethod", "NewApi")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalSharedTransitionApi::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun AccountTransactionsScreen(
-    accountId: String,
+fun ScopedTransactionsScreen(
+    scope: TransactionListScope,
+    title: String,
     onBack: () -> Unit,
     onTransactionClick: (TransactionListItem) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
-    viewModel: AccountTransactionsViewModel = viewModel(factory = SvertoViewModelFactory),
+    subtitle: String? = null,
+    viewModel: ScopedTransactionsViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
 
-    LaunchedEffect(accountId) {
-        viewModel.load(accountId)
+    LaunchedEffect(scope) {
+        viewModel.load(scope)
     }
 
     val listState = rememberLazyListState()
 
-    // Infinite scroll: load more when near the end
     LaunchedEffect(listState, state.hasMore, state.isLoadingMore) {
         snapshotFlow {
             listState.layoutInfo.visibleItemsInfo
@@ -117,7 +117,17 @@ fun AccountTransactionsScreen(
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
         topBar = {
             MediumFlexibleTopAppBar(
-                title = { Text("Transactions") },
+                title = { Text(title) },
+                subtitle =
+                    subtitle?.let {
+                        {
+                            Text(
+                                text = it,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
+                    },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -158,6 +168,21 @@ fun AccountTransactionsScreen(
                     Text(
                         text = "Error: ${state.error}",
                         color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            state.items.isEmpty() -> {
+                Box(
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = "No transactions yet",
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -207,7 +232,7 @@ fun AccountTransactionsScreen(
                                     with(sharedTransitionScope) {
                                         Column {
                                             txList.forEachIndexed { index, tx ->
-                                                val subtitle = tx.categoryName.ifEmpty { tx.typeLabel }
+                                                val rowSubtitle = tx.categoryName.ifEmpty { tx.typeLabel }
 
                                                 ListItem(
                                                     modifier =
@@ -232,9 +257,9 @@ fun AccountTransactionsScreen(
                                                         )
                                                     },
                                                     supportingContent = {
-                                                        if (subtitle.isNotEmpty()) {
+                                                        if (rowSubtitle.isNotEmpty()) {
                                                             Text(
-                                                                text = subtitle,
+                                                                text = rowSubtitle,
                                                                 style = MaterialTheme.typography.bodySmall,
                                                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                                 maxLines = 1,

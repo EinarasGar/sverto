@@ -408,9 +408,10 @@ private fun CountryPickerSheet(
                             headlineContent = {
                                 Text(code, style = MaterialTheme.typography.bodyLarge)
                             },
-                            colors = ListItemDefaults.colors(
-                                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                            ),
+                            colors =
+                                ListItemDefaults.colors(
+                                    containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                                ),
                             modifier =
                                 Modifier
                                     .fillMaxWidth()

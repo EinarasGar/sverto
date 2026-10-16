@@ -42,6 +42,7 @@ import { warmScope } from "../../-warm"
 const transactionsSearchSchema = z.object({
   mode: z.enum(["explore", "review"]).default("explore").catch("explore"),
   account: optionalText,
+  asset: z.coerce.number().int().optional().catch(undefined),
   q: optionalText,
   category: z.coerce.number().int().optional().catch(undefined),
   type: optionalText,
@@ -58,6 +59,7 @@ export type TransactionsSearch = z.infer<typeof transactionsSearchSchema>
 const SCOPE_KEYS = [
   "q",
   "account",
+  "asset",
   "category",
   "type",
   "from",

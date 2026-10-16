@@ -53,7 +53,8 @@ class ConnectEnableBankingViewModel(
             _state.value = _state.value.copy(banksLoading = true)
             try {
                 val banks =
-                    store.listConnectorAspsps("enablebanking", country)
+                    store
+                        .listConnectorAspsps("enablebanking", country)
                         .sortedBy { it.name }
                 _state.value = _state.value.copy(aspsps = banks, banksLoading = false)
             } catch (e: CancellationException) {

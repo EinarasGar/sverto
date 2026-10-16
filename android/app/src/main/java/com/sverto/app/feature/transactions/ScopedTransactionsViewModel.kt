@@ -1,4 +1,4 @@
-package com.sverto.app.feature.accounts
+package com.sverto.app.feature.transactions
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -6,16 +6,17 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import uniffi.sverto_core.AccountTransactionsObserver
-import uniffi.sverto_core.AccountTransactionsState
 import uniffi.sverto_core.AppStore
+import uniffi.sverto_core.ScopedTransactionsObserver
+import uniffi.sverto_core.ScopedTransactionsState
+import uniffi.sverto_core.TransactionListScope
 
-class AccountTransactionsViewModel(
+class ScopedTransactionsViewModel(
     private val store: AppStore,
 ) : ViewModel() {
     private val _state =
         MutableStateFlow(
-            AccountTransactionsState(
+            ScopedTransactionsState(
                 isLoading = true,
                 isLoadingMore = false,
                 error = null,
@@ -23,14 +24,14 @@ class AccountTransactionsViewModel(
                 hasMore = false,
             ),
         )
-    val state: StateFlow<AccountTransactionsState> = _state.asStateFlow()
+    val state: StateFlow<ScopedTransactionsState> = _state.asStateFlow()
 
     private val _isRefreshing = MutableStateFlow(false)
     val isRefreshing: StateFlow<Boolean> = _isRefreshing.asStateFlow()
 
     private val observer =
-        object : AccountTransactionsObserver {
-            override fun onAccountTransactionsChanged(state: AccountTransactionsState) {
+        object : ScopedTransactionsObserver {
+            override fun onScopedTransactionsChanged(state: ScopedTransactionsState) {
                 val wasRefreshing = _isRefreshing.value
                 _state.value = state
                 if (wasRefreshing && !state.isLoading) {
@@ -39,28 +40,28 @@ class AccountTransactionsViewModel(
             }
         }
 
-    private var loadedAccountId: String? = null
+    private var loadedScope: TransactionListScope? = null
 
     init {
-        store.observeAccountTransactions(observer)
+        store.observeScopedTransactions(observer)
     }
 
-    fun load(accountId: String) {
-        if (accountId == loadedAccountId) return
-        loadedAccountId = accountId
-        viewModelScope.launch { store.loadAccountTransactions(accountId) }
+    fun load(scope: TransactionListScope) {
+        if (scope == loadedScope) return
+        loadedScope = scope
+        viewModelScope.launch { store.loadScopedTransactions(scope) }
     }
 
     fun loadMore() {
-        viewModelScope.launch { store.loadMoreAccountTransactions() }
+        viewModelScope.launch { store.loadMoreScopedTransactions() }
     }
 
     fun refresh() {
         _isRefreshing.value = true
-        viewModelScope.launch { store.refreshAccountTransactions() }
+        viewModelScope.launch { store.refreshScopedTransactions() }
     }
 
     override fun onCleared() {
-        store.unobserveAccountTransactions()
+        store.unobserveScopedTransactions()
     }
 }

@@ -9,8 +9,9 @@ enum AppRoute: Hashable {
     case groupAddTransaction(typeKey: String)
     case groupEditTransaction(typeKey: String, index: Int)
     case accountDetail(accountId: String, accountName: String, accountTypeId: Int32)
-    case accountAssetDetail(accountId: String, assetId: Int32)
+    case accountAssetDetail(accountId: String, accountName: String, assetId: Int32)
     case accountTransactions(accountId: String)
+    case assetTransactions(assetId: Int32, accountId: String?, title: String, subtitle: String?)
     case addAccount
     case editAccount(accountId: String)
     case assetOverview(assetId: Int32, userAsset: Bool)

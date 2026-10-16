@@ -1,3 +1,4 @@
+import SvertoCore
 import SwiftUI
 
 struct RouteDestination: View {
@@ -26,10 +27,12 @@ struct RouteDestination: View {
             CreateTransactionScreen(typeKey: typeKey, quickUploadId: nil, groupChildMode: .edit(index: index))
         case let .accountDetail(accountId, accountName, accountTypeId):
             AccountDetailScreen(accountId: accountId, accountName: accountName, accountTypeId: accountTypeId)
-        case let .accountAssetDetail(accountId, assetId):
-            AccountAssetDetailScreen(accountId: accountId, assetId: assetId)
+        case let .accountAssetDetail(accountId, accountName, assetId):
+            AccountAssetDetailScreen(accountId: accountId, accountName: accountName, assetId: assetId)
         case let .accountTransactions(accountId):
-            AccountTransactionsScreen(accountId: accountId)
+            ScopedTransactionsScreen(scope: .account(accountId: accountId), title: "Transactions")
+        case let .assetTransactions(assetId, accountId, title, subtitle):
+            ScopedTransactionsScreen(scope: .asset(assetId: assetId, accountId: accountId), title: title, subtitle: subtitle)
         case .addAccount:
             AddAccountScreen(accountId: nil)
         case let .editAccount(accountId):

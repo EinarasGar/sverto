@@ -1,14 +1,19 @@
+import { useQuery } from "@tanstack/react-query"
 import { useMemo } from "react"
 
 import { useUserId } from "@/auth"
 import { useAccounts } from "@/features/accounts/api"
+import {
+  assetQueryOptions,
+  userAssetsQueryOptions,
+} from "@/features/assets/api"
 import type { TransactionTypeTag } from "@/lib/domain/transaction-types"
 import {
   isTransactionTypeTag,
   transactionTypeName,
   TRANSACTION_TYPES,
 } from "@/lib/domain/transaction-types"
-import type { AccountId, CategoryId } from "@/lib/query"
+import type { AccountId, AssetId, CategoryId } from "@/lib/query"
 
 import type { LedgerFilterToken } from "../api"
 
@@ -17,6 +22,7 @@ import type { GroupByMode } from "./pivot"
 
 export interface ExploreSearch {
   readonly account?: string
+  readonly asset?: number
   readonly q?: string
   readonly category?: number
   readonly type?: string
@@ -55,6 +61,7 @@ export function writeKeys(keys: ReadonlySet<string>): string | undefined {
 export interface TokenLabels {
   readonly accountName: (accountId: AccountId) => string
   readonly categoryName: (categoryId: CategoryId) => string
+  readonly assetName: (assetId: AssetId) => string
 }
 
 export const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
@@ -71,7 +78,7 @@ export function searchType(search: ExploreSearch): TransactionTypeTag | null {
 
 /**
  * Order is load-bearing: `planLedgerQuery` demotes a text token to unsupported whenever an
- * account token is present, so text is emitted first to keep the demoted chip in the place
+ * account or asset token is present, so text is emitted first to keep the demoted chip in the place
  * the user typed it.
  */
 export function buildLedgerTokens(
@@ -88,6 +95,14 @@ export function buildLedgerTokens(
       key: "account",
       accountId: search.account,
       label: labels.accountName(search.account),
+    })
+  }
+
+  if (search.asset !== undefined) {
+    tokens.push({
+      key: "asset",
+      assetId: search.asset,
+      label: labels.assetName(search.asset),
     })
   }
 
@@ -118,24 +133,44 @@ export function buildLedgerTokens(
   return tokens
 }
 
-export function useTokenLabels(): TokenLabels {
+export function useTokenLabels(assetId?: AssetId): TokenLabels {
   const userId = useUserId()
   const accounts = useAccounts(userId)
   const categoryNames = useCategoryNames(userId)
+  const userAssets = useQuery({
+    ...userAssetsQueryOptions(userId),
+    enabled: assetId !== undefined,
+  })
+  const customAsset =
+    assetId === undefined
+      ? undefined
+      : userAssets.data?.find((asset) => asset.assetId === assetId)
+  const labelQuery = assetQueryOptions(assetId ?? 0)
+  const marketAsset = useQuery({
+    ...labelQuery,
+    meta: { ...labelQuery.meta, suppressGlobalError: true },
+    enabled:
+      assetId !== undefined &&
+      userAssets.isSuccess &&
+      customAsset === undefined,
+  })
   const byId = accounts.data?.byId
+  const assetTicker =
+    customAsset?.ticker ?? customAsset?.name ?? marketAsset.data?.ticker ?? null
 
   return useMemo(
     () => ({
       accountName: (accountId) => byId?.[accountId]?.name ?? accountId,
       categoryName: (categoryId) =>
         categoryNames(categoryId) ?? `Category ${String(categoryId)}`,
+      assetName: (id) => assetTicker ?? `Asset ${String(id)}`,
     }),
-    [byId, categoryNames]
+    [byId, categoryNames, assetTicker]
   )
 }
 
 export function useLedgerTokens(search: ExploreSearch): LedgerFilterToken[] {
-  const labels = useTokenLabels()
+  const labels = useTokenLabels(search.asset)
   return useMemo(() => buildLedgerTokens(search, labels), [search, labels])
 }
 
@@ -145,6 +180,8 @@ export function clearToken(token: LedgerFilterToken): ExploreSearchPatch {
       return { q: undefined }
     case "account":
       return { account: undefined }
+    case "asset":
+      return { asset: undefined }
     case "category":
       return { category: undefined }
     case "type":
@@ -162,6 +199,7 @@ export const CLEARED_SEARCH: Required<
   Record<keyof Omit<ExploreSearch, "group" | "tx" | "expand">, undefined>
 > = {
   account: undefined,
+  asset: undefined,
   q: undefined,
   category: undefined,
   type: undefined,

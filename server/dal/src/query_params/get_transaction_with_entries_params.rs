@@ -15,6 +15,7 @@ pub struct GetTransactionWithEntriesParams {
     pub paging: Option<PagingParams>,
     pub apply_ownership_share: bool,
     pub account_filter: Option<Uuid>,
+    pub asset_filter: Option<i32>,
     pub group_filter: GroupFilter,
     pub search_query: Option<String>,
     pub cursor_paging: Option<CursorPagingParams>,
@@ -30,6 +31,7 @@ impl GetTransactionWithEntriesParams {
             paging: None,
             apply_ownership_share: false,
             account_filter: None,
+            asset_filter: None,
             group_filter: GroupFilter::All,
             search_query: None,
             cursor_paging: None,
@@ -47,6 +49,7 @@ impl GetTransactionWithEntriesParams {
             paging: None,
             apply_ownership_share: false,
             account_filter: None,
+            asset_filter: None,
             group_filter: GroupFilter::All,
             search_query: None,
             cursor_paging: None,
@@ -62,21 +65,7 @@ impl GetTransactionWithEntriesParams {
             paging: None,
             apply_ownership_share: false,
             account_filter: None,
-            group_filter: GroupFilter::All,
-            search_query: None,
-            cursor_paging: None,
-            transaction_type_ids: None,
-            date_from: None,
-            date_to: None,
-        }
-    }
-
-    pub fn by_user_id_paged(user_id: Uuid, paging_params: PagingParams) -> Self {
-        Self {
-            search_type: GetTransactionWithEntriesParamsSeachType::ByUserId(user_id),
-            paging: Some(paging_params),
-            apply_ownership_share: false,
-            account_filter: None,
+            asset_filter: None,
             group_filter: GroupFilter::All,
             search_query: None,
             cursor_paging: None,
@@ -92,6 +81,7 @@ impl GetTransactionWithEntriesParams {
             paging: None,
             apply_ownership_share: true,
             account_filter: None,
+            asset_filter: None,
             group_filter: GroupFilter::All,
             search_query: None,
             cursor_paging: None,
@@ -107,6 +97,7 @@ impl GetTransactionWithEntriesParams {
             paging: None,
             apply_ownership_share: false,
             account_filter: Some(account_id),
+            asset_filter: None,
             group_filter: GroupFilter::All,
             search_query: None,
             cursor_paging: None,
@@ -116,16 +107,18 @@ impl GetTransactionWithEntriesParams {
         }
     }
 
-    pub fn by_user_id_paged_with_account(
+    pub fn by_user_id_paged_filtered(
         user_id: Uuid,
         paging_params: PagingParams,
-        account_id: Uuid,
+        account_filter: Option<Uuid>,
+        asset_filter: Option<i32>,
     ) -> Self {
         Self {
             search_type: GetTransactionWithEntriesParamsSeachType::ByUserId(user_id),
             paging: Some(paging_params),
             apply_ownership_share: false,
-            account_filter: Some(account_id),
+            account_filter,
+            asset_filter,
             group_filter: GroupFilter::All,
             search_query: None,
             cursor_paging: None,
@@ -141,6 +134,7 @@ impl GetTransactionWithEntriesParams {
             paging: None,
             apply_ownership_share: false,
             account_filter: None,
+            asset_filter: None,
             group_filter: GroupFilter::IndividualOnly,
             search_query: None,
             cursor_paging: None,

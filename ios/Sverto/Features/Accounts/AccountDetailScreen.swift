@@ -182,7 +182,7 @@ private struct AccountDetailContent: View {
                     VStack(spacing: 0) {
                         ForEach(Array(holdings.enumerated()), id: \.element.assetId) { index, holding in
                             HoldingRow(holding: holding, baseTicker: model.state.baseTicker) {
-                                shell.push(.accountAssetDetail(accountId: model.accountId, assetId: holding.assetId))
+                                shell.push(.accountAssetDetail(accountId: model.accountId, accountName: accountName, assetId: holding.assetId))
                             }
                             if index < holdings.count - 1 {
                                 RowDivider(leadingInset: Layout.cardPadding + 36 + Layout.rowSpacing)

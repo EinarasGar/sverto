@@ -1,9 +1,19 @@
 use std::collections::HashSet;
 
 use business::dtos::combined_transaction_dto::CombinedTransactionItem;
+use business::dtos::page_of_results_dto::PageOfResultsDto;
 use business::dtos::transaction_dto::{TransactionDto, TransactionTypeDto};
+use business::service_collection::{
+    accounts_service::AccountsService, asset_service::AssetsService,
+};
 use dal::query_params::ai_conversation_params::ProposalType;
+use itertools::Itertools;
 use uuid::Uuid;
+
+use crate::view_models::{
+    base_models::search::AccountTransactionsPage,
+    transactions::base_models::metadata_lookup::MetadataLookupTables,
+};
 pub fn transaction_dtos_to_asset_ids_hashset(transactions: &[&TransactionDto]) -> HashSet<i32> {
     let mut asset_ids = HashSet::new();
     for transaction in transactions {
@@ -194,4 +204,29 @@ pub fn combined_items_to_category_ids_hashset(items: &[CombinedTransactionItem])
         }
     }
     category_ids
+}
+
+pub async fn transaction_dtos_to_page(
+    dtos: PageOfResultsDto<TransactionDto>,
+    asset_service: &AssetsService,
+    accounts_service: &AccountsService,
+) -> anyhow::Result<AccountTransactionsPage> {
+    let refs = dtos.results.iter().collect::<Vec<_>>();
+    let asset_ids = transaction_dtos_to_asset_ids_hashset(&refs);
+    let account_ids = transaction_dtos_to_account_ids_hashset(&refs);
+
+    let (assets, accounts) = tokio::try_join!(
+        asset_service.get_assets(asset_ids),
+        accounts_service.get_accounts(account_ids),
+    )?;
+
+    Ok(AccountTransactionsPage {
+        results: dtos.results.into_iter().map(Into::into).collect(),
+        total_results: dtos.total_results,
+        lookup_tables: MetadataLookupTables {
+            assets: assets.into_iter().map_into().collect(),
+            accounts: accounts.into_iter().map_into().collect(),
+            ..Default::default()
+        },
+    })
 }

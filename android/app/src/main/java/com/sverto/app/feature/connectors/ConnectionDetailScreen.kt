@@ -150,7 +150,7 @@ fun ConnectionDetailScreen(
                     val supporting =
                         if (
                             connection.providerKind == "truelayer" ||
-                                connection.providerKind == "enablebanking"
+                            connection.providerKind == "enablebanking"
                         ) {
                             connection.consentExpiresAt?.let {
                                 "Consent until ${dateFormatter.format(Date(it * 1000))}"

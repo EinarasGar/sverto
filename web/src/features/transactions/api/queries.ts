@@ -13,8 +13,7 @@ import {
   TransactionsApiFactory,
 } from "@/api"
 import { api, apiClient } from "@/lib/api"
-import { normalizeError } from "@/lib/errors"
-import type { AccountId, TransactionId, UserId } from "@/lib/query"
+import type { AccountId, AssetId, TransactionId, UserId } from "@/lib/query"
 import {
   apiQueryOptions,
   cursorInfiniteQueryOptions,
@@ -103,25 +102,6 @@ export function individualLedgerInfiniteQueryOptions(input: {
   })
 }
 
-const EMPTY_ACCOUNT_PAGE: AccountTransactionsPage = {
-  lookup_tables: { accounts: [], assets: [] },
-  results: [],
-  total_results: 0,
-}
-
-/**
- * The per-account handler answers an account that holds nothing with a 500 carrying "No
- * results found" rather than an empty page, and an account with no transactions is a normal
- * state, not a failure — so that one shape is read as the empty page the server should send.
- */
-function isNoResultsError(error: unknown): boolean {
-  const normalized = normalizeError(error)
-  return (
-    normalized.kind === "serverError" &&
-    normalized.stackTrace === "No results found"
-  )
-}
-
 /**
  * No `query`: the per-account handler binds a `query` param it never passes to the search
  * clause, so accepting one here would advertise a filter the server discards.
@@ -141,22 +121,59 @@ export function accountLedgerInfiniteQueryOptions(input: {
       .user(input.userId)
       .accounts.transactions(input.accountId, { count }),
     fetchPage: async ({ start, signal }): Promise<AccountTransactionsPage> => {
-      try {
-        const response = await api(
-          AccountPortfolioApiFactory
-        ).getAccountTransactions(
-          input.userId,
-          input.accountId,
-          count,
-          start,
-          undefined,
-          { signal }
-        )
-        return response.data
-      } catch (error) {
-        if (isNoResultsError(error)) return EMPTY_ACCOUNT_PAGE
-        throw error
-      }
+      const response = await api(
+        AccountPortfolioApiFactory
+      ).getAccountTransactions(
+        input.userId,
+        input.accountId,
+        count,
+        start,
+        undefined,
+        { signal }
+      )
+      return response.data
+    },
+  })
+}
+
+export function assetLedgerInfiniteQueryOptions(input: {
+  userId: UserId
+  assetId: AssetId
+  accountId: AccountId | null
+  count?: number
+  keepPreviousPage?: boolean
+}) {
+  const count = input.count ?? LEDGER_PAGE_SIZE
+  return offsetInfiniteQueryOptions({
+    ...(input.keepPreviousPage === undefined
+      ? {}
+      : { keepPreviousPage: input.keepPreviousPage }),
+    queryKey: queryKeys.user(input.userId).transactions.byAsset(input.assetId, {
+      count,
+      accountId: input.accountId,
+    }),
+    fetchPage: async ({ start, signal }): Promise<AccountTransactionsPage> => {
+      const transactions = api(TransactionsApiFactory)
+      const response =
+        input.accountId === null
+          ? await transactions.getAssetTransactions(
+              input.userId,
+              input.assetId,
+              count,
+              start,
+              undefined,
+              { signal }
+            )
+          : await transactions.getAccountAssetTransactions(
+              input.userId,
+              input.accountId,
+              input.assetId,
+              count,
+              start,
+              undefined,
+              { signal }
+            )
+      return response.data
     },
   })
 }
@@ -190,7 +207,7 @@ export interface LedgerResult {
   readonly days: readonly LedgerDay[]
   readonly lookup: LookupIndex
   readonly plan: LedgerQueryPlan
-  readonly source: "combined" | "account"
+  readonly source: LedgerQueryPlan["source"]
   readonly loadedCount: number
   readonly unreviewedLoadedCount: number
   /**
@@ -221,8 +238,6 @@ export function useLedger(input: LedgerQueryInput): LedgerResult {
     () => planLedgerQuery(input.tokens ?? []),
     [input.tokens]
   )
-  const isAccountScoped = plan.accountId !== null
-
   const combined = useInfiniteQuery({
     ...combinedLedgerInfiniteQueryOptions({
       userId: input.userId,
@@ -230,23 +245,35 @@ export function useLedger(input: LedgerQueryInput): LedgerResult {
       limit: input.limit,
       keepPreviousPage: input.keepPreviousPage === true,
     }),
-    enabled: !isAccountScoped,
+    enabled: plan.source === "combined",
   })
 
-  const scoped = useInfiniteQuery({
+  const accountScoped = useInfiniteQuery({
     ...accountLedgerInfiniteQueryOptions({
       userId: input.userId,
       accountId: plan.accountId ?? "",
       count: input.limit,
       keepPreviousPage: input.keepPreviousPage === true,
     }),
-    enabled: isAccountScoped,
+    enabled: plan.source === "account",
   })
 
-  const active = isAccountScoped ? scoped : combined
+  const assetScoped = useInfiniteQuery({
+    ...assetLedgerInfiniteQueryOptions({
+      userId: input.userId,
+      assetId: plan.assetId ?? 0,
+      accountId: plan.accountId,
+      count: input.limit,
+      keepPreviousPage: input.keepPreviousPage === true,
+    }),
+    enabled: plan.source === "asset",
+  })
+
+  const scoped = plan.source === "asset" ? assetScoped : accountScoped
+  const active = plan.source === "combined" ? combined : scoped
 
   const { rows, lookup, totalResults } = useMemo(() => {
-    if (isAccountScoped) {
+    if (plan.source !== "combined") {
       const pages = scoped.data?.pages ?? []
       const merged = mergeLookupIndexes(
         pages.map((page) => toLookupIndex(page.lookup_tables))
@@ -273,7 +300,7 @@ export function useLedger(input: LedgerQueryInput): LedgerResult {
       ),
       totalResults: pages[0]?.total_results ?? undefined,
     }
-  }, [combined.data, scoped.data, isAccountScoped])
+  }, [combined.data, scoped.data, plan.source])
 
   const days = useMemo(() => groupRowsByDay(rows), [rows])
   const unreviewedLoadedCount = useMemo(

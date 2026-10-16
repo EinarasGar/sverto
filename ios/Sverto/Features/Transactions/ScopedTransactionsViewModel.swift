@@ -3,10 +3,10 @@ import Observation
 import SvertoCore
 
 @Observable
-final class AccountTransactionsViewModel {
+final class ScopedTransactionsViewModel {
     nonisolated static let loadMoreBuffer = 5
 
-    private(set) var state = AccountTransactionsState(
+    private(set) var state = ScopedTransactionsState(
         isLoading: true,
         isLoadingMore: false,
         error: nil,
@@ -16,13 +16,13 @@ final class AccountTransactionsViewModel {
     private(set) var isRefreshing = false
 
     private let store: AppStore
-    private let accountId: String
-    private var bridge: AccountTransactionsObserverBridge?
+    private let scope: TransactionListScope
+    private var bridge: ScopedTransactionsObserverBridge?
     private var hasLoaded = false
 
-    init(store: AppStore, accountId: String) {
+    init(store: AppStore, scope: TransactionListScope) {
         self.store = store
-        self.accountId = accountId
+        self.scope = scope
     }
 
     var showsLoading: Bool { state.isLoading && !isRefreshing }
@@ -39,18 +39,18 @@ final class AccountTransactionsViewModel {
         observeIfNeeded()
         guard !hasLoaded else { return }
         hasLoaded = true
-        await store.loadAccountTransactions(accountId: accountId)
+        await store.loadScopedTransactions(scope: scope)
     }
 
     func stop() {
         guard bridge != nil else { return }
         bridge = nil
-        store.unobserveAccountTransactions()
+        store.unobserveScopedTransactions()
     }
 
     func refresh() async {
         isRefreshing = true
-        await store.refreshAccountTransactions()
+        await store.refreshScopedTransactions()
         isRefreshing = false
     }
 
@@ -59,15 +59,15 @@ final class AccountTransactionsViewModel {
         guard let index = ordered.firstIndex(where: { $0.id == transaction.id }),
               index >= ordered.count - Self.loadMoreBuffer,
               state.hasMore, !state.isLoadingMore, !state.isLoading else { return }
-        await store.loadMoreAccountTransactions()
+        await store.loadMoreScopedTransactions()
     }
 
     private func observeIfNeeded() {
         guard bridge == nil else { return }
-        let bridge = AccountTransactionsObserverBridge { [weak self] state in
+        let bridge = ScopedTransactionsObserverBridge { [weak self] state in
             Task { @MainActor [weak self] in self?.state = state }
         }
         self.bridge = bridge
-        store.observeAccountTransactions(observer: bridge)
+        store.observeScopedTransactions(observer: bridge)
     }
 }

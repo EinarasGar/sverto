@@ -14,6 +14,7 @@ struct CategoryFormSheet: View {
     @State private var isSaving = false
     @State private var saveError: String?
     @State private var isConfirmingDiscard = false
+    @State private var detent: PresentationDetent = .medium
     @FocusState private var isNameFocused: Bool
     @Environment(\.dismiss) private var dismiss
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
@@ -68,15 +69,13 @@ struct CategoryFormSheet: View {
                     }
                 }
                 Section {
-                    Picker("Type", selection: $typeId) {
-                        if typeId == nil {
-                            Text("Choose a type").tag(Int32?.none)
-                        }
-                        ForEach(types, id: \.id) { type in
-                            Text(type.name).tag(Int32?.some(type.id))
-                        }
+                    NavigationLink {
+                        CategoryTypePickerList(types: types, selection: $typeId)
+                            .onAppear { detent = .large }
+                    } label: {
+                        LabeledContent("Type", value: types.first { $0.id == typeId }?.name ?? "Choose a type")
                     }
-                    .pickerStyle(.menu)
+                    .disabled(types.isEmpty)
                 } footer: {
                     if types.isEmpty {
                         Text("No types available")
@@ -122,7 +121,7 @@ struct CategoryFormSheet: View {
             }
         }
         .interactiveDismissDisabled(hasChanges || isSaving)
-        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
+        .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large], selection: $detent)
     }
 
     private func cancel() {

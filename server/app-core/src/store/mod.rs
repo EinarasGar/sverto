@@ -1,5 +1,4 @@
 pub mod account_detail;
-pub mod account_transactions;
 pub mod accounts;
 pub mod ai_chat;
 pub mod ai_usage;
@@ -14,6 +13,7 @@ pub mod infra;
 pub mod onboarding;
 pub mod portfolio;
 pub mod quick_uploads;
+pub mod scoped_transactions;
 pub mod sse;
 pub mod transactions;
 
@@ -24,7 +24,7 @@ use crate::api::quick_upload;
 use crate::error::ApiError;
 use crate::models::{
     AuthMe, AuthMode, ConnectionStatus, CreateAccountInput, QuickUploadDetail, ServerInfo,
-    UpdateAccountInput,
+    TransactionListScope, UpdateAccountInput,
 };
 
 /// Chart period ranges and their display labels.
@@ -82,7 +82,7 @@ pub struct AppStore {
     accounts: Mutex<accounts::AccountsModule>,
     categories: Mutex<categories::CategoriesModule>,
     account_detail: Mutex<account_detail::AccountDetailModule>,
-    account_transactions: Mutex<account_transactions::AccountTransactionsModule>,
+    scoped_transactions: Mutex<scoped_transactions::ScopedTransactionsModule>,
     asset_detail: Mutex<asset_detail::AssetDetailModule>,
     asset_overview: Mutex<asset_overview::AssetOverviewModule>,
     transactions: Mutex<transactions::TransactionsModule>,
@@ -169,7 +169,7 @@ impl AppStore {
             accounts: Mutex::new(accounts::AccountsModule::new()),
             categories: Mutex::new(categories::CategoriesModule::new()),
             account_detail: Mutex::new(account_detail::AccountDetailModule::new()),
-            account_transactions: Mutex::new(account_transactions::AccountTransactionsModule::new()),
+            scoped_transactions: Mutex::new(scoped_transactions::ScopedTransactionsModule::new()),
             asset_detail: Mutex::new(asset_detail::AssetDetailModule::new()),
             asset_overview: Mutex::new(asset_overview::AssetOverviewModule::new()),
             transactions: Mutex::new(transactions::TransactionsModule::new()),
@@ -252,7 +252,7 @@ impl AppStore {
         self.categories.lock().unwrap().clear_state();
         self.asset_overview.lock().unwrap().clear_state();
         self.account_detail.lock().unwrap().clear_state();
-        self.account_transactions.lock().unwrap().clear_state();
+        self.scoped_transactions.lock().unwrap().clear_state();
         self.asset_detail.lock().unwrap().clear_state();
         self.transactions.lock().unwrap().clear_state();
         self.quick_uploads.lock().unwrap().clear_state();
@@ -475,48 +475,48 @@ impl AppStore {
             .await;
     }
 
-    // ── Account Transactions ─────────────────────────────────────────
+    // ── Scoped Transactions ──────────────────────────────────────────
 
-    pub fn observe_account_transactions(
+    pub fn observe_scoped_transactions(
         &self,
-        observer: Box<dyn account_transactions::AccountTransactionsObserver>,
+        observer: Box<dyn scoped_transactions::ScopedTransactionsObserver>,
     ) {
-        self.account_transactions
+        self.scoped_transactions
             .lock()
             .unwrap()
             .set_observer(observer);
     }
 
-    pub fn unobserve_account_transactions(&self) {
-        self.account_transactions.lock().unwrap().clear_observer();
+    pub fn unobserve_scoped_transactions(&self) {
+        self.scoped_transactions.lock().unwrap().clear_observer();
     }
 
-    pub async fn load_account_transactions(&self, account_id: String) {
+    pub async fn load_scoped_transactions(&self, scope: TransactionListScope) {
         let token = self.get_auth_token().await;
-        account_transactions::load_account_transactions(
+        scoped_transactions::load_scoped_transactions(
             &self.infra,
-            &self.account_transactions,
-            &account_id,
+            &self.scoped_transactions,
+            scope,
             token.as_deref(),
         )
         .await;
     }
 
-    pub async fn load_more_account_transactions(&self) {
+    pub async fn load_more_scoped_transactions(&self) {
         let token = self.get_auth_token().await;
-        account_transactions::load_more_account_transactions(
+        scoped_transactions::load_more_scoped_transactions(
             &self.infra,
-            &self.account_transactions,
+            &self.scoped_transactions,
             token.as_deref(),
         )
         .await;
     }
 
-    pub async fn refresh_account_transactions(&self) {
+    pub async fn refresh_scoped_transactions(&self) {
         let token = self.get_auth_token().await;
-        account_transactions::refresh_account_transactions(
+        scoped_transactions::refresh_scoped_transactions(
             &self.infra,
-            &self.account_transactions,
+            &self.scoped_transactions,
             token.as_deref(),
         )
         .await;

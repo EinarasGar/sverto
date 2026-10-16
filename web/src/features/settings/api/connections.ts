@@ -217,8 +217,9 @@ export function useAspsps(
 ) {
   return useQuery({
     ...apiQueryOptions({
-      queryKey:
-        queryKeys.user(userId).connectors.aspsps.list(providerKind, country),
+      queryKey: queryKeys
+        .user(userId)
+        .connectors.aspsps.list(providerKind, country),
       staleTime: STALE_TIMES.short,
       enabled: country !== null,
       fetch: async ({ signal }): Promise<readonly Aspsp[]> => {

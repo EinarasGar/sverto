@@ -83,7 +83,6 @@ import com.sverto.app.core.components.ProfileAvatarButton
 import com.sverto.app.core.navigation.TopLevelRoute
 import com.sverto.app.core.ui.OfflineBanner
 import com.sverto.app.feature.accounts.AccountDetailScreen
-import com.sverto.app.feature.accounts.AccountTransactionsScreen
 import com.sverto.app.feature.accounts.AccountsScreen
 import com.sverto.app.feature.accounts.AddAccountScreen
 import com.sverto.app.feature.accounts.AssetDetailScreen
@@ -106,6 +105,7 @@ import com.sverto.app.feature.connectors.ProviderAccountDetailScreen
 import com.sverto.app.feature.portfolio.PortfolioScreen
 import com.sverto.app.feature.server.AppSessionViewModel
 import com.sverto.app.feature.settings.SettingsScreen
+import com.sverto.app.feature.transactions.ScopedTransactionsScreen
 import com.sverto.app.feature.transactions.TransactionDetailScreen
 import com.sverto.app.feature.transactions.TransactionSearchAppBar
 import com.sverto.app.feature.transactions.TransactionsScreen
@@ -127,6 +127,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.sverto_core.ConnectionStatus
 import uniffi.sverto_core.TransactionListItem
+import uniffi.sverto_core.TransactionListScope
 import com.sverto.app.feature.assets.AssetDetailScreen as MarketAssetDetailScreen
 
 private const val TRANSACTION_DETAIL_ROUTE = "transactionDetail/{txId}"
@@ -135,8 +136,10 @@ private const val EDIT_GROUP_ROUTE = "editTransactionGroup/{groupId}"
 private const val GROUP_ADD_TXN_ROUTE = "groupAddTransaction/{typeKey}"
 private const val GROUP_EDIT_TXN_ROUTE = "groupEditTransaction/{typeKey}/{index}"
 private const val ACCOUNT_DETAIL_ROUTE = "accountDetail/{accountId}/{accountName}/{accountTypeId}"
-private const val ASSET_DETAIL_ROUTE = "assetDetail/{accountId}/{assetId}"
+private const val ASSET_DETAIL_ROUTE = "assetDetail/{accountId}/{assetId}?accountName={accountName}"
 private const val ACCOUNT_TRANSACTIONS_ROUTE = "accountTransactions/{accountId}"
+private const val ASSET_TRANSACTIONS_ROUTE =
+    "assetTransactions/{assetId}?accountId={accountId}&accountName={accountName}&title={title}"
 private const val ADD_ACCOUNT_ROUTE = "addAccount"
 private const val EDIT_ACCOUNT_ROUTE = "editAccount/{accountId}"
 private const val MARKET_ASSET_DETAIL_ROUTE = "asset/{assetId}?userAsset={userAsset}"
@@ -933,7 +936,7 @@ private fun MainNavGraph(
                 accountTypeId = accountTypeId,
                 onBack = { navController.popBackStack() },
                 onHoldingClick = { _, assetId ->
-                    navController.navigate("assetDetail/$accountId/$assetId")
+                    navController.navigate("assetDetail/$accountId/$assetId?accountName=${Uri.encode(accountName)}")
                 },
                 onViewAllTransactions = {
                     navController.navigate("accountTransactions/$accountId")
@@ -951,14 +954,23 @@ private fun MainNavGraph(
                 listOf(
                     navArgument("accountId") { type = NavType.StringType },
                     navArgument("assetId") { type = NavType.IntType },
+                    navArgument("accountName") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
                 ),
         ) { backStackEntry ->
             val accountId = backStackEntry.arguments?.getString("accountId") ?: return@composable
             val assetId = backStackEntry.arguments?.getInt("assetId") ?: return@composable
+            val accountName = backStackEntry.arguments?.getString("accountName")
             AssetDetailScreen(
                 accountId = accountId,
                 assetId = assetId,
                 onBack = { navController.popBackStack() },
+                onViewTransactions = { title ->
+                    navController.navigate(assetTransactionsRoute(assetId, title, accountId, accountName))
+                },
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -967,8 +979,45 @@ private fun MainNavGraph(
             arguments = listOf(navArgument("accountId") { type = NavType.StringType }),
         ) { backStackEntry ->
             val accountId = backStackEntry.arguments?.getString("accountId") ?: return@composable
-            AccountTransactionsScreen(
-                accountId = accountId,
+            ScopedTransactionsScreen(
+                scope = TransactionListScope.Account(accountId),
+                title = "Transactions",
+                onBack = { navController.popBackStack() },
+                onTransactionClick = { tx -> onNavigateToDetail(tx, false) },
+                sharedTransitionScope = sharedScope,
+                animatedVisibilityScope = this@composable,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        composable(
+            route = ASSET_TRANSACTIONS_ROUTE,
+            arguments =
+                listOf(
+                    navArgument("assetId") { type = NavType.IntType },
+                    navArgument("accountId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("accountName") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                    navArgument("title") {
+                        type = NavType.StringType
+                        defaultValue = "Transactions"
+                    },
+                ),
+        ) { backStackEntry ->
+            val assetId = backStackEntry.arguments?.getInt("assetId") ?: return@composable
+            val accountId = backStackEntry.arguments?.getString("accountId")
+            val accountName = backStackEntry.arguments?.getString("accountName")
+            val title = backStackEntry.arguments?.getString("title") ?: "Transactions"
+            ScopedTransactionsScreen(
+                scope = TransactionListScope.Asset(assetId, accountId),
+                title = title,
+                subtitle = accountName,
                 onBack = { navController.popBackStack() },
                 onTransactionClick = { tx -> onNavigateToDetail(tx, false) },
                 sharedTransitionScope = sharedScope,
@@ -1276,10 +1325,24 @@ private fun MainNavGraph(
                 assetId = assetId,
                 userAsset = userAsset,
                 onBack = { navController.popBackStack() },
+                onViewTransactions = { title ->
+                    navController.navigate(assetTransactionsRoute(assetId, title))
+                },
                 viewModel = vm,
             )
         }
     }
+}
+
+private fun assetTransactionsRoute(
+    assetId: Int,
+    title: String,
+    accountId: String? = null,
+    accountName: String? = null,
+): String {
+    val accountParam = accountId?.let { "&accountId=${Uri.encode(it)}" } ?: ""
+    val accountNameParam = accountName?.let { "&accountName=${Uri.encode(it)}" } ?: ""
+    return "assetTransactions/$assetId?title=${Uri.encode(title)}$accountParam$accountNameParam"
 }
 
 private fun NavGraphBuilder.slideComposable(

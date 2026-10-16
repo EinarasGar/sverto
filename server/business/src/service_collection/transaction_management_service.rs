@@ -161,15 +161,14 @@ impl TransactionManagementService {
         user_id: Uuid,
         paging: PagingDto,
         account_id: Option<Uuid>,
+        asset_id: Option<i32>,
     ) -> anyhow::Result<PageOfResultsDto<TransactionDto>> {
-        let query_params = match account_id {
-            Some(acc_id) => GetTransactionWithEntriesParams::by_user_id_paged_with_account(
-                user_id,
-                paging.into(),
-                acc_id,
-            ),
-            None => GetTransactionWithEntriesParams::by_user_id_paged(user_id, paging.into()),
-        };
+        let query_params = GetTransactionWithEntriesParams::by_user_id_paged_filtered(
+            user_id,
+            paging.into(),
+            account_id,
+            asset_id,
+        );
 
         let query = transaction_queries::get_transaction_with_entries(query_params);
         let counted_models = self
@@ -177,32 +176,33 @@ impl TransactionManagementService {
             .fetch_all::<TotalCount<TransactionWithEntriesModel>>(query)
             .await?;
 
-        if let Some(first) = counted_models.first() {
-            let total_results = first.total_results;
-            let models: Vec<TransactionWithEntriesModel> =
-                counted_models.into_iter().map(|x| x.model).collect();
+        let Some(first) = counted_models.first() else {
+            return Ok(PageOfResultsDto {
+                results: vec![],
+                total_results: 0,
+            });
+        };
 
-            let mut transcations: Vec<Transaction> =
-                create_transactions_from_transaction_with_entries_models(models)?;
+        let total_results = first.total_results;
+        let models: Vec<TransactionWithEntriesModel> =
+            counted_models.into_iter().map(|x| x.model).collect();
 
-            self.transaction_metadata_service
-                .load_metadata(&mut transcations, MetadataKinds::all())
-                .await?;
+        let mut transactions: Vec<Transaction> =
+            create_transactions_from_transaction_with_entries_models(models)?;
 
-            let dtos = transcations
-                .into_iter()
-                .map(|x| x.try_into_dto())
-                .collect::<Result<Vec<TransactionDto>>>()?;
+        self.transaction_metadata_service
+            .load_metadata(&mut transactions, MetadataKinds::all())
+            .await?;
 
-            let page = PageOfResultsDto {
-                results: dtos,
-                total_results: total_results as i32,
-            };
+        let dtos = transactions
+            .into_iter()
+            .map(|x| x.try_into_dto())
+            .collect::<Result<Vec<TransactionDto>>>()?;
 
-            Ok(page)
-        } else {
-            Err(anyhow::anyhow!("No results found"))
-        }
+        Ok(PageOfResultsDto {
+            results: dtos,
+            total_results: total_results as i32,
+        })
     }
 
     pub async fn add_individual_transaction(

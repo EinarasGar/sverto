@@ -14,8 +14,10 @@ private let everyRoute: [AppRoute] = [
     .groupAddTransaction(typeKey: "cash_transfer_in"),
     .groupEditTransaction(typeKey: "cash_transfer_out", index: 2),
     .accountDetail(accountId: "acc-1", accountName: "Main", accountTypeId: 3),
-    .accountAssetDetail(accountId: "acc-1", assetId: 12),
+    .accountAssetDetail(accountId: "acc-1", accountName: "ISA", assetId: 12),
     .accountTransactions(accountId: "acc-1"),
+    .assetTransactions(assetId: 12, accountId: nil, title: "AAPL", subtitle: nil),
+    .assetTransactions(assetId: 12, accountId: "acc-1", title: "AAPL", subtitle: "ISA"),
     .addAccount,
     .editAccount(accountId: "acc-1"),
     .assetOverview(assetId: 12, userAsset: false),
@@ -48,8 +50,8 @@ struct AppRouteTests {
         }
     }
 
-    @Test func coversAllTwentyThreeCases() {
-        #expect(Set(everyRoute.map(caseName)).count == 23)
+    @Test func coversAllTwentyFourCases() {
+        #expect(Set(everyRoute.map(caseName)).count == 24)
     }
 
     @Test func routesAreDistinguishedByPayload() {

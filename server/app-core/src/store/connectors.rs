@@ -85,11 +85,16 @@ pub async fn list_aspsps(
         .await?;
     ok_or_err(resp.status, &resp.body)?;
     let parsed: ListAspspsResponseViewModel =
-        serde_json::from_str(&resp.body).map_err(|e| ApiError::Parse { reason: e.to_string() })?;
+        serde_json::from_str(&resp.body).map_err(|e| ApiError::Parse {
+            reason: e.to_string(),
+        })?;
     Ok(parsed
         .aspsps
         .into_iter()
-        .map(|a| Aspsp { name: a.name, country: a.country })
+        .map(|a| Aspsp {
+            name: a.name,
+            country: a.country,
+        })
         .collect())
 }
 
@@ -234,8 +239,7 @@ pub async fn complete_oauth_session(
     let result = extract_complete_oauth(&resp.body).map_err(|e| ApiError::Parse { reason: e })?;
     connector_local::clear_pending_oauth(infra);
     evict_connectors(infra, &uid);
-    infra.evict_memory_cache_prefix(&format!("/api/users/{uid}/transactions"));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{uid}/accounts"));
+    super::transactions::evict_transaction_caches(infra, &uid);
     Ok(result)
 }
 
@@ -394,7 +398,6 @@ pub async fn sync_binding(
         .await?;
     ok_or_err(resp.status, &resp.body)?;
     evict_connectors(infra, &uid);
-    infra.evict_memory_cache_prefix(&format!("/api/users/{uid}/transactions"));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{uid}/accounts"));
+    super::transactions::evict_transaction_caches(infra, &uid);
     extract_sync_outcome(&resp.body).map_err(|e| ApiError::Parse { reason: e })
 }

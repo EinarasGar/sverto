@@ -22,6 +22,12 @@ use crate::models::{
 
 use super::infra::SharedInfra;
 
+pub(crate) fn evict_transaction_caches(infra: &SharedInfra, user_id: &str) {
+    infra.evict_memory_cache_prefix(&format!("/api/users/{user_id}/transactions"));
+    infra.evict_memory_cache_prefix(&format!("/api/users/{user_id}/accounts"));
+    infra.evict_memory_cache_prefix(&format!("/api/users/{user_id}/assets"));
+}
+
 #[uniffi::export(callback_interface)]
 pub trait TransactionsObserver: Send + Sync {
     fn on_transactions_changed(&self, state: TransactionsState);
@@ -258,8 +264,7 @@ pub async fn delete_transaction(
         return Err(server_error(resp.status, &resp.body));
     }
 
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     refresh_transactions(infra, module, auth_token).await;
     Ok(())
 }
@@ -280,8 +285,7 @@ pub async fn delete_transaction_group(
         return Err(server_error(resp.status, &resp.body));
     }
 
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     refresh_transactions(infra, module, auth_token).await;
     Ok(())
 }
@@ -304,8 +308,7 @@ pub async fn delete_transactions(
         return Err(server_error(resp.status, &resp.body));
     }
 
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     refresh_transactions(infra, module, auth_token).await;
     Ok(())
 }
@@ -348,8 +351,7 @@ pub async fn create_individual_transaction(
         return Err(server_error(resp.status, &resp.body));
     }
 
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     refresh_transactions(infra, module, auth_token).await;
     Ok(())
 }
@@ -379,8 +381,7 @@ pub async fn update_individual_transaction(
 
     let list_item = to_list_item_with_id(tx_id.to_string(), &parsed.transaction, &parsed.metadata);
 
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     refresh_transactions(infra, module, auth_token).await;
 
     Ok(list_item)
@@ -403,8 +404,7 @@ pub async fn create_transaction_group(
         return Err(server_error(resp.status, &resp.body));
     }
 
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     refresh_transactions(infra, module, auth_token).await;
     Ok(())
 }
@@ -426,8 +426,7 @@ pub async fn group_individual_transactions(
         return Err(server_error(resp.status, &resp.body));
     }
 
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     refresh_transactions(infra, module, auth_token).await;
     Ok(())
 }
@@ -450,8 +449,7 @@ pub async fn update_transaction_group(
         return Err(server_error(resp.status, &resp.body));
     }
 
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     refresh_transactions(infra, module, auth_token).await;
     Ok(())
 }
@@ -586,8 +584,7 @@ pub async fn set_transaction_visibility(
     if resp.status >= 400 {
         return Err(server_error(resp.status, &resp.body));
     }
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     Ok(())
 }
 
@@ -633,7 +630,6 @@ pub async fn set_transactions_visibility(
     if resp.status >= 400 {
         return Err(server_error(resp.status, &resp.body));
     }
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/transactions", user_id));
-    infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    evict_transaction_caches(infra, &user_id);
     Ok(())
 }

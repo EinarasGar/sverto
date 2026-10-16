@@ -15,11 +15,7 @@ import { Field, FieldLabel } from "@/components/ui/field"
 
 import type { ProviderCatalogueEntry } from "./api"
 import { stashPendingOauth } from "./connections-section"
-import {
-  useAspsps,
-  useCreateConnection,
-  useStartOauthSession,
-} from "./api"
+import { useAspsps, useCreateConnection, useStartOauthSession } from "./api"
 
 const ENABLE_BANKING_COUNTRIES = [
   "FI",

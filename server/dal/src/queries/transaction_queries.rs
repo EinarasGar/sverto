@@ -65,18 +65,58 @@ pub fn get_transaction_with_entries(params: GetTransactionWithEntriesParams) -> 
             .and_where(Expr::col((TransactionIden::Table, TransactionIden::UserId)).eq(uuid)),
     };
 
-    if let Some(account_id) = params.account_filter {
-        let account_tx_subquery = Query::select()
+    let transaction_id_col = || Expr::col((TransactionIden::Table, TransactionIden::Id));
+    let account_entries = |account_id: Uuid| {
+        Query::select()
             .column(EntryIden::TransactionId)
             .from(EntryIden::Table)
             .and_where(Expr::col(EntryIden::AccountId).eq(account_id))
             .distinct()
-            .to_owned();
+            .to_owned()
+    };
+    let dividends_from_asset = |asset_id: i32| {
+        Query::select()
+            .column(TransactionDividendsIden::TransactionId)
+            .from(TransactionDividendsIden::Table)
+            .and_where(Expr::col(TransactionDividendsIden::SourceAssetId).eq(asset_id))
+            .to_owned()
+    };
 
-        eligible_transactions_builder.and_where(
-            Expr::col((TransactionIden::Table, TransactionIden::Id))
-                .in_subquery(account_tx_subquery),
-        );
+    match (params.account_filter, params.asset_filter) {
+        (Some(account_id), None) => {
+            eligible_transactions_builder
+                .and_where(transaction_id_col().in_subquery(account_entries(account_id)));
+        }
+        (None, Some(asset_id)) => {
+            let entry_asset_subquery = Query::select()
+                .column(EntryIden::TransactionId)
+                .from(EntryIden::Table)
+                .and_where(Expr::col(EntryIden::AssetId).eq(asset_id))
+                .to_owned();
+
+            eligible_transactions_builder.and_where(
+                transaction_id_col()
+                    .in_subquery(entry_asset_subquery)
+                    .or(transaction_id_col().in_subquery(dividends_from_asset(asset_id))),
+            );
+        }
+        (Some(account_id), Some(asset_id)) => {
+            let account_asset_entries = Query::select()
+                .column(EntryIden::TransactionId)
+                .from(EntryIden::Table)
+                .and_where(Expr::col(EntryIden::AccountId).eq(account_id))
+                .and_where(Expr::col(EntryIden::AssetId).eq(asset_id))
+                .to_owned();
+
+            eligible_transactions_builder.and_where(
+                transaction_id_col()
+                    .in_subquery(account_asset_entries)
+                    .or(transaction_id_col()
+                        .in_subquery(dividends_from_asset(asset_id))
+                        .and(transaction_id_col().in_subquery(account_entries(account_id)))),
+            );
+        }
+        (None, None) => {}
     }
 
     if let Some(ref type_ids) = params.transaction_type_ids {

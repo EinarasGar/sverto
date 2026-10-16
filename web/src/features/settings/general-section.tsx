@@ -248,8 +248,8 @@ function DangerZoneBlock() {
         }
       />
       <SettingsConsequence>
-        Revoking a provider&rsquo;s access is available today &mdash; it lives on
-        each connection under Connections.
+        Revoking a provider&rsquo;s access is available today &mdash; it lives
+        on each connection under Connections.
       </SettingsConsequence>
       {canDelete ? (
         <DeleteAccountDialog open={open} onOpenChange={setOpen} />

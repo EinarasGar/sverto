@@ -1,27 +1,34 @@
 import SvertoCore
 import SwiftUI
 
-struct AccountTransactionsScreen: View {
-    let accountId: String
+struct ScopedTransactionsScreen: View {
+    let scope: TransactionListScope
+    let title: String
+    var subtitle: String?
 
     @Environment(AppServices.self) private var services
 
     var body: some View {
-        AccountTransactionsList(store: services.store, accountId: accountId)
+        ScopedTransactionsList(store: services.store, scope: scope, title: title, subtitle: subtitle)
     }
 }
 
-private struct AccountTransactionsList: View {
-    @State private var model: AccountTransactionsViewModel
+private struct ScopedTransactionsList: View {
+    @State private var model: ScopedTransactionsViewModel
     @Environment(ShellState.self) private var shell
+    private let title: String
+    private let subtitle: String?
 
-    init(store: AppStore, accountId: String) {
-        _model = State(initialValue: AccountTransactionsViewModel(store: store, accountId: accountId))
+    init(store: AppStore, scope: TransactionListScope, title: String, subtitle: String?) {
+        _model = State(initialValue: ScopedTransactionsViewModel(store: store, scope: scope))
+        self.title = title
+        self.subtitle = subtitle
     }
 
     var body: some View {
         content
-            .navigationTitle("Transactions")
+            .navigationTitle(title)
+            .navigationSubtitle(subtitle ?? "")
             .navigationBarTitleDisplayMode(.inline)
             .task { await model.start() }
             .onDisappear { model.stop() }
@@ -51,7 +58,7 @@ private struct AccountTransactionsList: View {
             ContentUnavailableView(
                 "No transactions",
                 systemImage: "list.bullet.rectangle.portrait",
-                description: Text("Transactions for this account will appear here.")
+                description: Text("Matching transactions will appear here.")
             )
         }
     }

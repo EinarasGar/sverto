@@ -5,9 +5,11 @@ import type { LedgerFilterKey, LedgerResult } from "../api"
 import type { PivotResult } from "./pivot"
 
 export const UNSUPPORTED_COPY: Record<LedgerFilterKey, string> = {
-  text: "While an account filter is on, search terms are ignored, so this text is not narrowing anything. Remove the account to search again.",
+  text: "While an account or asset filter is on, search terms are ignored, so this text is not narrowing anything. Remove the filter to search again.",
   account:
     "Only one account can be filtered at a time; the extra account is not applied.",
+  asset:
+    "Only one asset can be filtered at a time; the extra asset is not applied.",
   category:
     "Sverto cannot filter by category yet, and twelve of the thirteen transaction types carry no category at all.",
   type: "Sverto cannot filter by transaction type yet.",
@@ -40,7 +42,7 @@ export const CURRENCY_FOOTNOTE =
   "Every amount is in the asset its own entry is in. Sverto never converts a transaction to your base currency, so a day in two currencies shows two figures and nothing is ever added across them."
 
 export const ACCOUNT_SOURCE_NOTE =
-  "A single account is listed one transaction at a time: no groups appear and no category names come with them."
+  "A single account or asset is listed one transaction at a time: no groups appear and no category names come with them."
 
 export const NO_CATEGORY_TITLE =
   "This transaction type does not carry a category — only everyday purchases do."
@@ -79,7 +81,7 @@ export function ledgerScopeFootnote(
   return [
     CURRENCY_FOOTNOTE,
     scope,
-    ledger.source === "account" ? ACCOUNT_SOURCE_NOTE : null,
+    ledger.source !== "combined" ? ACCOUNT_SOURCE_NOTE : null,
     pivot.note,
     shares,
   ]

@@ -374,12 +374,23 @@ pub struct AccountDetailState {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
-pub struct AccountTransactionsState {
+pub struct ScopedTransactionsState {
     pub is_loading: bool,
     pub is_loading_more: bool,
     pub error: Option<String>,
     pub items: Vec<TransactionListItem>,
     pub has_more: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, uniffi::Enum)]
+pub enum TransactionListScope {
+    Account {
+        account_id: String,
+    },
+    Asset {
+        asset_id: i32,
+        account_id: Option<String>,
+    },
 }
 
 #[derive(Debug, Clone, uniffi::Record)]

@@ -139,7 +139,7 @@ describe("LEDGER_FILTER_SUPPORT", () => {
     const serverKeys = Object.entries(LEDGER_FILTER_SUPPORT)
       .filter(([, capability]) => capability.support === "server")
       .map(([key]) => key)
-    expect(serverKeys).toEqual(["account"])
+    expect(serverKeys).toEqual(["account", "asset"])
     expect(planLedgerQuery([accountToken, textToken]).appliedTokens).toEqual([
       accountToken,
     ])

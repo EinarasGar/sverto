@@ -752,7 +752,7 @@ export interface ApiErrorResponse {
 
 
 /**
- * A bank (ASPSP) available through a provider for a given country.
+ * 
  * @export
  * @interface Aspsp
  */
@@ -10977,7 +10977,7 @@ export const ConnectorsApiAxiosParamCreator = function (configuration?: Configur
          * @summary List ASPSPs
          * @param {string} userId 
          * @param {string} providerKind Kind of the provider to discover banks for.
-         * @param {string} country Two-letter ISO 3166-1 alpha-2 country code (e.g. \&quot;LT\&quot;).
+         * @param {string} country 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -11455,7 +11455,7 @@ export const ConnectorsApiFp = function(configuration?: Configuration) {
          * @summary List ASPSPs
          * @param {string} userId 
          * @param {string} providerKind Kind of the provider to discover banks for.
-         * @param {string} country Two-letter ISO 3166-1 alpha-2 country code (e.g. \&quot;LT\&quot;).
+         * @param {string} country 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -11672,7 +11672,7 @@ export const ConnectorsApiFactory = function (configuration?: Configuration, bas
          * @summary List ASPSPs
          * @param {string} userId 
          * @param {string} providerKind Kind of the provider to discover banks for.
-         * @param {string} country Two-letter ISO 3166-1 alpha-2 country code (e.g. \&quot;LT\&quot;).
+         * @param {string} country 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
@@ -11864,7 +11864,7 @@ export interface ConnectorsApiInterface {
      * @summary List ASPSPs
      * @param {string} userId 
      * @param {string} providerKind Kind of the provider to discover banks for.
-     * @param {string} country Two-letter ISO 3166-1 alpha-2 country code (e.g. \&quot;LT\&quot;).
+     * @param {string} country 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof ConnectorsApiInterface
@@ -12072,7 +12072,7 @@ export class ConnectorsApi extends BaseAPI implements ConnectorsApiInterface {
      * @summary List ASPSPs
      * @param {string} userId 
      * @param {string} providerKind Kind of the provider to discover banks for.
-     * @param {string} country Two-letter ISO 3166-1 alpha-2 country code (e.g. \&quot;LT\&quot;).
+     * @param {string} country 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof ConnectorsApi
@@ -14524,6 +14524,124 @@ export const TransactionsApiAxiosParamCreator = function (configuration?: Config
             };
         },
         /**
+         * Returns paginated transactions involving an asset within one account.
+         * @summary Get Account Asset Transactions
+         * @param {string} userId 
+         * @param {string} accountId 
+         * @param {number} assetId 
+         * @param {number} [count] 
+         * @param {number} [start] 
+         * @param {string} [query] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAccountAssetTransactions: async (userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('getAccountAssetTransactions', 'userId', userId)
+            // verify required parameter 'accountId' is not null or undefined
+            assertParamExists('getAccountAssetTransactions', 'accountId', accountId)
+            // verify required parameter 'assetId' is not null or undefined
+            assertParamExists('getAccountAssetTransactions', 'assetId', assetId)
+            const localVarPath = `/api/users/{user_id}/accounts/{account_id}/assets/{asset_id}/transactions`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"account_id"}}`, encodeURIComponent(String(accountId)))
+                .replace(`{${"asset_id"}}`, encodeURIComponent(String(assetId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (count !== undefined) {
+                localVarQueryParameter['count'] = count;
+            }
+
+            if (start !== undefined) {
+                localVarQueryParameter['start'] = start;
+            }
+
+            if (query !== undefined) {
+                localVarQueryParameter['query'] = query;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns paginated transactions involving an asset across all accounts: transactions with an entry in the asset, and dividends it paid.
+         * @summary Get Asset Transactions
+         * @param {string} userId 
+         * @param {number} assetId 
+         * @param {number} [count] 
+         * @param {number} [start] 
+         * @param {string} [query] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAssetTransactions: async (userId: string, assetId: number, count?: number, start?: number, query?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('getAssetTransactions', 'userId', userId)
+            // verify required parameter 'assetId' is not null or undefined
+            assertParamExists('getAssetTransactions', 'assetId', assetId)
+            const localVarPath = `/api/users/{user_id}/assets/{asset_id}/transactions`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"asset_id"}}`, encodeURIComponent(String(assetId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (count !== undefined) {
+                localVarQueryParameter['count'] = count;
+            }
+
+            if (start !== undefined) {
+                localVarQueryParameter['start'] = start;
+            }
+
+            if (query !== undefined) {
+                localVarQueryParameter['query'] = query;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Retrieves a list of all individual and grouped transactions
          * @summary Get all
          * @param {string} userId 
@@ -14765,6 +14883,41 @@ export const TransactionsApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Returns paginated transactions involving an asset within one account.
+         * @summary Get Account Asset Transactions
+         * @param {string} userId 
+         * @param {string} accountId 
+         * @param {number} assetId 
+         * @param {number} [count] 
+         * @param {number} [start] 
+         * @param {string} [query] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AccountTransactionsPage>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAccountAssetTransactions(userId, accountId, assetId, count, start, query, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TransactionsApi.getAccountAssetTransactions']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Returns paginated transactions involving an asset across all accounts: transactions with an entry in the asset, and dividends it paid.
+         * @summary Get Asset Transactions
+         * @param {string} userId 
+         * @param {number} assetId 
+         * @param {number} [count] 
+         * @param {number} [start] 
+         * @param {string} [query] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AccountTransactionsPage>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAssetTransactions(userId, assetId, count, start, query, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['TransactionsApi.getAssetTransactions']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Retrieves a list of all individual and grouped transactions
          * @summary Get all
          * @param {string} userId 
@@ -14859,6 +15012,35 @@ export const TransactionsApiFactory = function (configuration?: Configuration, b
             return localVarFp.deleteMultipleTransactionsAndGroups(userId, deleteTransactionsRequest, options).then((request) => request(axios, basePath));
         },
         /**
+         * Returns paginated transactions involving an asset within one account.
+         * @summary Get Account Asset Transactions
+         * @param {string} userId 
+         * @param {string} accountId 
+         * @param {number} assetId 
+         * @param {number} [count] 
+         * @param {number} [start] 
+         * @param {string} [query] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage> {
+            return localVarFp.getAccountAssetTransactions(userId, accountId, assetId, count, start, query, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns paginated transactions involving an asset across all accounts: transactions with an entry in the asset, and dividends it paid.
+         * @summary Get Asset Transactions
+         * @param {string} userId 
+         * @param {number} assetId 
+         * @param {number} [count] 
+         * @param {number} [start] 
+         * @param {string} [query] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage> {
+            return localVarFp.getAssetTransactions(userId, assetId, count, start, query, options).then((request) => request(axios, basePath));
+        },
+        /**
          * Retrieves a list of all individual and grouped transactions
          * @summary Get all
          * @param {string} userId 
@@ -14938,6 +15120,35 @@ export interface TransactionsApiInterface {
      * @memberof TransactionsApiInterface
      */
     deleteMultipleTransactionsAndGroups(userId: string, deleteTransactionsRequest: DeleteTransactionsRequest, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Returns paginated transactions involving an asset within one account.
+     * @summary Get Account Asset Transactions
+     * @param {string} userId 
+     * @param {string} accountId 
+     * @param {number} assetId 
+     * @param {number} [count] 
+     * @param {number} [start] 
+     * @param {string} [query] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof TransactionsApiInterface
+     */
+    getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage>;
+
+    /**
+     * Returns paginated transactions involving an asset across all accounts: transactions with an entry in the asset, and dividends it paid.
+     * @summary Get Asset Transactions
+     * @param {string} userId 
+     * @param {number} assetId 
+     * @param {number} [count] 
+     * @param {number} [start] 
+     * @param {string} [query] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof TransactionsApiInterface
+     */
+    getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage>;
 
     /**
      * Retrieves a list of all individual and grouped transactions
@@ -15022,6 +15233,39 @@ export class TransactionsApi extends BaseAPI implements TransactionsApiInterface
      */
     public deleteMultipleTransactionsAndGroups(userId: string, deleteTransactionsRequest: DeleteTransactionsRequest, options?: RawAxiosRequestConfig) {
         return TransactionsApiFp(this.configuration).deleteMultipleTransactionsAndGroups(userId, deleteTransactionsRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns paginated transactions involving an asset within one account.
+     * @summary Get Account Asset Transactions
+     * @param {string} userId 
+     * @param {string} accountId 
+     * @param {number} assetId 
+     * @param {number} [count] 
+     * @param {number} [start] 
+     * @param {string} [query] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof TransactionsApi
+     */
+    public getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig) {
+        return TransactionsApiFp(this.configuration).getAccountAssetTransactions(userId, accountId, assetId, count, start, query, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns paginated transactions involving an asset across all accounts: transactions with an entry in the asset, and dividends it paid.
+     * @summary Get Asset Transactions
+     * @param {string} userId 
+     * @param {number} assetId 
+     * @param {number} [count] 
+     * @param {number} [start] 
+     * @param {string} [query] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof TransactionsApi
+     */
+    public getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig) {
+        return TransactionsApiFp(this.configuration).getAssetTransactions(userId, assetId, count, start, query, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

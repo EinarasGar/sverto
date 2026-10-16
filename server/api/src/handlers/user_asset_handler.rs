@@ -18,6 +18,7 @@ use business::dtos::{
         update_asset_dto::UpdateAssetDto,
     },
     net_worth::range_dto::RangeDto,
+    paging_dto::PagingDto,
 };
 use serde::Deserialize;
 
@@ -34,9 +35,13 @@ pub(crate) struct AssetPairPath {
 
 use crate::{
     auth::AuthenticatedUserId,
+    converters::transaction_dtos_to_page,
     errors::{auth::AuthError, ApiError},
     extractors::{ValidatedJson, ValidatedQuery},
-    states::{AssetRatesServiceState, AssetsServiceState},
+    states::{
+        AccountsServiceState, AssetRatesServiceState, AssetsServiceState,
+        TransactionManagementServiceState,
+    },
     view_models::assets::base_models::exchange_name::ExchangeName,
     view_models::assets::{
         add_asset::{AddAssetRequestViewModel, AddAssetResponseViewModel},
@@ -57,6 +62,7 @@ use crate::{
         update_asset::{UpdateAssetRequestViewModel, UpdateAssetResponseViewModel},
         update_asset_pair::{UpdateAssetPairRequestViewModel, UpdateAssetPairResponseViewModel},
     },
+    view_models::base_models::search::{AccountTransactionsPage, PaginatedSearchQuery},
     view_models::errors::{CreateResponses, DeleteResponses, GetResponses, UpdateResponses},
 };
 
@@ -757,4 +763,49 @@ pub async fn get_user_asset_pair_converted_rates(
     };
 
     Ok(ret.into())
+}
+
+/// Get Asset Transactions
+///
+/// Returns paginated transactions involving an asset across all accounts: transactions with an entry in the asset, and dividends it paid.
+#[utoipa::path(
+    get,
+    path = "/api/users/{user_id}/assets/{asset_id}/transactions",
+    tag = "Transactions",
+    responses(
+        (status = 200, description = "Asset transactions retrieved successfully.", body = AccountTransactionsPage),
+        GetResponses
+    ),
+    params(
+        ("user_id" = Uuid, Path, description = "User id"),
+        ("asset_id" = i32, Path, description = "Asset id"),
+        PaginatedSearchQuery
+    ),
+    security(
+        ("auth_token" = [])
+    )
+)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, asset_id = %asset_id))]
+pub async fn get_asset_transactions(
+    AuthenticatedUserId(user_id): AuthenticatedUserId,
+    Path(AssetIdPath { asset_id }): Path<AssetIdPath>,
+    ValidatedQuery(query_params): ValidatedQuery<PaginatedSearchQuery>,
+    AssetsServiceState(asset_service): AssetsServiceState,
+    TransactionManagementServiceState(transaction_service): TransactionManagementServiceState,
+    AccountsServiceState(accounts_service): AccountsServiceState,
+) -> Result<Json<AccountTransactionsPage>, ApiError> {
+    let paging_dto = PagingDto {
+        start: query_params.start,
+        count: query_params.count,
+    };
+
+    let dtos = transaction_service
+        .search_transactions(user_id, paging_dto, None, Some(asset_id))
+        .await?;
+
+    Ok(
+        transaction_dtos_to_page(dtos, &asset_service, &accounts_service)
+            .await?
+            .into(),
+    )
 }

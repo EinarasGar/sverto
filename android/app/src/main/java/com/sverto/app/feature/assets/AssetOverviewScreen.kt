@@ -24,6 +24,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LoadingIndicator
@@ -70,6 +71,7 @@ fun AssetOverviewScreen(
     assetId: Int,
     userAsset: Boolean,
     onBack: () -> Unit,
+    onViewTransactions: (title: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: AssetOverviewViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
@@ -116,6 +118,13 @@ fun AssetOverviewScreen(
             viewModel = viewModel,
             padding = padding,
             onPairPickerOpen = { showPairPicker = true },
+            onViewTransactions = {
+                onViewTransactions(
+                    (state.detail?.displaySymbol ?: state.overview?.ticker ?: "")
+                        .ifBlank { state.detail?.name ?: "" }
+                        .ifBlank { "Transactions" },
+                )
+            },
         )
     }
 
@@ -226,6 +235,7 @@ private fun AssetOverviewContent(
     viewModel: AssetOverviewViewModel,
     padding: PaddingValues,
     onPairPickerOpen: () -> Unit,
+    onViewTransactions: () -> Unit,
 ) {
     when {
         state.isLoading -> LoadingContent(padding)
@@ -236,6 +246,7 @@ private fun AssetOverviewContent(
                 viewModel = viewModel,
                 padding = padding,
                 onPairPickerOpen = onPairPickerOpen,
+                onViewTransactions = onViewTransactions,
             )
     }
 }
@@ -278,6 +289,7 @@ private fun LoadedContent(
     viewModel: AssetOverviewViewModel,
     padding: PaddingValues,
     onPairPickerOpen: () -> Unit,
+    onViewTransactions: () -> Unit,
 ) {
     var chartVisible by remember { mutableStateOf(false) }
     var positionVisible by remember { mutableStateOf(false) }
@@ -320,6 +332,19 @@ private fun LoadedContent(
             lotsVisible = lotsVisible,
             isReloading = state.isReloading,
         )
+        AnimatedVisibility(
+            visible = lotsVisible,
+            enter =
+                fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) +
+                    slideInVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) { it / 4 },
+        ) {
+            FilledTonalButton(
+                onClick = onViewTransactions,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text("View transactions")
+            }
+        }
         Spacer(modifier = Modifier.height(8.dp))
     }
 }

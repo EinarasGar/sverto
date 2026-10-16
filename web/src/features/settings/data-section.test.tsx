@@ -35,7 +35,9 @@ const { renderSettings, stubViewport, VIEWPORTS } =
 
 const TEST_USER_ID = "00000000-0000-0000-0000-000000000000"
 
-function exportRow(overrides: Partial<IdentifiableExport> = {}): IdentifiableExport {
+function exportRow(
+  overrides: Partial<IdentifiableExport> = {}
+): IdentifiableExport {
   return {
     id: "exp-1",
     created_at: "2024-05-01T12:00:00Z",
@@ -107,7 +109,9 @@ describe("previous exports", () => {
 
     expect(await screen.findByText(consequence(csv))).toBeInTheDocument()
     expect(screen.getByText(consequence(bean))).toBeInTheDocument()
-    expect(screen.getAllByText("CSV", { exact: true }).length).toBeGreaterThan(0)
+    expect(screen.getAllByText("CSV", { exact: true }).length).toBeGreaterThan(
+      0
+    )
     expect(
       screen.getAllByText("Beancount", { exact: true }).length
     ).toBeGreaterThan(0)

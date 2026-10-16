@@ -10,6 +10,7 @@ import {
   useSearchState,
   writeFlag,
 } from "@/components/layout/search-state"
+import { buttonVariants } from "@/components/ui/button"
 import { PageHeader, PageHeaderBackLink } from "@/components/primitives"
 import { EmptyState } from "@/components/states/empty-state"
 import { CustomAssetPanel, CUSTOM_ASSET_UNHELD_BODY } from "@/features/assets"
@@ -87,6 +88,15 @@ export function AssetScreen({ assetId }: { assetId: number }) {
         eyebrow={typeName ?? "Holding"}
         title={title}
         {...(meta === null ? {} : { meta })}
+        actions={
+          <Link
+            to="/transactions"
+            search={{ asset: assetId }}
+            className={buttonVariants({ variant: "outline", size: "lg" })}
+          >
+            View transactions
+          </Link>
+        }
       />
 
       {holding === null || lotTotals === null ? (

@@ -1,5 +1,5 @@
 import type { TransactionVisibility } from "@/api"
-import type { AccountId, CategoryId } from "@/lib/query"
+import type { AccountId, AssetId, CategoryId } from "@/lib/query"
 
 import type { TransactionTypeTag } from "./types"
 
@@ -8,6 +8,11 @@ export type LedgerFilterToken =
   | {
       readonly key: "account"
       readonly accountId: AccountId
+      readonly label: string
+    }
+  | {
+      readonly key: "asset"
+      readonly assetId: AssetId
       readonly label: string
     }
   | {
@@ -51,6 +56,11 @@ export const LEDGER_FILTER_SUPPORT: Record<
     gap: "B1",
     note: "Served by the per-account listing, which cannot search — it takes a query param and discards it — returns individual transactions only, never group rows, and carries no categories in its lookup tables. One account at a time.",
   },
+  asset: {
+    support: "server",
+    gap: null,
+    note: "Served by the per-asset listing: transactions with an entry in the asset plus dividends it paid, optionally narrowed to one account token. Same shape as the per-account listing — no search, no group rows, no categories. One asset at a time.",
+  },
   category: {
     support: "unsupported",
     gap: "B1",
@@ -89,8 +99,9 @@ export const LEDGER_FILTER_SUPPORT: Record<
 }
 
 export interface LedgerQueryPlan {
-  readonly source: "combined" | "account"
+  readonly source: "combined" | "account" | "asset"
   readonly accountId: AccountId | null
+  readonly assetId: AssetId | null
   readonly query: string | undefined
   readonly appliedTokens: readonly LedgerFilterToken[]
   readonly unsupportedTokens: readonly LedgerFilterToken[]
@@ -101,7 +112,7 @@ export interface LedgerQueryPlan {
 /**
  * Splits the design's typed tokens into the ones the API can execute and the rest, which
  * screens must surface as unapplied. Silently dropping them would return rows that do not
- * match what the query bar says — which is why text is demoted under an account token: the
+ * match what the query bar says — which is why text is demoted under an account or asset token: the
  * per-account listing takes a query param and never searches on it.
  */
 export function planLedgerQuery(
@@ -111,16 +122,20 @@ export function planLedgerQuery(
   const unsupported: LedgerFilterToken[] = []
   let query: string | undefined
   let accountId: AccountId | null = null
+  let assetId: AssetId | null = null
 
   for (const token of tokens) {
-    if (token.key === "account") {
+    if (token.key === "account" && accountId === null) {
       accountId = token.accountId
-      break
+    }
+    if (token.key === "asset" && assetId === null) {
+      assetId = token.assetId
     }
   }
 
-  const canSearch = accountId === null
+  const canSearch = accountId === null && assetId === null
   let accountApplied = false
+  let assetApplied = false
 
   for (const token of tokens) {
     if (token.key === "text") {
@@ -145,12 +160,24 @@ export function planLedgerQuery(
       continue
     }
 
+    if (token.key === "asset") {
+      if (assetApplied) {
+        unsupported.push(token)
+      } else {
+        assetApplied = true
+        applied.push(token)
+      }
+      continue
+    }
+
     unsupported.push(token)
   }
 
   return {
-    source: accountId === null ? "combined" : "account",
+    source:
+      assetId !== null ? "asset" : accountId !== null ? "account" : "combined",
     accountId,
+    assetId,
     query,
     appliedTokens: applied,
     unsupportedTokens: unsupported,
@@ -174,6 +201,8 @@ export function tokenLabel(token: LedgerFilterToken): {
       return { key: "text", value: token.value }
     case "account":
       return { key: "account", value: token.label }
+    case "asset":
+      return { key: "asset", value: token.label }
     case "category":
       return { key: "is", value: token.label }
     case "type":

@@ -5,7 +5,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import com.sverto.app.SvertoApp
 import com.sverto.app.feature.accounts.AccountDetailViewModel
-import com.sverto.app.feature.accounts.AccountTransactionsViewModel
 import com.sverto.app.feature.accounts.AccountsViewModel
 import com.sverto.app.feature.accounts.AddAccountViewModel
 import com.sverto.app.feature.accounts.AssetDetailViewModel
@@ -25,6 +24,7 @@ import com.sverto.app.feature.onboarding.OnboardingViewModel
 import com.sverto.app.feature.portfolio.HomeViewModel
 import com.sverto.app.feature.settings.AiUsageViewModel
 import com.sverto.app.feature.settings.ExportsViewModel
+import com.sverto.app.feature.transactions.ScopedTransactionsViewModel
 import com.sverto.app.feature.transactions.TransactionSearchViewModel
 import com.sverto.app.feature.transactions.TransactionsViewModel
 import com.sverto.app.feature.transactions.create.CreateTransactionViewModel
@@ -57,8 +57,8 @@ object SvertoViewModelFactory : ViewModelProvider.Factory {
                 AccountsViewModel(appStore) as T
             modelClass.isAssignableFrom(AccountDetailViewModel::class.java) ->
                 AccountDetailViewModel(appStore) as T
-            modelClass.isAssignableFrom(AccountTransactionsViewModel::class.java) ->
-                AccountTransactionsViewModel(appStore) as T
+            modelClass.isAssignableFrom(ScopedTransactionsViewModel::class.java) ->
+                ScopedTransactionsViewModel(appStore) as T
             modelClass.isAssignableFrom(AssetDetailViewModel::class.java) ->
                 AssetDetailViewModel(appStore) as T
             modelClass.isAssignableFrom(CustomCategoriesViewModel::class.java) ->

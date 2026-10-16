@@ -92,9 +92,10 @@ fun PortfolioChart(
             scrubPosition.value?.let { nearestChartPointIndex(points, it) }
         }
     }
-    val dateFormat = remember(activePeriod) {
-        SimpleDateFormat(if (activePeriod == TimePeriod.DAY) "MMM d, h:mm a" else "MMM d, yyyy", Locale.US)
-    }
+    val dateFormat =
+        remember(activePeriod) {
+            SimpleDateFormat(if (activePeriod == TimePeriod.DAY) "MMM d, h:mm a" else "MMM d, yyyy", Locale.US)
+        }
 
     val scrubbedPoint = scrubIdx?.let { points[it] }
     val currentValue = scrubbedPoint?.value ?: points.lastOrNull()?.value ?: 0.0
@@ -242,9 +243,10 @@ private fun ChartHeadlineValue(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.headlineLarge,
-        modifier = Modifier
-            .animateContentSize(MaterialTheme.motionScheme.fastSpatialSpec())
-            .graphicsLayer { translationY = 2.dp.toPx() * displacement.value },
+        modifier =
+            Modifier
+                .animateContentSize(MaterialTheme.motionScheme.fastSpatialSpec())
+                .graphicsLayer { translationY = 2.dp.toPx() * displacement.value },
     )
 }
 
@@ -266,88 +268,95 @@ private fun PortfolioLineCanvas(
     val lastScrubPosition = remember { mutableFloatStateOf(0f) }
     val isDragging = remember { mutableStateOf(false) }
     val isScrubbing by remember(scrubPosition) { derivedStateOf { scrubPosition.value != null } }
-    val scrubOpacity = animateFloatAsState(
-        targetValue = if (isScrubbing) 1f else 0f,
-        animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
-        label = "chart_selection_opacity",
-    )
-    val scrubScale = animateFloatAsState(
-        targetValue = if (isScrubbing) 1f else 0.7f,
-        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
-        label = "chart_selection_scale",
-    )
-    val updateScrub = remember {
-        { position: Float? ->
-            if (position != null) lastScrubPosition.floatValue = position
-            currentOnScrub(position)
-        }
-    }
-    val chartDrawing = remember(points, progress, scrubPosition) {
-        Modifier.drawWithCache {
-            if (points.size < 2) return@drawWithCache onDrawBehind {}
-
-            val maxVal = points.maxOf { it.value }
-            val minVal = points.minOf { it.value }
-            val dataRange = maxVal - minVal
-            val midVal = (maxVal + minVal) / 2.0
-            val minRange = kotlin.math.abs(midVal) * 0.02
-            val range = dataRange.coerceAtLeast(minRange).coerceAtLeast(1.0)
-            val chartMin = midVal - range / 2.0
-            val topPad = 8.dp.toPx()
-            val chartHeight = size.height - topPad - 8.dp.toPx()
-            val startDate = points.first().date
-            val duration = (points.last().date - startDate).toDouble().coerceAtLeast(1.0)
-            val coords = points.map { point ->
-                Offset(
-                    x = ((point.date - startDate) / duration).toFloat() * size.width,
-                    y = topPad + chartHeight * (1f - ((point.value - chartMin) / range).toFloat()),
-                )
-            }
-            val linePath = buildSmoothPath(coords)
-            val fillPath = Path().apply {
-                addPath(linePath)
-                lineTo(coords.last().x, topPad + chartHeight)
-                lineTo(coords.first().x, topPad + chartHeight)
-                close()
-            }
-            val stroke = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
-            var gradientColor = Color.Unspecified
-            var fillBrush: Brush? = null
-
-            onDrawBehind {
-                val currentFill = currentFillColor.value
-                if (currentFill != gradientColor) {
-                    gradientColor = currentFill
-                    fillBrush = Brush.verticalGradient(
-                        colors = listOf(currentFill.copy(alpha = 0.5f), currentFill.copy(alpha = 0f)),
-                        startY = topPad,
-                        endY = topPad + chartHeight,
-                    )
-                }
-                clipRect(right = size.width * progress.value.coerceIn(0f, 1f)) {
-                    fillBrush?.let { drawPath(path = fillPath, brush = it) }
-                    drawPath(path = linePath, color = currentLineColor.value, style = stroke)
-                }
-
-                val opacity = scrubOpacity.value
-                if (opacity > 0f) {
-                    val position = scrubPosition.value ?: lastScrubPosition.floatValue
-                    val idx = nearestChartPointIndex(points, position) ?: return@onDrawBehind
-                    val center = coords[idx]
-                    drawLine(
-                        color = scrubLineColor.value,
-                        start = Offset(center.x, topPad),
-                        end = Offset(center.x, topPad + chartHeight),
-                        strokeWidth = 1.dp.toPx(),
-                        alpha = opacity,
-                    )
-                    val scale = scrubScale.value
-                    drawCircle(color = Color.White, radius = 6.dp.toPx() * scale, center = center, alpha = opacity)
-                    drawCircle(color = currentLineColor.value, radius = 4.dp.toPx() * scale, center = center, alpha = opacity)
-                }
+    val scrubOpacity =
+        animateFloatAsState(
+            targetValue = if (isScrubbing) 1f else 0f,
+            animationSpec = MaterialTheme.motionScheme.fastEffectsSpec(),
+            label = "chart_selection_opacity",
+        )
+    val scrubScale =
+        animateFloatAsState(
+            targetValue = if (isScrubbing) 1f else 0.7f,
+            animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+            label = "chart_selection_scale",
+        )
+    val updateScrub =
+        remember {
+            { position: Float? ->
+                if (position != null) lastScrubPosition.floatValue = position
+                currentOnScrub(position)
             }
         }
-    }
+    val chartDrawing =
+        remember(points, progress, scrubPosition) {
+            Modifier.drawWithCache {
+                if (points.size < 2) return@drawWithCache onDrawBehind {}
+
+                val maxVal = points.maxOf { it.value }
+                val minVal = points.minOf { it.value }
+                val dataRange = maxVal - minVal
+                val midVal = (maxVal + minVal) / 2.0
+                val minRange = kotlin.math.abs(midVal) * 0.02
+                val range = dataRange.coerceAtLeast(minRange).coerceAtLeast(1.0)
+                val chartMin = midVal - range / 2.0
+                val topPad = 8.dp.toPx()
+                val chartHeight = size.height - topPad - 8.dp.toPx()
+                val startDate = points.first().date
+                val duration = (points.last().date - startDate).toDouble().coerceAtLeast(1.0)
+                val coords =
+                    points.map { point ->
+                        Offset(
+                            x = ((point.date - startDate) / duration).toFloat() * size.width,
+                            y = topPad + chartHeight * (1f - ((point.value - chartMin) / range).toFloat()),
+                        )
+                    }
+                val linePath = buildSmoothPath(coords)
+                val fillPath =
+                    Path().apply {
+                        addPath(linePath)
+                        lineTo(coords.last().x, topPad + chartHeight)
+                        lineTo(coords.first().x, topPad + chartHeight)
+                        close()
+                    }
+                val stroke = Stroke(width = 2.5.dp.toPx(), cap = StrokeCap.Round, join = StrokeJoin.Round)
+                var gradientColor = Color.Unspecified
+                var fillBrush: Brush? = null
+
+                onDrawBehind {
+                    val currentFill = currentFillColor.value
+                    if (currentFill != gradientColor) {
+                        gradientColor = currentFill
+                        fillBrush =
+                            Brush.verticalGradient(
+                                colors = listOf(currentFill.copy(alpha = 0.5f), currentFill.copy(alpha = 0f)),
+                                startY = topPad,
+                                endY = topPad + chartHeight,
+                            )
+                    }
+                    clipRect(right = size.width * progress.value.coerceIn(0f, 1f)) {
+                        fillBrush?.let { drawPath(path = fillPath, brush = it) }
+                        drawPath(path = linePath, color = currentLineColor.value, style = stroke)
+                    }
+
+                    val opacity = scrubOpacity.value
+                    if (opacity > 0f) {
+                        val position = scrubPosition.value ?: lastScrubPosition.floatValue
+                        val idx = nearestChartPointIndex(points, position) ?: return@onDrawBehind
+                        val center = coords[idx]
+                        drawLine(
+                            color = scrubLineColor.value,
+                            start = Offset(center.x, topPad),
+                            end = Offset(center.x, topPad + chartHeight),
+                            strokeWidth = 1.dp.toPx(),
+                            alpha = opacity,
+                        )
+                        val scale = scrubScale.value
+                        drawCircle(color = Color.White, radius = 6.dp.toPx() * scale, center = center, alpha = opacity)
+                        drawCircle(color = currentLineColor.value, radius = 4.dp.toPx() * scale, center = center, alpha = opacity)
+                    }
+                }
+            }
+        }
 
     Box(
         modifier
@@ -382,7 +391,10 @@ private fun PortfolioLineCanvas(
     )
 }
 
-private fun nearestChartPointIndex(points: List<ChartPoint>, position: Float): Int? {
+private fun nearestChartPointIndex(
+    points: List<ChartPoint>,
+    position: Float,
+): Int? {
     if (points.isEmpty()) return null
     if (points.size == 1) return 0
 

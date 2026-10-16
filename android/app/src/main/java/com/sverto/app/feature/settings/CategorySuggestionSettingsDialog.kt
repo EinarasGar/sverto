@@ -81,7 +81,15 @@ fun CategorySuggestionSettingsDialog(
                     categorySuggester.setEnabled(!enabled)
                 },
             ) {
-                Text(if (settings.saving) "Saving…" else if (enabled) "Turn off" else "Enable")
+                Text(
+                    if (settings.saving) {
+                        "Saving…"
+                    } else if (enabled) {
+                        "Turn off"
+                    } else {
+                        "Enable"
+                    },
+                )
             }
         },
         dismissButton = {

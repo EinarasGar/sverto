@@ -201,6 +201,10 @@ export const queryKeys = {
           list: (params: CursorPageParams) =>
             [...transactionsRoot, "groups", "list", params] as const,
         },
+        byAsset: (
+          assetId: AssetId,
+          params: OffsetPageParams & { accountId: AccountId | null }
+        ) => [...transactionsRoot, "asset", assetId, params] as const,
       },
 
       portfolio: {

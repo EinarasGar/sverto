@@ -14,9 +14,15 @@ pub(crate) struct AccountIdPath {
     account_id: Uuid,
 }
 
+#[derive(Deserialize)]
+pub(crate) struct AccountAssetPath {
+    account_id: Uuid,
+    asset_id: i32,
+}
+
 use crate::{
     auth::AuthenticatedUserId,
-    converters::{transaction_dtos_to_account_ids_hashset, transaction_dtos_to_asset_ids_hashset},
+    converters::transaction_dtos_to_page,
     errors::ApiError,
     extractors::ValidatedQuery,
     states::{
@@ -33,7 +39,6 @@ use crate::{
             },
             get_overview::{GetPortfolioOverviewQueryParams, GetPortfolioOverviewViewModel},
         },
-        transactions::base_models::metadata_lookup::MetadataLookupTables,
     },
 };
 
@@ -199,27 +204,61 @@ pub async fn get_account_transactions(
     };
 
     let dtos = transaction_service
-        .search_transactions(user_id, paging_dto, Some(account_id))
+        .search_transactions(user_id, paging_dto, Some(account_id), None)
         .await?;
 
-    let asset_ids = transaction_dtos_to_asset_ids_hashset(&dtos.results.iter().collect::<Vec<_>>());
-    let account_ids =
-        transaction_dtos_to_account_ids_hashset(&dtos.results.iter().collect::<Vec<_>>());
+    Ok(
+        transaction_dtos_to_page(dtos, &asset_service, &accounts_service)
+            .await?
+            .into(),
+    )
+}
 
-    let (assets, accounts) = tokio::try_join!(
-        asset_service.get_assets(asset_ids),
-        accounts_service.get_accounts(account_ids),
-    )?;
-
-    let ret = AccountTransactionsPage {
-        results: dtos.results.into_iter().map(Into::into).collect(),
-        total_results: dtos.total_results,
-        lookup_tables: MetadataLookupTables {
-            assets: assets.into_iter().map_into().collect(),
-            accounts: accounts.into_iter().map_into().collect(),
-            ..Default::default()
-        },
+/// Get Account Asset Transactions
+///
+/// Returns paginated transactions involving an asset within one account.
+#[utoipa::path(
+    get,
+    path = "/api/users/{user_id}/accounts/{account_id}/assets/{asset_id}/transactions",
+    tag = "Transactions",
+    responses(
+        (status = 200, description = "Account asset transactions retrieved successfully.", body = AccountTransactionsPage),
+        GetResponses
+    ),
+    params(
+        ("user_id" = Uuid, Path, description = "User id"),
+        ("account_id" = Uuid, Path, description = "Account id"),
+        ("asset_id" = i32, Path, description = "Asset id"),
+        PaginatedSearchQuery
+    ),
+    security(
+        ("auth_token" = [])
+    )
+)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, account_id = %account_id, asset_id = %asset_id))]
+pub async fn get_account_asset_transactions(
+    AuthenticatedUserId(user_id): AuthenticatedUserId,
+    Path(AccountAssetPath {
+        account_id,
+        asset_id,
+    }): Path<AccountAssetPath>,
+    ValidatedQuery(query_params): ValidatedQuery<PaginatedSearchQuery>,
+    AssetsServiceState(asset_service): AssetsServiceState,
+    TransactionManagementServiceState(transaction_service): TransactionManagementServiceState,
+    AccountsServiceState(accounts_service): AccountsServiceState,
+) -> Result<Json<AccountTransactionsPage>, ApiError> {
+    let paging_dto = PagingDto {
+        start: query_params.start,
+        count: query_params.count,
     };
 
-    Ok(ret.into())
+    let dtos = transaction_service
+        .search_transactions(user_id, paging_dto, Some(account_id), Some(asset_id))
+        .await?;
+
+    Ok(
+        transaction_dtos_to_page(dtos, &asset_service, &accounts_service)
+            .await?
+            .into(),
+    )
 }

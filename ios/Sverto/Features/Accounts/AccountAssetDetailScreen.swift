@@ -3,12 +3,13 @@ import SwiftUI
 
 struct AccountAssetDetailScreen: View {
     let accountId: String
+    let accountName: String
     let assetId: Int32
 
     @Environment(AppServices.self) private var services
 
     var body: some View {
-        AccountAssetDetailContent(store: services.store, accountId: accountId, assetId: assetId)
+        AccountAssetDetailContent(store: services.store, accountId: accountId, accountName: accountName, assetId: assetId)
     }
 }
 
@@ -17,8 +18,15 @@ private struct AccountAssetDetailContent: View {
     @State private var chartPeriod = ChartPeriod.defaultSelection
     @State private var isRevealed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(ShellState.self) private var shell
+    private let accountId: String
+    private let accountName: String
+    private let assetId: Int32
 
-    init(store: AppStore, accountId: String, assetId: Int32) {
+    init(store: AppStore, accountId: String, accountName: String, assetId: Int32) {
+        self.accountId = accountId
+        self.accountName = accountName
+        self.assetId = assetId
         _model = State(initialValue: AccountAssetDetailViewModel(store: store, accountId: accountId, assetId: assetId))
     }
 
@@ -65,6 +73,16 @@ private struct AccountAssetDetailContent: View {
                         lotsBlock
                             .modifier(StaggeredReveal(isRevealed: isRevealed, index: 2, reduceMotion: reduceMotion))
                     }
+                    Button {
+                        let title = [model.state.ticker, model.state.name].first { !$0.isEmpty } ?? "Transactions"
+                        shell.push(.assetTransactions(assetId: assetId, accountId: accountId, title: title, subtitle: accountName))
+                    } label: {
+                        Label("View transactions", systemImage: "list.bullet.rectangle.portrait")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .modifier(StaggeredReveal(isRevealed: isRevealed, index: 3, reduceMotion: reduceMotion))
                 }
                 .padding(.horizontal, Layout.cardPadding)
                 .padding(.vertical, 8)

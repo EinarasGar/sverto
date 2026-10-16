@@ -14,6 +14,7 @@ import { renderExplore, stubViewport, VIEWPORTS } from "./test-harness"
 const LABELS: TokenLabels = {
   accountName: () => "Lloyds Current",
   categoryName: () => "Groceries",
+  assetName: () => "VWRL",
 }
 
 const onPatch = vi.fn()
@@ -74,6 +75,7 @@ describe("a chip whose label resolves later", () => {
         {
           accountName: (id) => (resolved ? "Lloyds Current" : id),
           categoryName: () => "Groceries",
+          assetName: () => "VWRL",
         }
       )
       return (

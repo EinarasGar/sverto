@@ -98,6 +98,16 @@ private struct AssetOverviewContent: View {
                     if let overview = model.overview {
                         AssetPositionSection(overview: overview, referenceTicker: model.referenceTicker, isReloading: model.isReloading)
                     }
+                    Button {
+                        let title = [model.title, model.subtitle].first { !$0.isEmpty } ?? "Transactions"
+                        shell.push(.assetTransactions(assetId: assetId, accountId: nil, title: title, subtitle: nil))
+                    } label: {
+                        Label("View transactions", systemImage: "list.bullet.rectangle.portrait")
+                            .frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.large)
+                    .padding(.top, 8)
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)

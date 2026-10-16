@@ -1,7 +1,7 @@
 use shared::view_models::base_models::search::AccountTransactionsPage;
 
 use crate::api::transactions::to_list_item;
-use crate::models::TransactionListItem;
+use crate::models::{TransactionListItem, TransactionListScope};
 
 pub struct AccountTransactionsData {
     pub items: Vec<TransactionListItem>,
@@ -22,4 +22,20 @@ pub fn extract_account_transactions(body: &str) -> Result<AccountTransactionsDat
     let has_more = (items.len() as i64) < total;
 
     Ok(AccountTransactionsData { items, has_more })
+}
+
+pub fn scoped_transactions_path(user_id: &str, scope: &TransactionListScope) -> String {
+    match scope {
+        TransactionListScope::Account { account_id } => {
+            format!("/api/users/{user_id}/accounts/{account_id}/transactions")
+        }
+        TransactionListScope::Asset {
+            asset_id,
+            account_id: None,
+        } => format!("/api/users/{user_id}/assets/{asset_id}/transactions"),
+        TransactionListScope::Asset {
+            asset_id,
+            account_id: Some(account_id),
+        } => format!("/api/users/{user_id}/accounts/{account_id}/assets/{asset_id}/transactions"),
+    }
 }

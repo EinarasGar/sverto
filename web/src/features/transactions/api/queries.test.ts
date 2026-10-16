@@ -234,43 +234,6 @@ describe("useLedger", () => {
     expect(filtered.result.current.plan.hasUnsupportedTokens).toBe(true)
   })
 
-  it("reads the account listing's no-results 500 as an empty account, not a failure", async () => {
-    getAccountTransactions.mockRejectedValue({
-      isAxiosError: true,
-      response: {
-        status: 500,
-        data: {
-          error_type: "InternalServerError",
-          message: "An internal server error occurred.",
-          errors: [],
-          stack_trace: "No results found",
-        },
-      },
-    })
-    const queryClient = createQueryClient()
-
-    const { result } = renderHook(
-      () =>
-        useLedger({
-          userId: USER,
-          tokens: [
-            {
-              key: "account",
-              accountId: ACCOUNT_CURRENT,
-              label: "Lloyds Current",
-            },
-          ],
-        }),
-      { wrapper: wrapper(queryClient) }
-    )
-
-    await waitFor(() => {
-      expect(result.current.isEmpty).toBe(true)
-    })
-    expect(result.current.isError).toBe(false)
-    expect(result.current.totalResults).toBe(0)
-  })
-
   it("still throws a genuine account listing failure", async () => {
     getAccountTransactions.mockRejectedValue({
       isAxiosError: true,
