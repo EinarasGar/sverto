@@ -193,6 +193,9 @@ function Description({
         {row.isUnreviewed ? (
           <StatusChip status="unreviewed" size="row" className="flex-none" />
         ) : null}
+        {row.needsAction ? (
+          <StatusChip status="needsAction" size="row" className="flex-none" />
+        ) : null}
       </span>
       {secondary === null || secondary === undefined ? null : (
         <Truncate

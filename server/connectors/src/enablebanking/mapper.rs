@@ -1,4 +1,6 @@
-use crate::models::{MappedTransaction, ProviderTransaction, SkippedTransaction};
+use crate::models::{
+    MappedTransaction, ProviderTransaction, ProviderTransactionKind, SkippedTransaction,
+};
 use serde_json::Value;
 
 fn skipped(external_id: impl Into<String>, reason: impl Into<String>) -> MappedTransaction {
@@ -19,7 +21,10 @@ pub fn map_transaction(tx: &Value) -> MappedTransaction {
     };
 
     if !is_booked(tx) {
-        return skipped(external_id, "not booked — pending transaction, not imported");
+        return skipped(
+            external_id,
+            "not booked — pending transaction, not imported",
+        );
     }
 
     let Some(amount_value) = tx.get("transaction_amount") else {
@@ -63,7 +68,9 @@ pub fn map_transaction(tx: &Value) -> MappedTransaction {
         date,
         description,
         asset_identifier: None,
+        isin: None,
         quantity: None,
+        kind: ProviderTransactionKind::Regular,
     })
 }
 
@@ -109,9 +116,7 @@ fn build_description(tx: &Value) -> String {
 }
 
 fn parse_date(s: &str) -> Option<time::OffsetDateTime> {
-    if let Ok(dt) =
-        time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339)
-    {
+    if let Ok(dt) = time::OffsetDateTime::parse(s, &time::format_description::well_known::Rfc3339) {
         return Some(dt);
     }
     let parts: Vec<&str> = s.split('-').collect();
@@ -298,9 +303,17 @@ mod tests {
                     assert!(!p.external_id.is_empty(), "external_id must not be empty");
                     let cdi = tx["credit_debit_indicator"].as_str().unwrap();
                     if cdi == "DBIT" {
-                        assert!(p.amount.is_sign_negative(), "debit must be negative, got {}", p.amount);
+                        assert!(
+                            p.amount.is_sign_negative(),
+                            "debit must be negative, got {}",
+                            p.amount
+                        );
                     } else if cdi == "CRDT" {
-                        assert!(p.amount.is_sign_positive(), "credit must be positive, got {}", p.amount);
+                        assert!(
+                            p.amount.is_sign_positive(),
+                            "credit must be positive, got {}",
+                            p.amount
+                        );
                     }
                 }
                 MappedTransaction::Skipped(s) => {

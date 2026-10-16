@@ -2,6 +2,9 @@ use sqlx::types::{time::OffsetDateTime, Decimal, Uuid};
 
 pub mod asset_type_ids {
     pub const CURRENCY: i32 = 1;
+    pub const STOCK: i32 = 2;
+    pub const MUTUAL_FUND: i32 = 4;
+    pub const ETF: i32 = 5;
     pub const CRYPTO: i32 = 7;
 }
 
@@ -31,6 +34,20 @@ pub struct Asset {
 pub struct AssetTickerId {
     pub id: i32,
     pub ticker: String,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct AssetByIsin {
+    pub id: i32,
+    pub isin: String,
+    pub base_currency: Option<String>,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct AssetByRootSymbol {
+    pub id: i32,
+    pub root_symbol: String,
+    pub base_currency: Option<String>,
 }
 
 #[derive(sqlx::FromRow, Debug)]

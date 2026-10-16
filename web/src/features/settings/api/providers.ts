@@ -2,11 +2,18 @@ export const PROVIDER_KINDS = [
   "truelayer",
   "trading212",
   "enablebanking",
+  "ibkr",
 ] as const
 
 export type ProviderKind = (typeof PROVIDER_KINDS)[number]
 
 export type ProviderCredential = "oauth" | "apiKey"
+
+export interface ProviderKeyFields {
+  readonly keyIdLabel: string
+  readonly secretLabel: string
+  readonly help: string
+}
 
 export interface ProviderCatalogueEntry {
   readonly kind: ProviderKind
@@ -16,6 +23,7 @@ export interface ProviderCatalogueEntry {
   readonly description: string
   readonly connectLabel: string
   readonly credential: ProviderCredential
+  readonly keyFields?: ProviderKeyFields
 }
 
 /**
@@ -52,6 +60,21 @@ export const PROVIDER_CATALOGUE: readonly ProviderCatalogueEntry[] = [
       "Import orders, dividends and cash movements from your investment account.",
     connectLabel: "Add an API key",
     credential: "apiKey",
+  },
+  {
+    kind: "ibkr",
+    mark: "IB",
+    name: "Interactive Brokers",
+    tagline: "Investment account history",
+    description:
+      "Import trades, dividends and cash movements from your Interactive Brokers account through a read-only Flex Query.",
+    connectLabel: "Add a Flex token",
+    credential: "apiKey",
+    keyFields: {
+      keyIdLabel: "Flex Query ID",
+      secretLabel: "Flex token",
+      help: "In the IBKR Client Portal, create an Activity Flex Query (Performance & Reports → Flex Queries) with the Account Information, Trades, Cash Transactions, Open Positions and Cash Report sections, XML format and the default date format. Then enable the Flex Web Service there to generate a token.",
+    },
   },
 ]
 

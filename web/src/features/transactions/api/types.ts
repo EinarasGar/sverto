@@ -86,6 +86,7 @@ export interface LedgerTransactionRow {
   readonly date: Date
   readonly visibility: TransactionVisibility
   readonly isUnreviewed: boolean
+  readonly needsAction: boolean
   readonly isHidden: boolean
   readonly description: LedgerDescription
   readonly category: Category | null
@@ -114,6 +115,7 @@ export interface LedgerGroupRow {
   readonly childCount: number
   readonly amountsByAsset: readonly NativeAmount[]
   readonly isUnreviewed: boolean
+  readonly needsAction: boolean
   readonly figureIntent: FigureIntent
   readonly baseCurrencyAmount: BaseCurrencyAmountUnavailable
   readonly raw: GroupTransactionItem

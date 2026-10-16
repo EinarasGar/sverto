@@ -1,4 +1,6 @@
-use crate::models::{MappedTransaction, ProviderTransaction, SkippedTransaction};
+use crate::models::{
+    MappedTransaction, ProviderTransaction, ProviderTransactionKind, SkippedTransaction,
+};
 use serde_json::Value;
 
 fn parse_booking_date(s: &str) -> Option<time::OffsetDateTime> {
@@ -122,6 +124,8 @@ pub fn map_transaction(tx: &Value) -> MappedTransaction {
         date,
         description,
         asset_identifier: None,
+        isin: None,
         quantity: None,
+        kind: ProviderTransactionKind::Regular,
     })
 }

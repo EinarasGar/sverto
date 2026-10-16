@@ -10,6 +10,7 @@ pub enum TransactionVisibility {
     Default,
     Ghost,
     Hidden,
+    Action,
 }
 
 #[cfg(feature = "backend")]
@@ -19,6 +20,7 @@ impl From<TransactionVisibilityDto> for TransactionVisibility {
             TransactionVisibilityDto::Default => Self::Default,
             TransactionVisibilityDto::Ghost => Self::Ghost,
             TransactionVisibilityDto::Hidden => Self::Hidden,
+            TransactionVisibilityDto::Action => Self::Action,
         }
     }
 }
@@ -30,6 +32,7 @@ impl TransactionVisibility {
             Self::Default => TransactionVisibilityDto::Default,
             Self::Ghost => TransactionVisibilityDto::Ghost,
             Self::Hidden => TransactionVisibilityDto::Hidden,
+            Self::Action => TransactionVisibilityDto::Action,
         }
     }
 }

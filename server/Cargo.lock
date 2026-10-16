@@ -1314,6 +1314,7 @@ dependencies = [
  "jsonwebtoken",
  "mockall",
  "observability",
+ "quick-xml",
  "reqwest 0.13.1",
  "rust_decimal",
  "serde",

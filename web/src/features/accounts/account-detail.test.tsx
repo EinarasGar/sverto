@@ -174,6 +174,7 @@ describe("AccountDetail", () => {
           lastSyncError: "consent expired",
           syncedThrough: null,
           writesPostDirectly: false,
+          syncInProgress: false,
         },
       },
       count: 1,

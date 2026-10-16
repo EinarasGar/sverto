@@ -1,13 +1,23 @@
-use sea_query::{Alias, Expr, ExprTrait, OnConflict, PostgresQueryBuilder, Query, SelectStatement};
+use sea_query::{
+    Alias, Expr, ExprTrait, Func, JoinType, OnConflict, PostgresQueryBuilder, Query,
+    SelectStatement,
+};
 use sea_query_sqlx::SqlxBinder;
 use sqlx::types::Uuid;
 
 use super::DbQueryWithValues;
+
 use crate::{
-    idens::connector_idens::{
-        ConnectorBindingIden, ConnectorConnectionIden, ConnectorProviderAccountIden,
-        ConnectorProviderIden, ConnectorRawPageIden, ConnectorTransactionIden,
+    idens::{
+        asset_idens::AssetsIden,
+        connector_idens::{
+            ConnectorBindingIden, ConnectorConnectionIden, ConnectorProviderAccountIden,
+            ConnectorProviderIden, ConnectorRawPageIden, ConnectorTransactionIden,
+        },
+        entries_idens::EntryIden,
+        transaction_idens::TransactionIden,
     },
+    models::asset_models::asset_type_ids,
     models::connector_models::{
         AddConnectorBindingModel, AddConnectorConnectionModel, AddConnectorProviderAccountModel,
         AddConnectorRawPageModel, AddConnectorTransactionModel,
@@ -19,6 +29,9 @@ use crate::{
         GetRawPagesParamsSearchType,
     },
 };
+
+/// Older claims belong to crashed syncs; running syncs refresh theirs after every page.
+const PROVIDER_ACCOUNT_CLAIM_EXPIRY_MINUTES: i32 = 20;
 
 #[macros::named_query]
 pub fn get_connector_provider_id_by_kind(kind: String) -> DbQueryWithValues {
@@ -321,6 +334,13 @@ pub fn get_connector_bindings(params: GetConnectorBindingsParams) -> DbQueryWith
             ConnectorProviderAccountIden::Table,
             ConnectorProviderAccountIden::LastSyncError,
         ))
+        .expr_as(
+            Expr::cust_with_values(
+                "COALESCE(connector_provider_account.sync_claimed_at > now() - make_interval(mins => $1::int), false)",
+                [PROVIDER_ACCOUNT_CLAIM_EXPIRY_MINUTES],
+            ),
+            Alias::new("sync_in_progress"),
+        )
         .column((ConnectorBindingIden::Table, ConnectorBindingIden::CreatedAt))
         .column((ConnectorBindingIden::Table, ConnectorBindingIden::UpdatedAt))
         .from(ConnectorBindingIden::Table)
@@ -497,10 +517,7 @@ pub fn update_binding_projection(
 /// Claims a provider account for a fetch walk (single-flight). Zero rows affected means
 /// another fetch holds the claim; stale claims expire after `expiry_minutes`.
 #[macros::named_query]
-pub fn claim_provider_account_for_fetch(
-    provider_account_ref: Uuid,
-    expiry_minutes: i64,
-) -> DbQueryWithValues {
+pub fn claim_provider_account_for_fetch(provider_account_ref: Uuid) -> DbQueryWithValues {
     Query::update()
         .table(ConnectorProviderAccountIden::Table)
         .value(
@@ -526,8 +543,34 @@ pub fn claim_provider_account_for_fetch(
             ))
             .lt(Expr::cust_with_values(
                 "now() - make_interval(mins => $1::int)",
-                [expiry_minutes],
+                [PROVIDER_ACCOUNT_CLAIM_EXPIRY_MINUTES],
             ))),
+        )
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn refresh_provider_account_fetch_claim(provider_account_ref: Uuid) -> DbQueryWithValues {
+    Query::update()
+        .table(ConnectorProviderAccountIden::Table)
+        .value(
+            ConnectorProviderAccountIden::SyncClaimedAt,
+            Expr::cust("now()"),
+        )
+        .and_where(
+            Expr::col((
+                ConnectorProviderAccountIden::Table,
+                ConnectorProviderAccountIden::Id,
+            ))
+            .eq(provider_account_ref),
+        )
+        .and_where(
+            Expr::col((
+                ConnectorProviderAccountIden::Table,
+                ConnectorProviderAccountIden::SyncClaimedAt,
+            ))
+            .is_not_null(),
         )
         .build_sqlx(PostgresQueryBuilder)
         .into()
@@ -604,6 +647,121 @@ pub fn mark_connector_transactions_edited(transaction_ids: Vec<Uuid>) -> DbQuery
                 ConnectorTransactionIden::TransactionId,
             ))
             .is_in(transaction_ids),
+        )
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn delete_connector_transactions_by_external_ids(
+    binding_id: Uuid,
+    external_ids: Vec<String>,
+) -> DbQueryWithValues {
+    Query::delete()
+        .from_table(ConnectorTransactionIden::Table)
+        .and_where(Expr::col(ConnectorTransactionIden::BindingId).eq(binding_id))
+        .and_where(Expr::col(ConnectorTransactionIden::ExternalId).is_in(external_ids))
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn get_binding_earliest_transaction_date(
+    binding_id: Uuid,
+    excluded_external_id_prefix: &str,
+) -> DbQueryWithValues {
+    let excluded_pattern = format!(
+        "{}%",
+        excluded_external_id_prefix
+            .replace('\\', "\\\\")
+            .replace('%', "\\%")
+            .replace('_', "\\_")
+    );
+    Query::select()
+        .expr(Func::min(Expr::col((
+            TransactionIden::Table,
+            TransactionIden::DateTransacted,
+        ))))
+        .from(ConnectorTransactionIden::Table)
+        .join(
+            JoinType::InnerJoin,
+            TransactionIden::Table,
+            Expr::col((TransactionIden::Table, TransactionIden::Id)).equals((
+                ConnectorTransactionIden::Table,
+                ConnectorTransactionIden::TransactionId,
+            )),
+        )
+        .and_where(
+            Expr::col((
+                ConnectorTransactionIden::Table,
+                ConnectorTransactionIden::BindingId,
+            ))
+            .eq(binding_id),
+        )
+        .and_where(
+            Expr::col((
+                ConnectorTransactionIden::Table,
+                ConnectorTransactionIden::ExternalId,
+            ))
+            .not_like(excluded_pattern),
+        )
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn get_position_timeline_entries(
+    binding_id: Uuid,
+    account_id: Uuid,
+    asset_ids: Vec<i32>,
+) -> DbQueryWithValues {
+    Query::select()
+        .column((EntryIden::Table, EntryIden::AssetId))
+        .column((EntryIden::Table, EntryIden::TransactionId))
+        .column((TransactionIden::Table, TransactionIden::TypeId))
+        .column((TransactionIden::Table, TransactionIden::DateTransacted))
+        .column((EntryIden::Table, EntryIden::Quantity))
+        .column((
+            ConnectorTransactionIden::Table,
+            ConnectorTransactionIden::ExternalId,
+        ))
+        .column((
+            ConnectorTransactionIden::Table,
+            ConnectorTransactionIden::EditedByUser,
+        ))
+        .from(EntryIden::Table)
+        .join(
+            JoinType::InnerJoin,
+            TransactionIden::Table,
+            Expr::col((TransactionIden::Table, TransactionIden::Id))
+                .equals((EntryIden::Table, EntryIden::TransactionId)),
+        )
+        .join(
+            JoinType::InnerJoin,
+            AssetsIden::Table,
+            Expr::col((AssetsIden::Table, AssetsIden::Id))
+                .equals((EntryIden::Table, EntryIden::AssetId)),
+        )
+        .join(
+            JoinType::LeftJoin,
+            ConnectorTransactionIden::Table,
+            Expr::col((
+                ConnectorTransactionIden::Table,
+                ConnectorTransactionIden::TransactionId,
+            ))
+            .equals((EntryIden::Table, EntryIden::TransactionId))
+            .and(
+                Expr::col((
+                    ConnectorTransactionIden::Table,
+                    ConnectorTransactionIden::BindingId,
+                ))
+                .eq(binding_id),
+            ),
+        )
+        .and_where(Expr::col((EntryIden::Table, EntryIden::AccountId)).eq(account_id))
+        .and_where(Expr::col((EntryIden::Table, EntryIden::AssetId)).is_in(asset_ids))
+        .and_where(
+            Expr::col((AssetsIden::Table, AssetsIden::AssetType)).ne(asset_type_ids::CURRENCY),
         )
         .build_sqlx(PostgresQueryBuilder)
         .into()

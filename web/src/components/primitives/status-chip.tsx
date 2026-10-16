@@ -39,6 +39,9 @@ export function StatusChip({
       className={cn(chipVariants({ size }), word.tone, className)}
       {...props}
     >
+      {"icon" in word ? (
+        <word.icon aria-hidden className="mr-[3px] size-[10px] flex-none" />
+      ) : null}
       {word.label}
     </span>
   )

@@ -213,6 +213,7 @@ pub async fn set_transaction_visibility(
     TransactionManagementServiceState(service): TransactionManagementServiceState,
     ValidatedJson(body): ValidatedJson<SetTransactionVisibilityRequestViewModel>,
 ) -> Result<(), ApiError> {
+    body.validate()?;
     service
         .set_transactions_visibility(user_id, vec![transaction_id], body.visibility.to_business())
         .await

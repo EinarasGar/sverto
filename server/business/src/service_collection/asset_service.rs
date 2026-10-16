@@ -3,8 +3,9 @@ use std::collections::{HashMap, HashSet};
 use dal::{
     models::{
         asset_models::{
-            Asset, AssetBasePair, AssetId, AssetPair, AssetPairId, AssetPairSharedMetadata,
-            AssetPairUserMetadata, AssetRaw, AssetTickerId, AssetWithMetadata, PublicAsset,
+            Asset, AssetBasePair, AssetByIsin, AssetByRootSymbol, AssetId, AssetPair, AssetPairId,
+            AssetPairSharedMetadata, AssetPairUserMetadata, AssetRaw, AssetTickerId,
+            AssetWithMetadata, PublicAsset,
         },
         base::{Count, Exsists, TotalCount},
     },
@@ -37,6 +38,8 @@ use crate::dtos::{
     page_of_results_dto::PageOfResultsDto,
     paging_dto::PagingDto,
 };
+
+use crate::entities::connectors::asset_candidate::{AssetCandidate, HeldAssets};
 
 pub struct AssetsService {
     db: MyraDb,
@@ -142,6 +145,67 @@ impl AssetsService {
         let query = asset_queries::get_asset_ids_by_tickers(user_id, tickers.into_iter().collect());
         let rows = self.db.fetch_all::<AssetTickerId>(query).await?;
         Ok(rows.into_iter().map(|row| (row.ticker, row.id)).collect())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub(crate) async fn resolve_isins(
+        &self,
+        user_id: Uuid,
+        held: &HeldAssets,
+        keys: HashSet<(String, String)>,
+    ) -> anyhow::Result<HashMap<(String, String), i32>> {
+        if keys.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let isins: HashSet<String> = keys.iter().map(|(isin, _)| isin.clone()).collect();
+        let query = asset_queries::get_assets_by_isins(user_id, isins.into_iter().collect());
+        let rows = self.db.fetch_all::<AssetByIsin>(query).await?;
+
+        let mut candidates: HashMap<String, Vec<AssetCandidate>> = HashMap::new();
+        for row in rows {
+            candidates
+                .entry(row.isin.clone())
+                .or_default()
+                .push(row.into());
+        }
+        Ok(keys
+            .into_iter()
+            .filter_map(|(isin, currency)| {
+                let id = held.select(candidates.get(&isin)?, &currency)?;
+                Some(((isin, currency), id))
+            })
+            .collect())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub(crate) async fn resolve_root_symbols(
+        &self,
+        user_id: Uuid,
+        held: &HeldAssets,
+        keys: HashSet<(String, String)>,
+    ) -> anyhow::Result<HashMap<(String, String), i32>> {
+        if keys.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let root_symbols: HashSet<String> = keys.iter().map(|(root, _)| root.clone()).collect();
+        let query =
+            asset_queries::get_assets_by_root_symbols(user_id, root_symbols.into_iter().collect());
+        let rows = self.db.fetch_all::<AssetByRootSymbol>(query).await?;
+
+        let mut candidates: HashMap<String, Vec<AssetCandidate>> = HashMap::new();
+        for row in rows {
+            candidates
+                .entry(row.root_symbol.clone())
+                .or_default()
+                .push(row.into());
+        }
+        Ok(keys
+            .into_iter()
+            .filter_map(|(root, currency)| {
+                let id = held.select(candidates.get(&root.to_lowercase())?, &currency)?;
+                Some(((root, currency), id))
+            })
+            .collect())
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(pair1, pair2))]

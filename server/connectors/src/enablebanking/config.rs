@@ -46,9 +46,7 @@ pub fn base_url() -> &'static str {
 fn resolve_private_key(raw: &str) -> Option<String> {
     let trimmed = raw.trim();
     let candidate = if trimmed.contains("\\n") {
-        trimmed
-            .replace("\\r\\n", "\n")
-            .replace("\\n", "\n")
+        trimmed.replace("\\r\\n", "\n").replace("\\n", "\n")
     } else {
         trimmed.to_string()
     };
@@ -87,8 +85,11 @@ mod tests {
     fn file_path_is_read_into_pem() {
         let dir = std::env::temp_dir();
         let path = dir.join(format!("eb_test_key_{}.pem", std::process::id()));
-        std::fs::write(&path, "-----BEGIN PRIVATE KEY-----\nxyz\n-----END PRIVATE KEY-----")
-            .unwrap();
+        std::fs::write(
+            &path,
+            "-----BEGIN PRIVATE KEY-----\nxyz\n-----END PRIVATE KEY-----",
+        )
+        .unwrap();
         let resolved = resolve_private_key(path.to_str().unwrap()).unwrap();
         assert!(resolved.starts_with("-----BEGIN PRIVATE KEY-----"));
         std::fs::remove_file(&path).ok();
@@ -103,21 +104,30 @@ mod tests {
     fn escaped_single_line_pem_is_unfolded() {
         let folded = "-----BEGIN PRIVATE KEY-----\\nabc\\n-----END PRIVATE KEY-----";
         let resolved = resolve_private_key(folded).unwrap();
-        assert_eq!(resolved, "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----");
+        assert_eq!(
+            resolved,
+            "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"
+        );
     }
 
     #[test]
     fn crlf_inline_pem_is_normalised_to_lf() {
         let crlf = "-----BEGIN PRIVATE KEY-----\r\nabc\r\n-----END PRIVATE KEY-----\r\n";
         let resolved = resolve_private_key(crlf).unwrap();
-        assert_eq!(resolved, "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----");
+        assert_eq!(
+            resolved,
+            "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"
+        );
     }
 
     #[test]
     fn crlf_escaped_single_line_is_unfolded() {
         let folded = "-----BEGIN PRIVATE KEY-----\\r\\nabc\\r\\n-----END PRIVATE KEY-----";
         let resolved = resolve_private_key(folded).unwrap();
-        assert_eq!(resolved, "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----");
+        assert_eq!(
+            resolved,
+            "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"
+        );
     }
 
     #[test]

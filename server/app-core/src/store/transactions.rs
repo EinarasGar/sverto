@@ -560,6 +560,7 @@ fn visibility_str(visibility: crate::models::TransactionVisibility) -> &'static 
         crate::models::TransactionVisibility::Default => "default",
         crate::models::TransactionVisibility::Ghost => "ghost",
         crate::models::TransactionVisibility::Hidden => "hidden",
+        crate::models::TransactionVisibility::Action => "action",
     }
 }
 

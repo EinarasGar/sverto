@@ -79,6 +79,9 @@ export function DrawerHero({
         {row.isUnreviewed ? (
           <StatusChip status="unreviewed" size="row" />
         ) : null}
+        {row.needsAction ? (
+          <StatusChip status="needsAction" size="row" />
+        ) : null}
         {row.isUnreviewed && onMarkReviewed ? (
           <InlineRowAction
             onClick={onMarkReviewed}

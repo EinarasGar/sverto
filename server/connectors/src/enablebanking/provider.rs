@@ -58,12 +58,14 @@ impl Provider for EnableBankingProvider {
         redirect_uri: Option<&str>,
         options: BeginOauthOptions,
     ) -> Result<String> {
-        let bank_name = options.bank_name.as_deref().ok_or_else(|| {
-            anyhow::anyhow!("enablebanking OAuth requires bank_name")
-        })?;
-        let bank_country = options.bank_country.as_deref().ok_or_else(|| {
-            anyhow::anyhow!("enablebanking OAuth requires bank_country")
-        })?;
+        let bank_name = options
+            .bank_name
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("enablebanking OAuth requires bank_name"))?;
+        let bank_country = options
+            .bank_country
+            .as_deref()
+            .ok_or_else(|| anyhow::anyhow!("enablebanking OAuth requires bank_country"))?;
         let redirect_url = resolve_redirect_uri(redirect_uri)?;
         let config = EnableBankingConfig::get();
         let valid_until =
@@ -214,9 +216,7 @@ mod tests {
             .build()
             .unwrap();
         let err = rt
-            .block_on(async {
-                resolve_redirect_uri(Some("https://evil.example")).map_err(|e| e)
-            })
+            .block_on(async { resolve_redirect_uri(Some("https://evil.example")).map_err(|e| e) })
             .unwrap_err();
         assert!(err.to_string().contains("allowlisted"));
         std::env::remove_var("ENABLEBANKING_REDIRECT_URI_ALLOWLIST");

@@ -11,11 +11,12 @@ const EXPECTED_TONES: Record<StatusWord, string> = {
   paused: "text-ghost",
   notLinked: "text-ghost",
   unreviewed: "text-ghost",
+  needsAction: "text-attention",
 }
 
 describe("StatusChip", () => {
-  it("has exactly six words", () => {
-    expect(Object.keys(STATUS_WORDS)).toHaveLength(6)
+  it("has exactly seven words", () => {
+    expect(Object.keys(STATUS_WORDS)).toHaveLength(7)
   })
 
   it.each(Object.keys(EXPECTED_TONES) as StatusWord[])(

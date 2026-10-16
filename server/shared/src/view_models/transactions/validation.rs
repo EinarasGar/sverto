@@ -3,8 +3,11 @@ use rust_decimal::Decimal;
 use crate::errors::FieldError;
 use crate::view_models::transactions::base_models::account_asset_entry::AccountAssetEntryViewModel;
 use crate::view_models::transactions::base_models::transaction_group::TransactionGroup;
+use crate::view_models::transactions::base_models::visibility::TransactionVisibility;
 use crate::view_models::transactions::delete_transactions::DeleteTransactionsRequestViewModel;
-use crate::view_models::transactions::set_visibility::SetTransactionsVisibilityRequestViewModel;
+use crate::view_models::transactions::set_visibility::{
+    SetTransactionVisibilityRequestViewModel, SetTransactionsVisibilityRequestViewModel,
+};
 use crate::view_models::transactions::transaction_types::IdentifiableTransactionWithIdentifiableEntries;
 use crate::view_models::transactions::transaction_types::TransactionWithEntries;
 use crate::view_models::transactions::transaction_types::TransactionWithIdentifiableEntries;
@@ -408,8 +411,24 @@ impl Validatable for SetTransactionsVisibilityRequestViewModel {
                 message: "At least one transaction id is required.".to_string(),
             }]);
         }
-        Ok(())
+        validate_settable_visibility(self.visibility)
     }
+}
+
+impl Validatable for SetTransactionVisibilityRequestViewModel {
+    fn validate(&self) -> Result<(), Vec<FieldError>> {
+        validate_settable_visibility(self.visibility)
+    }
+}
+
+fn validate_settable_visibility(visibility: TransactionVisibility) -> Result<(), Vec<FieldError>> {
+    if visibility == TransactionVisibility::Action {
+        return Err(vec![FieldError {
+            field: "visibility".to_string(),
+            message: "Visibility `action` cannot be set directly.".to_string(),
+        }]);
+    }
+    Ok(())
 }
 
 impl Validatable for DeleteTransactionsRequestViewModel {

@@ -85,6 +85,7 @@ export function toTransactionRow(
     date: new Date(transaction.date * 1000),
     visibility,
     isUnreviewed: visibility === "ghost",
+    needsAction: visibility === "action",
     isHidden: visibility === "hidden",
     description: describeTransaction(transaction, lookup),
     category:
@@ -138,6 +139,7 @@ export function toGroupRow(
       children.flatMap((child) => child.legs.map((leg) => leg.amount))
     ),
     isUnreviewed: children.some((child) => child.isUnreviewed),
+    needsAction: children.some((child) => child.needsAction),
     figureIntent: groupFigureIntent(children),
     baseCurrencyAmount: BASE_CURRENCY_AMOUNT_UNAVAILABLE,
     raw: group,

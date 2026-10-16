@@ -71,6 +71,7 @@ function connector(
     lastSyncError: null,
     syncedThrough: null,
     writesPostDirectly: false,
+    syncInProgress: false,
     ...overrides,
   }
 }

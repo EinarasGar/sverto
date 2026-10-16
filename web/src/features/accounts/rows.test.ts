@@ -156,6 +156,7 @@ describe("buildAccountIndex", () => {
           lastSyncError: null,
           syncedThrough: null,
           writesPostDirectly: false,
+          syncInProgress: false,
         },
       },
       count: 1,

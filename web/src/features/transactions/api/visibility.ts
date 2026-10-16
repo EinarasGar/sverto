@@ -18,6 +18,9 @@ export type VisibilityTransition =
 export const HIDING_AN_UNREVIEWED_ROW =
   "An unreviewed transaction cannot be hidden. A transaction is either awaiting review or hidden, never both, so hiding it would take it out of the review queue with nothing to put it back. Mark it reviewed first, then hide it."
 
+export const HIDING_A_ROW_THAT_NEEDS_ACTION =
+  "This transaction needs your action: its date and price are placeholders. Edit it first, then hide it."
+
 const REVIEWING_A_HIDDEN_ROW =
   "A hidden transaction is not in the review queue, so there is nothing to mark reviewed. Unhide it first."
 
@@ -38,6 +41,9 @@ export function visibilityTransition(
     case "hide":
       if (current === "ghost") {
         return { kind: "refused", reason: HIDING_AN_UNREVIEWED_ROW }
+      }
+      if (current === "action") {
+        return { kind: "refused", reason: HIDING_A_ROW_THAT_NEEDS_ACTION }
       }
       return current === "hidden" ? UNCHANGED : { kind: "write", to: "hidden" }
     case "unhide":

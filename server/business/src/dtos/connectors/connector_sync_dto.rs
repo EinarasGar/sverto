@@ -7,6 +7,9 @@ pub struct SyncReportDto {
     pub unresolved: usize,
     pub duplicates: usize,
     pub pages_projected: usize,
+    pub opening_buys_created: usize,
+    pub opening_buys_updated: usize,
+    pub opening_buys_deleted: usize,
 }
 
 #[derive(Debug, Clone, PartialEq)]

@@ -7,4 +7,6 @@ pub mod transaction;
 pub use account::ProviderAccount;
 pub use aspsp::Aspsp;
 pub use sync::{FetchedPage, RawPage, SyncCursor};
-pub use transaction::{MappedTransaction, ProviderTransaction, SkippedTransaction};
+pub use transaction::{
+    MappedTransaction, ProviderTransaction, ProviderTransactionKind, SkippedTransaction,
+};
