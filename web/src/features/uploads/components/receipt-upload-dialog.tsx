@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { useAiFeaturesGate } from "@/features/ai-features"
 import {
   isReceiptFailed,
   isReceiptReady,
@@ -50,13 +51,15 @@ export function ReceiptUploadDialog({
   const createQuickUpload = useCreateQuickUpload(userId)
   const retryQuickUpload = useRetryQuickUpload(userId)
   const completeQuickUpload = useCompleteQuickUpload(userId)
+  const aiGate = useAiFeaturesGate(userId)
 
   const createAsync = createQuickUpload.mutateAsync
+  const retryAsync = retryQuickUpload.mutateAsync
   const queue = useUploadQueue({
     userId,
     policy: RECEIPT_POLICY,
     onUploaded: async (fileId) => {
-      await createAsync({ fileId })
+      await aiGate.requireAiConsent(() => createAsync({ fileId }))
     },
   })
 
@@ -102,8 +105,10 @@ export function ReceiptUploadDialog({
               busy={retryQuickUpload.isPending || completeQuickUpload.isPending}
               label={RECEIPT_READING_TITLE}
               onRetry={(quickUploadId) => {
-                watcher.clearFailure(quickUploadId)
-                retryQuickUpload.mutate({ quickUploadId })
+                aiGate.runWithAiConsent(() => {
+                  watcher.clearFailure(quickUploadId)
+                  return retryAsync({ quickUploadId })
+                })
               }}
               onDiscard={(quickUploadId) => {
                 completeQuickUpload.mutate({ quickUploadId, accepted: false })
@@ -134,6 +139,7 @@ export function ReceiptUploadDialog({
             {RECEIPT_DIALOG_CLOSE}
           </Button>
         </DialogFooter>
+        {aiGate.dialog}
       </DialogContent>
     </Dialog>
   )

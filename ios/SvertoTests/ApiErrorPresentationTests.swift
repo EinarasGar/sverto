@@ -24,6 +24,10 @@ struct ApiErrorPresentationTests {
         #expect(ApiError.MissingLocalCredential.friendlyMessage == "Your saved session is no longer available. Please sign in again.")
     }
 
+    @Test func aiFeaturesDisabledSaysTheFeaturesAreOff() {
+        #expect(ApiError.AiFeaturesDisabled.friendlyMessage == "AI features are turned off.")
+    }
+
     @Test func friendlyMessageNeverLeaksTheDebugDescription() {
         let error = ApiError.Server(reason: "Forbidden", status: 403)
 

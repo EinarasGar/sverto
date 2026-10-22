@@ -8,7 +8,7 @@ const POLICY_SECTIONS = [
   { id: "data", label: "Information we process" },
   { id: "purposes", label: "How we use information" },
   { id: "providers", label: "Providers and recipients" },
-  { id: "ai", label: "AI and on-device suggestions" },
+  { id: "ai", label: "AI features and on-device suggestions" },
   { id: "locations", label: "Processing locations" },
   { id: "retention", label: "Retention and deletion" },
   { id: "security", label: "Security and device storage" },
@@ -32,8 +32,8 @@ export function PrivacyPolicy() {
             information.
           </p>
           <p className="privacy-date">
-            Last updated: <time dateTime="2026-10-01">1 October 2026</time> · MB
-            Sverto
+            Last updated: <time dateTime="2026-10-22">22 October 2026</time> ·
+            MB Sverto
           </p>
         </header>
         <div className="privacy-layout">
@@ -89,11 +89,11 @@ export function PrivacyPolicy() {
               </p>
               <p>
                 Some mobile SDKs can still communicate with their providers
-                independently of the selected server. In particular, if you
-                enable Android’s optional ML Kit category suggestions, the SDK
-                can send technical and usage telemetry to Google. Contacting our
-                support or visiting our website also involves processing
-                separate from your self-hosted server.
+                independently of the selected server. In particular, if you turn
+                on Android’s optional on-device AI, its ML Kit SDK can send
+                technical and usage telemetry to Google. Contacting our support
+                or visiting our website also involves processing separate from
+                your self-hosted server.
               </p>
             </section>
 
@@ -104,7 +104,7 @@ export function PrivacyPolicy() {
                   <strong>Account information:</strong> account identifiers,
                   email address, profile name when supplied, authentication and
                   session information, and preferences such as your reference
-                  currency.
+                  currency and whether AI features are turned on.
                 </li>
                 <li>
                   <strong>Financial records:</strong> accounts, balances,
@@ -147,9 +147,9 @@ export function PrivacyPolicy() {
                 </li>
                 <li>
                   <strong>Optional Android ML Kit telemetry:</strong> after you
-                  enable category suggestions, app and device information,
-                  installation and other identifiers, feature-use events,
-                  performance metrics and errors relating to that feature.
+                  turn on on-device AI, app and device information, installation
+                  and other identifiers, feature-use events, performance metrics
+                  and errors relating to that feature.
                 </li>
                 <li>
                   <strong>Communications:</strong> information you choose to
@@ -195,9 +195,10 @@ export function PrivacyPolicy() {
                 </li>
                 <li>
                   <strong>Consent:</strong> where required for a particular
-                  optional activity. We explain that activity when requesting
-                  consent; you can withdraw it without affecting earlier lawful
-                  processing.
+                  optional activity, including sending information to Google’s
+                  Gemini API for AI features (section 5). We explain that
+                  activity when requesting consent; you can withdraw it at any
+                  time without affecting earlier lawful processing.
                 </li>
               </ul>
               <h3>Advertising and sale of data</h3>
@@ -243,16 +244,17 @@ export function PrivacyPolicy() {
                   <dt>Google Gemini API</dt>
                   <dd>
                     Cloud AI processing for Myra, receipt/document processing
-                    and semantic search, including relevant text, attachments,
-                    financial context and generated output.
+                    and semantic search, only after you turn on AI features,
+                    including relevant text, attachments, financial context and
+                    generated output.
                   </dd>
                 </div>
                 <div>
                   <dt>Google ML Kit</dt>
                   <dd>
-                    Optional on-device Android category suggestions and the
-                    SDK’s technical and usage telemetry after you enable the
-                    feature.
+                    Optional on-device AI on Android, currently used to suggest
+                    categories, and the SDK’s technical and usage telemetry
+                    after you turn it on.
                   </dd>
                 </div>
                 <div>
@@ -281,26 +283,53 @@ export function PrivacyPolicy() {
               </p>
               <p>
                 These providers process information to deliver the services
-                described above. Some also use specific information for their
-                own purposes, such as account administration, security or SDK
-                telemetry, as explained in their privacy notices.
+                described above. Providers that process personal information on
+                our behalf do so under written terms, such as data processing
+                agreements, that require them to protect it with safeguards at
+                least equal to those described in this policy. Some also use
+                specific information for their own purposes, such as account
+                administration, security or SDK telemetry, as explained in their
+                privacy notices.
               </p>
             </section>
 
             <section id="ai">
-              <h2>5. Myra and on-device suggestions</h2>
+              <h2>5. AI features and on-device suggestions</h2>
               <p>
-                Myra sends your request and the relevant context needed to
-                answer it to the Gemini API. Context can include conversation
-                history, attachments and financial records retrieved by Myra’s
-                tools. Your conversations and proposed actions are stored so you
-                can return to them.
+                Myra chat, receipt and document scanning, and the semantic
+                search that supports them use Google’s Gemini API. These AI
+                features are off until you turn them on. Sverto asks during
+                setup or when you first try to use one of them, and explains
+                what will be sent to Google before you choose. You can turn them
+                on or off at any time in Settings → AI features, and you can use
+                the rest of Sverto without them.
               </p>
               <p>
-                Semantic search also uses the Gemini API to turn text, such as
-                transaction descriptions and search queries, into numerical
-                representations. This can happen when descriptions are saved or
-                updated, separately from opening a Myra conversation.
+                When AI features are on, Myra sends your request and the
+                relevant context needed to answer it to the Gemini API. Context
+                can include conversation history, attachments and financial
+                records retrieved by Myra’s tools, such as account, transaction,
+                holding and category details. Receipts and documents you scan
+                are sent to the Gemini API to extract transaction details. Your
+                conversations and proposed actions are stored so you can return
+                to them.
+              </p>
+              <p>
+                While AI features are on, semantic search also uses the Gemini
+                API to turn text, such as transaction descriptions and search
+                queries, into numerical representations. This happens when
+                descriptions are saved or updated, separately from opening a
+                Myra conversation. While AI features are off, descriptions are
+                not sent to Google for this purpose.
+              </p>
+              <p>
+                Turning AI features off stops Sverto from sending new
+                information to the Gemini API, including processing that is
+                still waiting to run. It does not delete conversations, scan
+                results or search representations already stored in your Sverto
+                account. You can delete conversations separately, and account
+                deletion removes the rest. Information Google already received
+                is subject to the safety retention described below.
               </p>
               <p>
                 The hosted service uses the Gemini API under paid-service data
@@ -319,15 +348,15 @@ export function PrivacyPolicy() {
                 .
               </p>
               <p>
-                Android category suggestions are off by default and can be
-                enabled in Settings → Category suggestions. The choice is stored
-                on this installation and is excluded from backup restoration.
-                You can continue choosing categories manually without enabling
-                it. Suggestions run on the device using ML Kit. This local
-                feature does not itself send its input or generated output to
-                Google servers, but the SDK sends technical and usage metrics
-                for performance, debugging, maintenance, API improvement and
-                abuse prevention. This is governed by{" "}
+                On-device AI on Android is off by default and can be turned on
+                in Settings → On-device AI. It currently suggests categories for
+                new transactions. The choice is stored on this installation and
+                is excluded from backup restoration. You can keep choosing
+                categories yourself without it. It runs on the device using ML
+                Kit. This local feature does not itself send its input or
+                generated output to Google servers, but the SDK sends technical
+                and usage metrics for performance, debugging, maintenance, API
+                improvement and abuse prevention. This is governed by{" "}
                 <a href="https://developers.google.com/ml-kit/terms">
                   ML Kit’s terms
                 </a>{" "}
@@ -337,7 +366,7 @@ export function PrivacyPolicy() {
                 </a>
                 , separately from paid Gemini processing. Saving a financial
                 record to your hosted account is a separate server operation.
-                Turning suggestions off stops new feature requests and cancels
+                Turning on-device AI off stops new feature requests and cancels
                 pending suggestion work. It does not delete telemetry Google
                 already received or guarantee cancellation of metrics already
                 queued by the SDK.
@@ -417,8 +446,8 @@ export function PrivacyPolicy() {
                     Account deletion requests removal of your authentication
                     identity and saved connection credentials during the
                     deletion request. Failed external deletions are not
-                    automatically retried. You can contact us at{' '}
-                    <a href="mailto:privacy@sverto.com">privacy@sverto.com</a>{' '}
+                    automatically retried. You can contact us at{" "}
+                    <a href="mailto:privacy@sverto.com">privacy@sverto.com</a>{" "}
                     to ask us to investigate incomplete deletion.
                   </dd>
                 </div>

@@ -1,11 +1,21 @@
-import { cleanup, screen, waitFor } from "@testing-library/react"
+import { cleanup, screen, waitFor, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+
+import type { AuthMe } from "@/api"
+import { authMeQueryKey } from "@/auth"
 
 const getUsage = vi.fn()
 const listBindings = vi.fn()
 const getMe = vi.fn()
+const postAiFeatures = vi.fn()
 
-const ENDPOINTS: Record<string, unknown> = { getUsage, listBindings, getMe }
+const ENDPOINTS: Record<string, unknown> = {
+  getUsage,
+  listBindings,
+  getMe,
+  postAiFeatures,
+}
 
 vi.mock("@/lib/api", () => ({
   api: () =>
@@ -20,22 +30,33 @@ vi.mock("@/lib/api", () => ({
 }))
 
 const { SettingsScreen } = await import("./settings-screen")
-const { renderSettings, stubViewport, VIEWPORTS } =
-  await import("./test-harness")
+const {
+  createTestQueryClient,
+  renderSettings,
+  stubViewport,
+  TEST_USER_ID,
+  VIEWPORTS,
+} = await import("./test-harness")
 const { MYRA_PERMISSION_UNSTORED } = await import("./copy")
 
-beforeEach(() => {
-  vi.clearAllMocks()
-  stubViewport(VIEWPORTS.full)
-  getMe.mockResolvedValue({
+function identity(aiFeaturesEnabled: boolean) {
+  return {
     data: {
       user_id: "00000000-0000-0000-0000-000000000000",
       role: "user",
       onboarding_version: 1,
       default_asset: { id: 1, ticker: "GBP", name: "British Pound" },
       user_metadata: { username: "einaras" },
+      ai_features_enabled: aiFeaturesEnabled,
     },
-  })
+  }
+}
+
+beforeEach(() => {
+  vi.clearAllMocks()
+  stubViewport(VIEWPORTS.full)
+  getMe.mockResolvedValue(identity(true))
+  postAiFeatures.mockResolvedValue({ data: {} })
   listBindings.mockResolvedValue({ data: { bindings: [] } })
   getUsage.mockResolvedValue({
     data: {
@@ -98,7 +119,7 @@ describe("what Myra may do", () => {
     await renderSettings(<SettingsScreen section="myra" />)
     await screen.findByText("Read receipts I upload")
 
-    const switches = screen.getAllByRole("switch")
+    const switches = screen.getAllByRole("switch", { name: /placeholder/ })
     expect(switches).toHaveLength(2)
     for (const control of switches) {
       expect(control).toHaveAttribute("aria-disabled", "true")
@@ -119,5 +140,172 @@ describe("what Myra may do", () => {
       ).toBeGreaterThanOrEqual(4)
     })
     expect(screen.getAllByText("Not stored")).toHaveLength(2)
+  })
+})
+
+describe("the Myra quota block while AI features are off", () => {
+  it("is not drawn, and usage is never fetched", async () => {
+    getMe.mockResolvedValue(identity(false))
+    await renderSettings(<SettingsScreen section="myra" />)
+
+    await screen.findByText("einaras")
+    expect(
+      await screen.findByText("Approval required for every write")
+    ).toBeVisible()
+    expect(screen.queryByText("Usage")).not.toBeInTheDocument()
+    expect(screen.queryByText("Hourly")).not.toBeInTheDocument()
+    expect(getUsage).not.toHaveBeenCalled()
+  })
+
+  it("appears as soon as AI features are turned on", async () => {
+    getMe.mockResolvedValue(identity(false))
+    const user = userEvent.setup()
+    await renderSettings(<SettingsScreen section="myra" />)
+    await screen.findByText("einaras")
+
+    await user.click(await screen.findByRole("switch", { name: "AI features" }))
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Turn on",
+      })
+    )
+
+    expect(await screen.findByText("Hourly")).toBeInTheDocument()
+    expect(getUsage).toHaveBeenCalled()
+  })
+
+  it("disappears when AI features are turned off", async () => {
+    const user = userEvent.setup()
+    await renderSettings(<SettingsScreen section="myra" />)
+    await screen.findByText("Hourly")
+
+    await user.click(await screen.findByRole("switch", { name: "AI features" }))
+
+    await waitFor(() => {
+      expect(screen.queryByText("Hourly")).not.toBeInTheDocument()
+    })
+  })
+})
+
+describe("the AI features switch", () => {
+  async function aiSwitch(): Promise<HTMLElement> {
+    return screen.findByRole("switch", { name: "AI features" })
+  }
+
+  function cachedFlag(
+    queryClient: ReturnType<typeof createTestQueryClient>
+  ): boolean | undefined {
+    return queryClient.getQueryData<AuthMe>(authMeQueryKey)?.ai_features_enabled
+  }
+
+  it("states what turning it off means", async () => {
+    await renderSettings(<SettingsScreen section="myra" />)
+    await aiSwitch()
+    expect(
+      screen.getByText(
+        "Myra chat and receipt scanning use Google's Gemini AI. When off, none of your data is sent to Gemini and these features are unavailable."
+      )
+    ).toBeVisible()
+  })
+
+  it("shows the disclosure before turning on, and saves only on Turn on", async () => {
+    getMe.mockResolvedValue(identity(false))
+    const user = userEvent.setup()
+    await renderSettings(<SettingsScreen section="myra" />)
+    const control = await aiSwitch()
+    await waitFor(() => {
+      expect(control).toHaveAttribute("aria-checked", "false")
+    })
+
+    await user.click(control)
+
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText("Turn on AI features?")).toBeVisible()
+    expect(postAiFeatures).not.toHaveBeenCalled()
+    expect(control).toHaveAttribute("aria-checked", "false")
+
+    await user.click(within(dialog).getByRole("button", { name: "Turn on" }))
+
+    await waitFor(() => {
+      expect(control).toHaveAttribute("aria-checked", "true")
+    })
+    expect(postAiFeatures).toHaveBeenCalledWith(TEST_USER_ID, {
+      enabled: true,
+    })
+  })
+
+  it("stays off when the answer is Not now", async () => {
+    getMe.mockResolvedValue(identity(false))
+    const user = userEvent.setup()
+    await renderSettings(<SettingsScreen section="myra" />)
+    const control = await aiSwitch()
+
+    await user.click(control)
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Not now",
+      })
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    })
+    expect(control).toHaveAttribute("aria-checked", "false")
+    expect(postAiFeatures).not.toHaveBeenCalled()
+  })
+
+  it("turns off straight away, with no confirmation, and updates the identity", async () => {
+    const queryClient = createTestQueryClient()
+    const user = userEvent.setup()
+    await renderSettings(<SettingsScreen section="myra" />, queryClient)
+    const control = await aiSwitch()
+    await waitFor(() => {
+      expect(control).toHaveAttribute("aria-checked", "true")
+    })
+
+    await user.click(control)
+
+    await waitFor(() => {
+      expect(postAiFeatures).toHaveBeenCalledWith(TEST_USER_ID, {
+        enabled: false,
+      })
+    })
+    await waitFor(() => {
+      expect(cachedFlag(queryClient)).toBe(false)
+    })
+    expect(control).toHaveAttribute("aria-checked", "false")
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+  })
+
+  it("locks while saving and springs back on when turning off fails", async () => {
+    let fail: (reason: unknown) => void = () => {}
+    postAiFeatures.mockImplementation(
+      () =>
+        new Promise((_resolve, reject) => {
+          fail = reject
+        })
+    )
+    const queryClient = createTestQueryClient()
+    const user = userEvent.setup()
+    await renderSettings(<SettingsScreen section="myra" />, queryClient)
+    const control = await aiSwitch()
+    await waitFor(() => {
+      expect(control).toHaveAttribute("aria-checked", "true")
+    })
+
+    await user.click(control)
+
+    await waitFor(() => {
+      expect(control).toHaveAttribute("data-disabled")
+    })
+    expect(control).toHaveAttribute("aria-checked", "false")
+
+    fail(new Error("boom"))
+
+    await waitFor(() => {
+      expect(control).not.toHaveAttribute("data-disabled")
+    })
+    expect(control).toHaveAttribute("aria-checked", "true")
+    expect(cachedFlag(queryClient)).toBe(true)
   })
 })

@@ -5,12 +5,14 @@ import SvertoCore
 @Observable
 final class QuickUploadViewModel {
     private(set) var items: [QuickUploadUiItem] = []
+    let aiConsent: AiConsentGate
 
     private let store: AppStore
     private var bridge: QuickUploadsObserverBridge?
 
     init(store: AppStore) {
         self.store = store
+        aiConsent = AiConsentGate(store: store)
     }
 
     func start() {
@@ -38,6 +40,13 @@ final class QuickUploadViewModel {
                 store.queueQuickUpload(imageData: prepared.imageData, thumbnail: prepared.thumbnail, mimeType: prepared.mimeType)
             }.value
             await store.refreshQuickUploads()
+            // The flush reports no error; the core signals an AI-disabled rejection only by clearing this flag
+            // and holds the upload in its queue until AI features are turned back on.
+            if !store.getAiFeaturesEnabled() {
+                aiConsent.requestConsent {
+                    Task { await store.refreshQuickUploads() }
+                }
+            }
         }
     }
 
@@ -45,8 +54,11 @@ final class QuickUploadViewModel {
         await store.refreshQuickUploads()
     }
 
-    func retry(id: String) async {
-        await store.refreshQuickUploads()
+    func retry(id: String) {
+        let store = self.store
+        aiConsent.perform {
+            Task { await store.refreshQuickUploads() }
+        }
     }
 
     func dismiss(id: String) async {

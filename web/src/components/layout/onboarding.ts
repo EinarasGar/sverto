@@ -1,6 +1,6 @@
 import type { AuthMe } from "@/api"
 
-export const CURRENT_ONBOARDING_VERSION = 1
+export const CURRENT_ONBOARDING_VERSION = 2
 
 export function needsOnboarding(me: AuthMe | undefined): boolean {
   if (me === undefined) return false

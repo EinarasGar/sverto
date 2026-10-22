@@ -148,7 +148,7 @@ impl CategoryService {
             category.category, category.category_type_name
         );
         self.embedding_service
-            .enqueue_embed_category(created_id, embed_text)
+            .enqueue_embed_category(user_id, created_id, embed_text)
             .await?;
         Ok(category)
     }
@@ -194,7 +194,7 @@ impl CategoryService {
                 category.category, category.category_type_name
             );
             self.embedding_service
-                .enqueue_embed_category(category_id, embed_text)
+                .enqueue_embed_category(user_id, category_id, embed_text)
                 .await?;
         }
 

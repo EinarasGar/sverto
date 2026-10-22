@@ -25,6 +25,7 @@ pub struct AuthMeViewModel {
     pub user_id: String,
     pub default_asset: Option<DefaultAssetViewModel>,
     pub onboarding_version: i32,
+    pub ai_features_enabled: bool,
     pub role: String,
     pub user_metadata: Option<UserMetadataViewModel>,
 }
@@ -60,16 +61,16 @@ pub async fn get_me(
 ) -> Result<Json<AuthMeViewModel>, ApiError> {
     #[cfg(feature = "clerk")]
     {
-        let (default_asset_id, default_ticker, onboarding_version) =
-            users_service.get_onboarding_info(auth.user_id).await?;
-        let default_asset = match (default_asset_id, default_ticker) {
+        let onboarding = users_service.get_onboarding_info(auth.user_id).await?;
+        let default_asset = match (onboarding.default_asset_id, onboarding.default_ticker) {
             (Some(id), Some(ticker)) => Some(DefaultAssetViewModel { id, ticker }),
             _ => None,
         };
         Ok(Json(AuthMeViewModel {
             user_id: auth.user_id.to_string(),
             default_asset,
-            onboarding_version,
+            onboarding_version: onboarding.onboarding_version,
+            ai_features_enabled: onboarding.ai_features_enabled,
             role: format!("{:?}", auth.role),
             user_metadata: None,
         }))
@@ -85,6 +86,7 @@ pub async fn get_me(
             user_id: user.id.to_string(),
             default_asset,
             onboarding_version: user.onboarding_version,
+            ai_features_enabled: user.ai_features_enabled,
             role: format!("{:?}", user.role.role),
             user_metadata: Some(UserMetadataViewModel {
                 username: user.username,

@@ -33,10 +33,10 @@ class CategorySuggester(
     context: Context,
 ) {
     private val appContext = context.applicationContext
-    private val preferences = CategorySuggestionPreferences(appContext)
+    private val preferences = OnDeviceAiPreferences(appContext)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
-    private val _settings = MutableStateFlow(CategorySuggestionSettings())
-    val settings: StateFlow<CategorySuggestionSettings> = _settings.asStateFlow()
+    private val _settings = MutableStateFlow(OnDeviceAiSettings())
+    val settings: StateFlow<OnDeviceAiSettings> = _settings.asStateFlow()
 
     private var sessionScope: CoroutineScope? = null
     private var model: GenerativeModel? = null
@@ -50,19 +50,19 @@ class CategorySuggester(
                 val enabled = preferences.isEnabled()
                 if (enabled) sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
                 _settings.value =
-                    CategorySuggestionSettings(
-                        consent = if (enabled) CategorySuggestionConsent.ENABLED else CategorySuggestionConsent.DISABLED,
+                    OnDeviceAiSettings(
+                        consent = if (enabled) OnDeviceAiConsent.ENABLED else OnDeviceAiConsent.DISABLED,
                     )
             } catch (e: CancellationException) {
                 throw e
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
-                Log.w(TAG, "Could not read category suggestion preference", e)
+                Log.w(TAG, "Could not read on-device AI preference", e)
                 _settings.value =
-                    CategorySuggestionSettings(
-                        consent = CategorySuggestionConsent.DISABLED,
-                        errorMessage = "Could not read this device's preference. Category suggestions are off.",
+                    OnDeviceAiSettings(
+                        consent = OnDeviceAiConsent.DISABLED,
+                        errorMessage = "Could not read this device's preference. On-device AI is off.",
                     )
             }
         }
@@ -70,10 +70,10 @@ class CategorySuggester(
 
     fun setEnabled(enabled: Boolean) {
         scope.launch {
-            if (_settings.value.saving || _settings.value.consent == CategorySuggestionConsent.LOADING) return@launch
+            if (_settings.value.saving || _settings.value.consent == OnDeviceAiConsent.LOADING) return@launch
             _settings.value =
                 _settings.value.copy(
-                    consent = if (enabled) _settings.value.consent else CategorySuggestionConsent.DISABLED,
+                    consent = if (enabled) _settings.value.consent else OnDeviceAiConsent.DISABLED,
                     saving = true,
                     errorMessage = null,
                 )
@@ -82,8 +82,8 @@ class CategorySuggester(
                 preferences.setEnabled(enabled)
                 if (enabled) sessionScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
                 _settings.value =
-                    CategorySuggestionSettings(
-                        consent = if (enabled) CategorySuggestionConsent.ENABLED else CategorySuggestionConsent.DISABLED,
+                    OnDeviceAiSettings(
+                        consent = if (enabled) OnDeviceAiConsent.ENABLED else OnDeviceAiConsent.DISABLED,
                     )
             } catch (e: CancellationException) {
                 throw e
@@ -91,11 +91,11 @@ class CategorySuggester(
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
                 closeSession()
-                Log.w(TAG, "Could not save category suggestion preference", e)
+                Log.w(TAG, "Could not save on-device AI preference", e)
                 _settings.value =
-                    CategorySuggestionSettings(
-                        consent = CategorySuggestionConsent.DISABLED,
-                        errorMessage = "Could not save your choice. Suggestions are off for now. Please try again.",
+                    OnDeviceAiSettings(
+                        consent = OnDeviceAiConsent.DISABLED,
+                        errorMessage = "Could not save your choice. On-device AI is off for now. Please try again.",
                     )
             }
         }
@@ -120,7 +120,7 @@ class CategorySuggester(
     private suspend fun <T> withModel(block: suspend (GenerativeModel) -> T): T? =
         withContext(Dispatchers.Main.immediate) {
             if (Build.VERSION.SDK_INT < MIN_SDK_FOR_ML_KIT) return@withContext null
-            if (_settings.value.consent != CategorySuggestionConsent.ENABLED) return@withContext null
+            if (_settings.value.consent != OnDeviceAiConsent.ENABLED) return@withContext null
             val activeScope = sessionScope ?: return@withContext null
             try {
                 val activeModel =

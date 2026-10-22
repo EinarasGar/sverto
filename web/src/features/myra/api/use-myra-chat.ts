@@ -4,7 +4,7 @@ import { useQueryClient } from "@tanstack/react-query"
 import { AIConversationsApiFactory } from "@/api"
 import { api } from "@/lib/api"
 import type { NormalizedRateLimitedError } from "@/lib/errors"
-import { normalizeError } from "@/lib/errors"
+import { isAiFeaturesDisabled, normalizeError } from "@/lib/errors"
 import {
   queryKeys,
   withNormalizedErrors,
@@ -40,9 +40,9 @@ export interface MyraChat {
     message: string,
     askedFrom?: string | null,
     attachments?: readonly ChatAttachment[]
-  ) => void
-  respond: (toolCallIds: readonly string[], approved: boolean) => void
-  retry: () => void
+  ) => Promise<void>
+  respond: (toolCallIds: readonly string[], approved: boolean) => Promise<void>
+  retry: () => Promise<void>
   stop: () => void
   startNewChat: () => void
   openConversation: (conversationId: ConversationId) => void
@@ -172,6 +172,30 @@ export function useMyraChat(userId: string): MyraChat {
         })
       } catch (error) {
         const normalized = normalizeError(error)
+        if (isAiFeaturesDisabled(normalized)) {
+          if (request.kind === "message") {
+            setTurns((previous) => previous.slice(0, -optimisticTurns))
+          } else if (request.kind === "approval") {
+            const ids = request.approvals.map((entry) => entry.tool_call_id)
+            setTurns((previous) =>
+              previous.map((turn) => ({
+                ...turn,
+                parts: decideProposals(turn.parts, ids, "pending"),
+              }))
+            )
+          } else {
+            patchLastTurn((parts) => [
+              ...parts,
+              {
+                kind: "error",
+                message: normalized.message,
+                resetAt: null,
+                retryable: true,
+              },
+            ])
+          }
+          throw normalized
+        }
         if (normalized.kind === "canceled") {
           patchLastTurn(failRunningTools)
         } else if (
@@ -214,7 +238,9 @@ export function useMyraChat(userId: string): MyraChat {
       attachments: readonly ChatAttachment[] = []
     ) => {
       const text = message.trim()
-      if ((text === "" && attachments.length === 0) || isStreaming) return
+      if ((text === "" && attachments.length === 0) || isStreaming) {
+        return Promise.resolve()
+      }
       const at = Date.now()
       const label =
         text === ""
@@ -237,7 +263,7 @@ export function useMyraChat(userId: string): MyraChat {
           askedFrom: null,
         },
       ])
-      void run(
+      return run(
         {
           kind: "message",
           message: text,
@@ -251,7 +277,7 @@ export function useMyraChat(userId: string): MyraChat {
 
   const respond = useCallback(
     (toolCallIds: readonly string[], approved: boolean) => {
-      if (isStreaming || toolCallIds.length === 0) return
+      if (isStreaming || toolCallIds.length === 0) return Promise.resolve()
       setTurns((previous) =>
         previous.map((turn) => ({
           ...turn,
@@ -262,7 +288,7 @@ export function useMyraChat(userId: string): MyraChat {
           ),
         }))
       )
-      void run(
+      return run(
         {
           kind: "approval",
           approvals: toolCallIds.map((id) => ({
@@ -277,7 +303,7 @@ export function useMyraChat(userId: string): MyraChat {
   )
 
   const retry = useCallback(() => {
-    if (isStreaming || conversationId === null) return
+    if (isStreaming || conversationId === null) return Promise.resolve()
     setTurns((previous) => {
       const last = previous[previous.length - 1]
       if (last?.role === "assistant") {
@@ -297,7 +323,7 @@ export function useMyraChat(userId: string): MyraChat {
         },
       ]
     })
-    void run({ kind: "retry" }, 0)
+    return run({ kind: "retry" }, 0)
   }, [conversationId, isStreaming, run, setTurns])
 
   const stop = useCallback(() => {

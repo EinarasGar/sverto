@@ -139,6 +139,10 @@ struct RateLimitDetails {
 fn classify_error_response(status: u16, body: &str) -> ChatStreamEvent {
     let envelope: Option<ErrorEnvelope> = serde_json::from_str(body).ok();
 
+    if envelope.as_ref().and_then(|e| e.error_type.as_deref()) == Some("AiFeaturesDisabled") {
+        return ChatStreamEvent::AiFeaturesDisabled;
+    }
+
     let is_rate_limited = status == 429
         || envelope.as_ref().and_then(|e| e.error_type.as_deref()) == Some("RateLimited");
 
@@ -375,6 +379,15 @@ pub async fn subscribe_chat_sse(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn ai_features_disabled_response_becomes_dedicated_event() {
+        let body = r#"{"error_type":"AiFeaturesDisabled","message":"AI features are disabled for this account.","errors":[]}"#;
+        assert!(matches!(
+            classify_error_response(403, body),
+            ChatStreamEvent::AiFeaturesDisabled
+        ));
+    }
 
     #[test]
     fn parse_sse_block_keeps_leading_space_of_text_delta() {

@@ -122,7 +122,7 @@ impl TransactionGroupService {
         self.db.commit_transaction().await?;
 
         self.embedding_service
-            .enqueue_embed_group(group_id, description.clone())
+            .enqueue_embed_group(user_id, group_id, description.clone())
             .await?;
 
         // Fetch back full transactions
@@ -208,7 +208,7 @@ impl TransactionGroupService {
         self.db.commit_transaction().await?;
 
         self.embedding_service
-            .enqueue_embed_group(group_id, description)
+            .enqueue_embed_group(user_id, group_id, description)
             .await?;
 
         Ok((group_id, expected))
@@ -402,7 +402,7 @@ impl TransactionGroupService {
             });
         self.db.execute(update_group_query).await?;
         self.embedding_service
-            .enqueue_embed_group(group_id, description.clone())
+            .enqueue_embed_group(user_id, group_id, description.clone())
             .await?;
 
         // Collect all final transaction IDs and fetch back

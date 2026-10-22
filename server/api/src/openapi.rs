@@ -69,6 +69,7 @@ mod modifiers;
         super::handlers::user_handler::post_user,
         super::handlers::user_handler::post_base_asset,
         super::handlers::user_handler::post_onboarding,
+        super::handlers::user_handler::post_ai_features,
         super::handlers::user_handler::delete_user,
         super::handlers::user_asset_handler::get_asset_transactions,
         super::handlers::user_asset_handler::delete_asset,

@@ -1,6 +1,6 @@
 import { useEffect } from "react"
 
-import { getErrorMessage } from "@/lib/errors"
+import { getErrorMessage, isAiFeaturesDisabled } from "@/lib/errors"
 import { subscribeToApiErrors } from "@/lib/query"
 import { toast } from "@/components/ui/toast"
 
@@ -10,7 +10,7 @@ export function ApiErrorToaster() {
   useEffect(
     () =>
       subscribeToApiErrors(({ error, source, context }) => {
-        if (source !== "mutation") return
+        if (source !== "mutation" || isAiFeaturesDisabled(error)) return
         toast.add({
           type: "error",
           timeout: 0,

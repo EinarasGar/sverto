@@ -48,8 +48,11 @@ private struct TransactionsTab: View {
             .onChange(of: shell.pendingSharedImages, initial: true) { _, images in
                 guard !images.isEmpty else { return }
                 shell.pendingSharedImages = []
-                Task { await queueSharedImages(images) }
+                quickUploads.aiConsent.perform {
+                    Task { await queueSharedImages(images) }
+                }
             }
+            .aiConsentSheet(quickUploads.aiConsent)
             .onAppear { model.start() }
             .onDisappear { model.stop() }
     }
@@ -134,7 +137,7 @@ private struct NewTransactionEntryPoints: ViewModifier {
                         .labelStyle(.iconOnly)
                         .tint(.primary)
                         NewTransactionMenu(
-                            onAddReceiptPhoto: { isPhotoPickerPresented = true },
+                            onAddReceiptPhoto: { quickUploads.aiConsent.perform { isPhotoPickerPresented = true } },
                             onManualEntry: { isTypePickerPresented = true },
                             onNewGroup: { shell.push(.createTransactionGroup(quickUploadId: nil, fromSelection: false)) }
                         )

@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 
 import type { AuthSession } from "@/auth"
 import { AuthSessionContext } from "@/auth"
+import { seedAuthMe } from "@/auth/test-harness"
 
 import type { ShellWidth } from "@/components/layout/breakpoints"
 import type { LedgerDay, LedgerResult } from "@/features/transactions/api"
@@ -285,6 +286,39 @@ describe("RecentPanel", () => {
       document.querySelector('[data-slot="panel-note"]')?.textContent
     ).toBe("Newest5of412rows")
     expect(screen.queryByRole("button", { name: /more$/ })).toBeNull()
+  })
+
+  async function renderSignedIn(aiFeaturesEnabled: boolean) {
+    await renderInRouter(
+      <QueryClientProvider
+        client={seedAuthMe(
+          new QueryClient({ defaultOptions: { queries: { retry: false } } }),
+          { ai_features_enabled: aiFeaturesEnabled }
+        )}
+      >
+        <AuthSessionContext.Provider value={SESSION}>
+          <RecentPanel ledger={ledger()} />
+        </AuthSessionContext.Provider>
+      </QueryClientProvider>
+    )
+  }
+
+  it("opens the receipt uploader straight away when AI features are on", async () => {
+    await renderSignedIn(true)
+
+    fireEvent.click(screen.getByRole("button", { name: /Snap a receipt/ }))
+
+    expect(await screen.findByText("Drop a receipt here")).toBeVisible()
+    expect(screen.queryByRole("alertdialog")).toBeNull()
+  })
+
+  it("asks to turn AI features on before opening the receipt uploader", async () => {
+    await renderSignedIn(false)
+
+    fireEvent.click(screen.getByRole("button", { name: /Snap a receipt/ }))
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument()
+    expect(screen.queryByText("Drop a receipt here")).toBeNull()
   })
 })
 

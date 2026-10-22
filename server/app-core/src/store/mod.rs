@@ -1,6 +1,7 @@
 pub mod account_detail;
 pub mod accounts;
 pub mod ai_chat;
+pub mod ai_features;
 pub mod ai_usage;
 pub mod asset_detail;
 pub mod asset_overview;
@@ -211,6 +212,10 @@ impl AppStore {
     pub fn get_onboarding_version(&self) -> i32 {
         self.infra.onboarding_version().unwrap_or(0)
     }
+
+    pub fn get_ai_features_enabled(&self) -> bool {
+        self.infra.ai_features_enabled().unwrap_or(false)
+    }
     pub fn get_default_asset_id(&self) -> Option<i32> {
         self.infra.default_asset_id()
     }
@@ -390,6 +395,11 @@ impl AppStore {
     pub async fn set_onboarding_version(&self, version: i32) -> Result<(), ApiError> {
         let token = self.get_auth_token().await;
         onboarding::set_onboarding_version(&self.infra, version, token.as_deref()).await
+    }
+
+    pub async fn set_ai_features_enabled(&self, enabled: bool) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        ai_features::set_ai_features_enabled(&self.infra, enabled, token.as_deref()).await
     }
 
     pub async fn delete_user(&self) -> Result<(), ApiError> {

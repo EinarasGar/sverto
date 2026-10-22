@@ -6,6 +6,7 @@ pub enum UsersIden {
     Username,
     DefaultAsset,
     OnboardingVersion,
+    AiFeaturesEnabled,
 }
 
 pub enum UserRolesIden {
@@ -54,6 +55,7 @@ impl Iden for UsersIden {
             Self::Username => "username",
             Self::DefaultAsset => "default_asset",
             Self::OnboardingVersion => "onboarding_version",
+            Self::AiFeaturesEnabled => "ai_features_enabled",
         }
     }
 }

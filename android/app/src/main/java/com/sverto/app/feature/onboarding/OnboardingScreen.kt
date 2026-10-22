@@ -24,6 +24,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,6 +40,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
+import com.sverto.app.core.aifeatures.AiFeaturesCopy
 import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class, ExperimentalFoundationApi::class)
@@ -64,6 +66,16 @@ fun OnboardingScreen(
 
     LaunchedEffect(state.finished) {
         if (state.finished) currentOnComplete()
+    }
+
+    LaunchedEffect(viewModel, pagerState) {
+        viewModel.aiFeaturesSaved.collect {
+            if (pagerState.currentPage == steps.lastIndex) {
+                viewModel.finish()
+            } else {
+                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+            }
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {
@@ -102,32 +114,38 @@ fun OnboardingScreen(
                                 onQueryChange = viewModel::onQueryChange,
                                 onCurrencySelect = viewModel::selectCurrency,
                             )
+                        OnboardingStepId.AI_FEATURES -> AiFeaturesPage()
                         OnboardingStepId.NOTIFICATIONS -> NotificationsPage()
                     }
                 }
 
-                OnboardingNavBar(
-                    isFirstPage = pagerState.currentPage == 0,
-                    isLastPage = pagerState.currentPage == steps.size - 1,
-                    forwardEnabled =
-                        steps[pagerState.currentPage] != OnboardingStepId.BASE_CURRENCY ||
-                            state.selectedCurrency != null,
-                    onBack = {
-                        scope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage - 1)
-                        }
-                    },
-                    onNext = {
-                        scope.launch {
-                            pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                        }
-                    },
-                    onFinish = viewModel::finish,
-                )
+                val onBack: () -> Unit = {
+                    scope.launch {
+                        pagerState.animateScrollToPage(pagerState.currentPage - 1)
+                    }
+                }
+                if (steps[pagerState.currentPage] == OnboardingStepId.AI_FEATURES) {
+                    AiFeaturesChoiceBar(onChoose = viewModel::chooseAiFeatures)
+                } else {
+                    OnboardingNavBar(
+                        isFirstPage = pagerState.currentPage == 0,
+                        isLastPage = pagerState.currentPage == steps.size - 1,
+                        forwardEnabled =
+                            steps[pagerState.currentPage] != OnboardingStepId.BASE_CURRENCY ||
+                                state.selectedCurrency != null,
+                        onBack = onBack,
+                        onNext = {
+                            scope.launch {
+                                pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                            }
+                        },
+                        onFinish = viewModel::finish,
+                    )
+                }
             }
         }
 
-        if (state.isFinishing) {
+        if (state.isSaving) {
             Box(
                 modifier = Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.32f)),
                 contentAlignment = Alignment.Center,
@@ -215,6 +233,34 @@ private fun OnboardingNavBar(
             shapes = ButtonDefaults.shapes(shape = MaterialTheme.shapes.extraLarge),
         ) {
             Text(if (isLastPage) "Get started" else "Next")
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AiFeaturesChoiceBar(onChoose: (Boolean) -> Unit) {
+    Row(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .padding(top = 12.dp, bottom = 32.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        OutlinedButton(
+            onClick = { onChoose(false) },
+            modifier = Modifier.weight(1f).height(56.dp),
+            shapes = ButtonDefaults.shapes(shape = MaterialTheme.shapes.extraLarge),
+        ) {
+            Text(AiFeaturesCopy.ONBOARDING_DECLINE)
+        }
+        Button(
+            onClick = { onChoose(true) },
+            modifier = Modifier.weight(1f).height(56.dp),
+            shapes = ButtonDefaults.shapes(shape = MaterialTheme.shapes.extraLarge),
+        ) {
+            Text(AiFeaturesCopy.ENABLE)
         }
     }
 }

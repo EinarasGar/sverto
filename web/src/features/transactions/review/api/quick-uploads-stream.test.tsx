@@ -2,7 +2,8 @@ import { QueryClientProvider } from "@tanstack/react-query"
 import { renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { IdentifiableQuickUploadResponse } from "@/api"
+import type { AuthMe, IdentifiableQuickUploadResponse } from "@/api"
+import { authMeQueryKey } from "@/auth"
 import type { SseMessage } from "@/lib/sse"
 import { queryKeys } from "@/lib/query"
 
@@ -176,5 +177,39 @@ describe("useQuickUploadWatcher", () => {
     await waitFor(() => {
       expect(result.current.failures["q2"]).toBeUndefined()
     })
+  })
+
+  it("turns the cached AI features flag off when a receipt job reports them disabled", async () => {
+    listQuickUploads.mockResolvedValue({ data: [upload("processing", "q3")] })
+    openSseStream.mockImplementation(() => new Promise(() => {}))
+
+    const queryClient = createTestQueryClient()
+    const { result } = renderHook(() => useQuickUploadWatcher(TEST_USER_ID), {
+      wrapper: ({ children }) => (
+        <QueryClientProvider client={queryClient}>
+          {children}
+        </QueryClientProvider>
+      ),
+    })
+
+    await waitFor(() => {
+      expect(openSseStream).toHaveBeenCalledTimes(1)
+    })
+
+    emitterFor("q3")(
+      message("error", {
+        kind: "ai_features_disabled",
+        message: "AI features are turned off. Enable them to use this feature.",
+      })
+    )
+
+    await waitFor(() => {
+      expect(result.current.failures["q3"]).toBe(
+        "AI features are turned off. Enable them to use this feature."
+      )
+    })
+    expect(
+      queryClient.getQueryData<AuthMe>(authMeQueryKey)?.ai_features_enabled
+    ).toBe(false)
   })
 })

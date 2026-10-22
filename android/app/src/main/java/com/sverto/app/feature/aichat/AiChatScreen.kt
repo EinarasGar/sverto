@@ -29,12 +29,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.core.content.FileProvider
+import com.sverto.app.core.aifeatures.AiFeaturesGate
 import uniffi.sverto_core.MessagePart
 import java.io.File
 
 @Composable
 fun AiChatScreen(
     viewModel: AiChatViewModel,
+    aiFeaturesGate: AiFeaturesGate,
     modifier: Modifier = Modifier,
 ) {
     val context = LocalContext.current
@@ -95,6 +97,13 @@ fun AiChatScreen(
         }
     }
 
+    LaunchedEffect(state.blockedByAiFeatures) {
+        state.blockedByAiFeatures?.let { request ->
+            viewModel.clearBlockedByAiFeatures()
+            aiFeaturesGate.promptToEnable { viewModel.retry(request, contentResolver) }
+        }
+    }
+
     // Re-fire on the last message's text length too: streaming deltas mutate the last message in
     // place, so the list size alone won't keep a long growing reply pinned to the bottom.
     val lastMessageLength =
@@ -118,8 +127,10 @@ fun AiChatScreen(
             SuggestionChips(
                 onSuggestion = { suggestion ->
                     // Fill the prompt and send it right away (conversation is created on send).
-                    viewModel.setInputText(suggestion)
-                    viewModel.sendMessage(contentResolver)
+                    aiFeaturesGate.runWhenEnabled {
+                        viewModel.setInputText(suggestion)
+                        viewModel.sendMessage(contentResolver)
+                    }
                 },
                 modifier = Modifier.fillMaxSize(),
             )
@@ -169,8 +180,8 @@ fun AiChatScreen(
                             ToolApprovalCard(
                                 toolName = pendingTool.name,
                                 params = pendingTool.params,
-                                onApprove = { viewModel.approveTool(true) },
-                                onDeny = { viewModel.approveTool(false) },
+                                onApprove = { aiFeaturesGate.runWhenEnabled { viewModel.approveTool(true) } },
+                                onDeny = { aiFeaturesGate.runWhenEnabled { viewModel.approveTool(false) } },
                             )
                         }
                     }
@@ -206,7 +217,7 @@ fun AiChatScreen(
                 text = state.inputText,
                 onTextChange = { viewModel.setInputText(it) },
                 isStreaming = state.isStreaming,
-                onSend = { viewModel.sendMessage(contentResolver) },
+                onSend = { aiFeaturesGate.runWhenEnabled { viewModel.sendMessage(contentResolver) } },
                 onStop = { viewModel.cancelStream() },
                 onAddAttachment = { showAttachmentSheet = true },
                 hasAttachments = state.selectedFileUris.isNotEmpty(),

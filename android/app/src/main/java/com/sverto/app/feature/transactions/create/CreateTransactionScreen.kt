@@ -68,6 +68,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.ai.SuggestionState
+import com.sverto.app.core.aifeatures.AiFeaturesGate
 import com.sverto.app.feature.transactions.NewTransactionSheet
 import com.sverto.app.feature.transactions.group.GroupTransactionItem
 import uniffi.sverto_core.TransactionListItem
@@ -102,6 +103,7 @@ fun CreateTransactionScreen(
     typeKey: String,
     onDiscard: () -> Unit,
     onSuccess: (TransactionListItem?) -> Unit,
+    aiFeaturesGate: AiFeaturesGate,
     modifier: Modifier = Modifier,
     editTransactionId: String? = null,
     isGroupMode: Boolean = false,
@@ -155,6 +157,14 @@ fun CreateTransactionScreen(
         correctionTypeChange?.let { onCorrectionTypeChanged?.invoke(it) }
     }
 
+    val correctionBlockedByAiFeatures by viewModel.correctionBlockedByAiFeatures.collectAsStateWithLifecycle()
+    LaunchedEffect(correctionBlockedByAiFeatures) {
+        correctionBlockedByAiFeatures?.let { message ->
+            viewModel.clearCorrectionBlockedByAiFeatures()
+            aiFeaturesGate.promptToEnable { viewModel.sendCorrection(message) }
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         SharedTransitionLayout(modifier = Modifier.fillMaxSize()) {
             val sharedScope = this
@@ -177,6 +187,7 @@ fun CreateTransactionScreen(
                             isGroupMode = isGroupMode,
                             quickUploadId = qUploadId ?: quickUploadId,
                             correctionState = correctionState,
+                            aiFeaturesGate = aiFeaturesGate,
                             snackbarHostState = snackbarHostState,
                             sharedScope = sharedScope,
                             animatedVisibilityScope = avScope,
@@ -318,6 +329,7 @@ private fun CreateTransactionForm(
     isGroupMode: Boolean,
     quickUploadId: String?,
     correctionState: CorrectionState,
+    aiFeaturesGate: AiFeaturesGate,
     snackbarHostState: SnackbarHostState,
     sharedScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
@@ -428,6 +440,7 @@ private fun CreateTransactionForm(
                 Spacer(Modifier.height(16.dp))
                 CorrectionInput(
                     state = correctionState,
+                    aiFeaturesGate = aiFeaturesGate,
                     onSend = onSendCorrection,
                 )
             }

@@ -211,6 +211,7 @@ final class SessionCoordinator {
         case .Timeout: return ServerCopy.signInTimeout
         case .Parse: return ServerCopy.signInParse
         case .MissingLocalCredential: return ServerCopy.signInMissingCredential
+        case .AiFeaturesDisabled: return ServerCopy.signInServerFailure
         }
     }
 

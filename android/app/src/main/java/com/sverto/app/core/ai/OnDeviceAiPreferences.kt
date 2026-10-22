@@ -7,11 +7,12 @@ import androidx.datastore.preferences.core.edit
 import kotlinx.coroutines.flow.first
 import java.io.File
 
-class CategorySuggestionPreferences(
+class OnDeviceAiPreferences(
     context: Context,
 ) {
     private val dataStore =
         PreferenceDataStoreFactory.create {
+            // Legacy name from when this only gated category suggestions; renaming it would reset existing users' choice.
             File(context.noBackupFilesDir, "category_suggestions.preferences_pb")
         }
     private val enabledKey = booleanPreferencesKey("enabled")

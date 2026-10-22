@@ -14,6 +14,7 @@ import { render, screen } from "@testing-library/react"
 import { FigureBaseCurrencyProvider } from "@/components/figure"
 
 import { AuthSessionContext, type AuthSession } from "@/auth"
+import { seedAuthMe } from "@/auth/test-harness"
 
 export const TEST_USER_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -51,13 +52,16 @@ function ensureResizeObserver(): void {
   } as unknown as typeof ResizeObserver
 }
 
-export function createTestQueryClient(): QueryClient {
-  return new QueryClient({
+export function createTestQueryClient({
+  aiFeaturesEnabled = true,
+}: { aiFeaturesEnabled?: boolean } = {}): QueryClient {
+  const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, staleTime: Infinity, gcTime: Infinity },
       mutations: { retry: false },
     },
   })
+  return seedAuthMe(queryClient, { ai_features_enabled: aiFeaturesEnabled })
 }
 
 export function sseResponse(frames: readonly string[]): Response {

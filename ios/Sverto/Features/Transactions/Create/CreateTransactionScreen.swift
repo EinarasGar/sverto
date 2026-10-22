@@ -82,9 +82,7 @@ private struct CreateTransactionForm: View {
                             DualEntrySections(mode: mode, model: model, presentation: presentation, focus: $focusedField)
                         }
                         if correctionUploadId != nil {
-                            CorrectionInput(state: model.correction.state, focus: $focusedField) { message in
-                                Task { await model.sendCorrection(message) }
-                            }
+                            CorrectionInput(state: model.correction.state, focus: $focusedField, onSend: model.sendCorrection)
                         }
                     }
                     .disabled(!model.canEdit)
@@ -194,6 +192,7 @@ private struct CreateTransactionForm: View {
                     onSelectType: { model.changeType($0) }
                 )
             }
+            .aiConsentSheet(model.correction.aiConsent)
         }
     }
 

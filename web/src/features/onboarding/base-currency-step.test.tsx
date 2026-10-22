@@ -28,6 +28,7 @@ async function mount(
   await renderInShell(
     <Suspense fallback={<p>loading</p>}>
       <BaseCurrencyStep
+        eyebrow="Step 2 of 4"
         onConfirm={onConfirm}
         isSubmitting={props.isSubmitting ?? false}
       />

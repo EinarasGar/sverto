@@ -70,9 +70,7 @@ private struct GroupFormView: View {
                         }
                         transactionsSection
                         if effectiveQuickUploadId != nil {
-                            CorrectionInput(state: model.correction.state, focus: $focusedField) { message in
-                                Task { await model.sendCorrection(message) }
-                            }
+                            CorrectionInput(state: model.correction.state, focus: $focusedField, onSend: model.sendCorrection)
                         }
                     }
                     .disabled(!model.canEdit)
@@ -161,6 +159,7 @@ private struct GroupFormView: View {
                 shell.push(.createTransaction(typeKey: TransactionTypeCatalog.regular.key, quickUploadId: change.quickUploadId))
             }
             .sensoryFeedback(.success, trigger: model.submitState == .success)
+            .aiConsentSheet(model.correction.aiConsent)
         }
     }
 

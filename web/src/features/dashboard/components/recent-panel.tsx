@@ -43,6 +43,7 @@ import {
   isGroupRow,
   nativeFigureProps,
 } from "@/features/transactions/api"
+import { useAiFeaturesGate } from "@/features/ai-features"
 import { TransactionPanel } from "@/features/transactions/drawer"
 import { DAY_NET_FIGURE_LIMIT } from "@/features/transactions/explore/presentation"
 import { ReceiptUploadDialog, SNAP_A_RECEIPT } from "@/features/uploads"
@@ -425,21 +426,28 @@ export function RecentPanel({ ledger }: { ledger: LedgerResult }) {
   const [showAllLoaded, setShowAllLoaded] = useState(false)
   const [openRow, setOpenRow] = useState<LedgerTransactionRow | null>(null)
   const [isSnapping, setIsSnapping] = useState(false)
+  const { runWithAiConsent, dialog: aiFeaturesDialog } =
+    useAiFeaturesGate(userId)
 
   const snapReceipt = useCallback(() => {
-    setIsSnapping(true)
-  }, [])
+    runWithAiConsent(() => {
+      setIsSnapping(true)
+    })
+  }, [runWithAiConsent])
 
   const receiptDialog = (
-    <ReceiptUploadDialog
-      userId={userId}
-      open={isSnapping}
-      onOpenChange={setIsSnapping}
-      onReviewDrafts={() => {
-        setIsSnapping(false)
-        void navigate({ to: "/transactions", search: { mode: "review" } })
-      }}
-    />
+    <>
+      <ReceiptUploadDialog
+        userId={userId}
+        open={isSnapping}
+        onOpenChange={setIsSnapping}
+        onReviewDrafts={() => {
+          setIsSnapping(false)
+          void navigate({ to: "/transactions", search: { mode: "review" } })
+        }}
+      />
+      {aiFeaturesDialog}
+    </>
   )
 
   const open = useCallback(

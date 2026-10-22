@@ -12,6 +12,7 @@ pub struct UserFullDto {
     pub default_asset_id: Option<i32>,
     pub default_ticker: Option<String>,
     pub onboarding_version: i32,
+    pub ai_features_enabled: bool,
 }
 
 impl From<UserFullModel> for UserFullDto {
@@ -27,6 +28,7 @@ impl From<UserFullModel> for UserFullDto {
             default_asset_id: p.default_asset,
             default_ticker: p.default_ticker,
             onboarding_version: p.onboarding_version,
+            ai_features_enabled: p.ai_features_enabled,
         }
     }
 }

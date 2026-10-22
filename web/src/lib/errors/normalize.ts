@@ -78,6 +78,10 @@ export function isRetryableError(error: NormalizedError): boolean {
   return false
 }
 
+export function isAiFeaturesDisabled(error: NormalizedError): boolean {
+  return error.errorType === "AiFeaturesDisabled"
+}
+
 export function getErrorMessage(error: unknown): string {
   const normalized = isNormalizedError(error) ? error : normalizeError(error)
   return normalized.message
@@ -229,6 +233,12 @@ function fromEnvelope(
         message: FALLBACK_MESSAGES.forbidden,
         ...base,
       }
+    case "AiFeaturesDisabled":
+      return {
+        kind: "forbidden",
+        message: serverMessage ?? FALLBACK_MESSAGES.forbidden,
+        ...base,
+      }
     case "Conflict":
       return {
         kind: "conflict",
@@ -301,6 +311,13 @@ function fromAiErrorDetails(details: AiErrorDetails): NormalizedError {
         kind: "serverError",
         message: details.message,
         transient: false,
+        detail: details.kind,
+      }
+    case "ai_features_disabled":
+      return {
+        kind: "forbidden",
+        message: details.message,
+        errorType: "AiFeaturesDisabled",
         detail: details.kind,
       }
   }

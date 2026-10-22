@@ -21,7 +21,7 @@ struct QuickUploadsSection: View {
                         QuickUploadCard(
                             item: item,
                             onTap: { onItemTap(item) },
-                            onRetry: { Task { await viewModel.retry(id: item.id) } },
+                            onRetry: { viewModel.retry(id: item.id) },
                             onDismiss: {
                                 pendingDismissal = item
                                 showsDismissConfirmation = true

@@ -79,6 +79,9 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.navigation.navDeepLink
 import com.sverto.app.core.SvertoViewModelFactory
+import com.sverto.app.core.aifeatures.AiFeaturesConsentDialog
+import com.sverto.app.core.aifeatures.AiFeaturesGate
+import com.sverto.app.core.aifeatures.rememberAiFeaturesGate
 import com.sverto.app.core.components.ProfileAvatarButton
 import com.sverto.app.core.navigation.TopLevelRoute
 import com.sverto.app.core.ui.OfflineBanner
@@ -229,6 +232,18 @@ fun MainScreen(
         currentRoute == TopLevelRoute.Transactions.route && selectedTransactionIds.isNotEmpty()
 
     val appStore = remember { (context.applicationContext as SvertoApp).appStore }
+    val aiFeaturesGate = rememberAiFeaturesGate(appStore)
+    val quickUploadsHeldByAiFeatures =
+        quickUploadViewModel
+            ?.heldByAiFeatures
+            ?.collectAsStateWithLifecycle()
+            ?.value == true
+    LaunchedEffect(quickUploadsHeldByAiFeatures) {
+        if (quickUploadsHeldByAiFeatures) {
+            quickUploadViewModel.clearHeldByAiFeatures()
+            aiFeaturesGate.promptToEnable { quickUploadViewModel.refresh() }
+        }
+    }
     val appUpdates = remember { (context.applicationContext as SvertoApp).appUpdates }
     val updatePresentation = appUpdates.presentation.collectAsStateWithLifecycle()
     val showUpdateBadge by remember { derivedStateOf { updatePresentation.value.showBadge } }
@@ -275,7 +290,9 @@ fun MainScreen(
                 launchSingleTop = true
                 restoreState = true
             }
-            scope.launch { uris.forEach { prepareAndQueue(it) } }
+            aiFeaturesGate.runWhenEnabled {
+                scope.launch { uris.forEach { prepareAndQueue(it) } }
+            }
         }
     }
 
@@ -466,7 +483,13 @@ fun MainScreen(
                     sharedScope = sharedScope,
                     transactionsViewModel = transactionsViewModel,
                     quickUploadItems = quickUploadItems,
-                    photoPickerLauncher = photoPickerLauncher,
+                    onQuickUpload = {
+                        aiFeaturesGate.runWhenEnabled {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                            )
+                        }
+                    },
                     onQuickUploadItemClick = { item ->
                         val route =
                             if (item.proposalType == "transaction_group") {
@@ -476,7 +499,7 @@ fun MainScreen(
                             }
                         navController.navigate(route)
                     },
-                    onQuickUploadRetry = { quickUploadViewModel?.retry(it) },
+                    onQuickUploadRetry = { id -> aiFeaturesGate.runWhenEnabled { quickUploadViewModel?.retry(id) } },
                     onQuickUploadDismiss = { quickUploadViewModel?.dismiss(it) },
                     onRefreshQuickUploads = { quickUploadViewModel?.refresh() },
                     onProposalCompleted = { quickUploadViewModel?.onProposalCompleted(it) },
@@ -486,12 +509,15 @@ fun MainScreen(
                     pendingGroupSelection = pendingGroupSelection,
                     onNavigateToDetail = ::navigateToDetail,
                     aiChatViewModel = aiChatViewModel,
+                    aiFeaturesGate = aiFeaturesGate,
                     onEdit = { id -> navController.navigate("editAccount/$id") },
                     sessionViewModel = sessionViewModel,
                 )
             }
         }
     } // ModalNavigationDrawer
+
+    AiFeaturesConsentDialog(gate = aiFeaturesGate)
 }
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class, ExperimentalSharedTransitionApi::class)
@@ -510,7 +536,7 @@ private fun MainNavGraph(
     sharedScope: SharedTransitionScope,
     transactionsViewModel: TransactionsViewModel?,
     quickUploadItems: List<QuickUploadUiItem>,
-    photoPickerLauncher: androidx.activity.result.ActivityResultLauncher<PickVisualMediaRequest>,
+    onQuickUpload: () -> Unit,
     onQuickUploadItemClick: (QuickUploadUiItem) -> Unit,
     onQuickUploadRetry: (String) -> Unit,
     onQuickUploadDismiss: (String) -> Unit,
@@ -522,6 +548,7 @@ private fun MainNavGraph(
     pendingGroupSelection: MutableState<List<String>>,
     onNavigateToDetail: (TransactionListItem, Boolean) -> Unit,
     aiChatViewModel: AiChatViewModel?,
+    aiFeaturesGate: AiFeaturesGate,
     onEdit: (String) -> Unit,
     sessionViewModel: AppSessionViewModel?,
 ) {
@@ -564,9 +591,7 @@ private fun MainNavGraph(
                     pendingGroupSelection.value = ids
                     navController.navigate("createTransactionGroup?fromSelection=true")
                 },
-                onQuickUpload = {
-                    photoPickerLauncher.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
-                },
+                onQuickUpload = onQuickUpload,
                 quickUploadItems = quickUploadItems,
                 onQuickUploadItemClick = onQuickUploadItemClick,
                 onQuickUploadRetry = onQuickUploadRetry,
@@ -596,6 +621,7 @@ private fun MainNavGraph(
             val viewModel = aiChatViewModel ?: return@composable
             AiChatScreen(
                 viewModel = viewModel,
+                aiFeaturesGate = aiFeaturesGate,
                 modifier =
                     Modifier
                         .fillMaxSize()
@@ -685,6 +711,7 @@ private fun MainNavGraph(
                 typeKey = typeKey,
                 quickUploadId = quickUploadId,
                 onDiscard = { navController.popBackStack() },
+                aiFeaturesGate = aiFeaturesGate,
                 onSuccess = { _ ->
                     transactionsViewModel?.refresh()
                     if (quickUploadId != null) {
@@ -718,6 +745,7 @@ private fun MainNavGraph(
                 typeKey = typeKey,
                 editTransactionId = txId,
                 onDiscard = { navController.popBackStack() },
+                aiFeaturesGate = aiFeaturesGate,
                 onSuccess = { updatedTransaction ->
                     updatedTransaction?.let { updated ->
                         val existingState = transactionCache[txId]
@@ -785,6 +813,7 @@ private fun MainNavGraph(
                 quickUploadId = quickUploadId,
                 fromSelection = fromSelection,
                 onDiscard = { navController.popBackStack() },
+                aiFeaturesGate = aiFeaturesGate,
                 onSuccess = {
                     transactionsViewModel?.clearSelection()
                     transactionsViewModel?.refresh()
@@ -839,6 +868,7 @@ private fun MainNavGraph(
                 editGroupId = groupId,
                 editGroup = group,
                 onDiscard = { navController.popBackStack() },
+                aiFeaturesGate = aiFeaturesGate,
                 onSuccess = {
                     transactionCache.remove(groupId)
                     transactionsViewModel?.refresh()
@@ -863,6 +893,7 @@ private fun MainNavGraph(
                 typeKey = typeKey,
                 isGroupMode = true,
                 onDiscard = { navController.popBackStack() },
+                aiFeaturesGate = aiFeaturesGate,
                 onSuccess = { navController.popBackStack() },
                 onGroupTransactionReady = { item ->
                     pendingGroupTransaction.value = item
@@ -910,6 +941,7 @@ private fun MainNavGraph(
                     isGroupMode = true,
                     editTransactionId = item.input.transactionId,
                     onDiscard = { navController.popBackStack() },
+                    aiFeaturesGate = aiFeaturesGate,
                     onSuccess = { navController.popBackStack() },
                     viewModel = vm,
                     onGroupTransactionReady = { pendingGroupTransaction.value = it },
@@ -1057,6 +1089,7 @@ private fun MainNavGraph(
                 onCustomCategories = { navController.navigate("customCategories") },
                 onCustomAssets = { navController.navigate("customAssets") },
                 onConnectors = { navController.navigate(CONNECTORS_ROUTE) },
+                aiFeaturesGate = aiFeaturesGate,
                 sessionViewModel = sessionViewModel,
             )
         }

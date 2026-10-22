@@ -66,7 +66,7 @@ import com.clerk.api.Clerk
 import com.sverto.app.BuildConfig
 import com.sverto.app.SvertoApp
 import com.sverto.app.core.SvertoViewModelFactory
-import com.sverto.app.core.ai.CategorySuggestionConsent
+import com.sverto.app.core.aifeatures.AiFeaturesGate
 import com.sverto.app.core.components.AppUpdateBanner
 import com.sverto.app.core.components.UpdateBannerPlacement
 import com.sverto.app.core.icons.LucideIcon
@@ -100,6 +100,7 @@ fun SettingsScreen(
     onCustomAssets: () -> Unit,
     onCustomCategories: () -> Unit,
     onConnectors: () -> Unit,
+    aiFeaturesGate: AiFeaturesGate,
     modifier: Modifier = Modifier,
     aiUsageViewModel: AiUsageViewModel = viewModel(factory = SvertoViewModelFactory),
     sessionViewModel: AppSessionViewModel? = null,
@@ -109,13 +110,11 @@ fun SettingsScreen(
     val app = remember { context.applicationContext as SvertoApp }
     val appStore = app.appStore
     val categorySuggester = app.categorySuggester
-    val categorySuggestionSettings by categorySuggester.settings.collectAsStateWithLifecycle()
     val scope = rememberCoroutineScope()
     var showCurrencyPicker by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf(false) }
     var deleteError by remember { mutableStateOf<String?>(null) }
-    var showCategorySuggestionSettings by remember { mutableStateOf(false) }
     var showServerSettings by remember { mutableStateOf(false) }
     var baseCurrencyId by remember { mutableStateOf(appStore.getCachedMe()?.defaultAsset?.id) }
     var baseCurrencyTicker by remember { mutableStateOf<String?>(null) }
@@ -206,17 +205,6 @@ fun SettingsScreen(
                     onClick = onCustomCategories,
                 )
                 SettingsRow(
-                    icon = "sparkles",
-                    label = "Category suggestions",
-                    supporting =
-                        when (categorySuggestionSettings.consent) {
-                            CategorySuggestionConsent.LOADING -> "Loading preference…"
-                            CategorySuggestionConsent.DISABLED -> "Off · On this device"
-                            CategorySuggestionConsent.ENABLED -> "On · Google ML Kit"
-                        },
-                    onClick = { showCategorySuggestionSettings = true },
-                )
-                SettingsRow(
                     icon = "coins",
                     label = "Custom Assets",
                     onClick = onCustomAssets,
@@ -257,7 +245,7 @@ fun SettingsScreen(
                         },
                     )
                 }
-                AiUsageSection(state = aiUsageState)
+                AiSettingsSection(aiFeaturesGate, appStore, categorySuggester) { AiUsageSection(state = aiUsageState) }
                 if (authMode != AuthMode.NOAUTH) {
                     DeleteAccountRow(
                         enabled = !deleting,
@@ -317,12 +305,6 @@ fun SettingsScreen(
                 },
                 onDismissServer = { showServerSettings = false },
             )
-            if (showCategorySuggestionSettings) {
-                CategorySuggestionSettingsDialog(
-                    categorySuggester = categorySuggester,
-                    onDismiss = { showCategorySuggestionSettings = false },
-                )
-            }
         }
     }
 }

@@ -4,8 +4,8 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sverto.app.core.ai.CategorySuggester
-import com.sverto.app.core.ai.CategorySuggestionConsent
 import com.sverto.app.core.ai.CategorySuggestionController
+import com.sverto.app.core.ai.OnDeviceAiConsent
 import com.sverto.app.core.ai.SuggestionState
 import com.sverto.app.feature.transactions.group.GroupTransactionItem
 import com.sverto.app.feature.transactions.quickupload.proposalToFormState
@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.sverto_core.AccountItem
+import uniffi.sverto_core.ApiException
 import uniffi.sverto_core.AppStore
 import uniffi.sverto_core.AssetItem
 import uniffi.sverto_core.CategoryItem
@@ -101,6 +102,9 @@ class CreateTransactionViewModel(
     private val _correctionTypeChange = MutableStateFlow<CorrectionTypeChange?>(null)
     val correctionTypeChange: StateFlow<CorrectionTypeChange?> = _correctionTypeChange.asStateFlow()
 
+    private val _correctionBlockedByAiFeatures = MutableStateFlow<String?>(null)
+    val correctionBlockedByAiFeatures: StateFlow<String?> = _correctionBlockedByAiFeatures.asStateFlow()
+
     private var assetSearchJob: Job? = null
     private var categorySearchJob: Job? = null
 
@@ -118,7 +122,7 @@ class CreateTransactionViewModel(
                 .map { it.consent }
                 .distinctUntilChanged()
                 .collect { consent ->
-                    if (consent == CategorySuggestionConsent.ENABLED) {
+                    if (consent == OnDeviceAiConsent.ENABLED) {
                         categorySuggester.prefetch(viewModelScope)
                     } else {
                         suggestionController.reset()
@@ -137,7 +141,7 @@ class CreateTransactionViewModel(
     fun onDescriptionCommitted() {
         viewModelScope.launch {
             val consent = categorySuggester.settings.value
-            if (consent.consent != CategorySuggestionConsent.ENABLED) return@launch
+            if (consent.consent != OnDeviceAiConsent.ENABLED) return@launch
             val committed = _formState.value.description
             val suggested = withContext(Dispatchers.IO) { suggestionController.suggestFor(committed) } ?: return@launch
             if (categorySuggester.settings.value !== consent) return@launch
@@ -162,7 +166,7 @@ class CreateTransactionViewModel(
     }
 
     fun applySuggestion() {
-        if (categorySuggester.settings.value.consent != CategorySuggestionConsent.ENABLED) return
+        if (categorySuggester.settings.value.consent != OnDeviceAiConsent.ENABLED) return
         val category = suggestionController.takeSuggestion() ?: return
         _formState.update { state ->
             state.copy(
@@ -325,6 +329,9 @@ class CreateTransactionViewModel(
                 _correctionState.value = CorrectionState.UPDATED
                 delay(2000)
                 _correctionState.value = CorrectionState.IDLE
+            } catch (ignored: ApiException.AiFeaturesDisabled) {
+                _correctionState.value = CorrectionState.IDLE
+                _correctionBlockedByAiFeatures.value = message
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
@@ -332,6 +339,10 @@ class CreateTransactionViewModel(
                 _correctionState.value = CorrectionState.IDLE
             }
         }
+    }
+
+    fun clearCorrectionBlockedByAiFeatures() {
+        _correctionBlockedByAiFeatures.value = null
     }
 
     private fun resetUiState() {

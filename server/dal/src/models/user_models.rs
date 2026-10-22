@@ -23,6 +23,7 @@ pub struct UserFullModel {
     pub default_asset: Option<i32>,
     pub default_ticker: Option<String>,
     pub onboarding_version: i32,
+    pub ai_features_enabled: bool,
 }
 
 #[derive(Debug, sqlx::FromRow)]
@@ -30,6 +31,7 @@ pub struct UserBasicModel {
     pub id: Uuid,
     pub username: String,
     pub default_asset: Option<i32>,
+    pub ai_features_enabled: bool,
 }
 #[derive(Debug, sqlx::FromRow)]
 pub struct UserOnboardingModel {
@@ -38,6 +40,7 @@ pub struct UserOnboardingModel {
     pub default_asset: Option<i32>,
     pub default_ticker: Option<String>,
     pub onboarding_version: i32,
+    pub ai_features_enabled: bool,
 }
 
 #[derive(Debug, sqlx::FromRow)]

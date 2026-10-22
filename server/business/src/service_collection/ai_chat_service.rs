@@ -9,6 +9,7 @@ use crate::rate_limiting::rate_limiter::RateLimiter;
 use crate::service_collection::ai_action_service::AiActionService;
 use crate::service_collection::ai_conversation_service::AiConversationService;
 use crate::service_collection::ai_data_service::AiDataService;
+use crate::service_collection::user_service::UsersService;
 use futures::{Stream, StreamExt};
 use uuid::Uuid;
 
@@ -33,6 +34,9 @@ impl AiChatService {
         turn: ChatTurnDto,
     ) -> Result<impl Stream<Item = ChatStreamEventDto>, AiChatError> {
         let providers = self.services.create_providers();
+        UsersService::new(&providers)
+            .ensure_ai_features_enabled(user_id)
+            .await?;
         let conv_agent =
             Arc::new(UserConversationProvider::open(&providers, user_id, conversation_id).await?);
 

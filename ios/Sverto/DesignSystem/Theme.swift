@@ -24,4 +24,5 @@ enum Layout {
     nonisolated static let rowSpacing: CGFloat = 12
     nonisolated static let rowGlyphSize: CGFloat = 40
     nonisolated static let iconTileOpacity: Double = 0.14
+    nonisolated static let readableWidth: CGFloat = 560
 }

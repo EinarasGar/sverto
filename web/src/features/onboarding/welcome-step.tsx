@@ -1,5 +1,4 @@
 import {
-  STEP_LABEL,
   WELCOME_INTRO,
   WELCOME_NAV_NOTE,
   WELCOME_NEXT,
@@ -8,12 +7,17 @@ import {
 } from "./copy"
 import { PathNote } from "./path-card"
 import { StepFrame, StepNav } from "./step-layout"
-import { ONBOARDING_STEPS, stepIndex } from "./steps"
 
-export function WelcomeStep({ onContinue }: { onContinue: () => void }) {
+export function WelcomeStep({
+  eyebrow,
+  onContinue,
+}: {
+  eyebrow: string
+  onContinue: () => void
+}) {
   return (
     <StepFrame
-      eyebrow={STEP_LABEL(stepIndex("welcome"), ONBOARDING_STEPS.length)}
+      eyebrow={eyebrow}
       title={WELCOME_TITLE}
       intro={WELCOME_INTRO}
       onSubmit={(event) => {

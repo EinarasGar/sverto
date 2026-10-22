@@ -10,6 +10,7 @@ import { EmptyState } from "@/components/states/empty-state"
 import { ConfirmState } from "@/components/states/message-state"
 import { Panel, PanelFootnote } from "@/components/primitives"
 import { Button } from "@/components/ui/button"
+import { useAiFeaturesGate } from "@/features/ai-features"
 import { ReceiptUploadDialog, SNAP_A_RECEIPT } from "@/features/uploads"
 
 import type { LedgerTransactionRow, VisibilitySubject } from "../api"
@@ -68,6 +69,8 @@ export function ReviewScreen({
   const navigate = useNavigate()
   const queue = useReviewItems(userId)
   const [localUploadOpen, setLocalUploadOpen] = useState(false)
+  const { runWithAiConsent, dialog: aiFeaturesDialog } =
+    useAiFeaturesGate(userId)
   const cursor = useReviewCursor(queue.view.items)
   const [armedForDiscard, setArmedForDiscard] = useState(false)
   const [drawerRow, setDrawerRow] = useState<LedgerTransactionRow | null>(null)
@@ -189,8 +192,10 @@ export function ReviewScreen({
     [onUploadOpenChange]
   )
   const openUpload = useCallback(() => {
-    setUploadOpen(true)
-  }, [setUploadOpen])
+    runWithAiConsent(() => {
+      setUploadOpen(true)
+    })
+  }, [runWithAiConsent, setUploadOpen])
 
   const snapAction = {
     label: SNAP_A_RECEIPT,
@@ -245,6 +250,7 @@ export function ReviewScreen({
     <>
       {panel}
       {uploadDialog}
+      {aiFeaturesDialog}
     </>
   )
 

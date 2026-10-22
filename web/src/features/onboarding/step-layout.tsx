@@ -45,11 +45,13 @@ export function StepNav({
   onBack,
   nextLabel,
   nextDisabled = false,
+  secondary,
   note,
 }: {
   onBack?: () => void
   nextLabel: ReactNode
   nextDisabled?: boolean
+  secondary?: ReactNode
   note?: ReactNode
 }) {
   const showKeyHint = useHasKeyboardAffordances()
@@ -75,6 +77,7 @@ export function StepNav({
           </span>
         ) : null}
       </Button>
+      {secondary}
       {note ? (
         <span className="ms-auto text-[11.5px] leading-none text-ink-3">
           {note}

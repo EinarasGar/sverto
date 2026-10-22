@@ -6,6 +6,7 @@ import type { UserId } from "@/lib/query"
 import { KEYBOARD_ONLY } from "@/components/layout/breakpoints"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
+import type { RunWithAiConsent } from "@/features/ai-features"
 import type { UploadItem } from "@/features/uploads"
 import {
   ATTACH_FILE_INPUT_LABEL,
@@ -36,6 +37,7 @@ export function Composer({
   streaming,
   draft,
   onDraftChange,
+  runWithAiConsent,
   onSend,
   onStop,
 }: {
@@ -43,7 +45,11 @@ export function Composer({
   streaming: boolean
   draft: string
   onDraftChange: (value: string) => void
-  onSend: (message: string, attachments: readonly ChatAttachment[]) => void
+  runWithAiConsent: RunWithAiConsent
+  onSend: (
+    message: string,
+    attachments: readonly ChatAttachment[]
+  ) => Promise<void> | void
   onStop: () => void
 }) {
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -69,9 +75,13 @@ export function Composer({
 
   const submit = () => {
     if (!canSend) return
-    onSend(draft.trim(), attachments)
-    onDraftChange("")
-    queue.clearSettled()
+    const message = draft.trim()
+    runWithAiConsent(() => {
+      const sent = onSend(message, attachments)
+      onDraftChange("")
+      queue.clearSettled()
+      return sent
+    })
   }
 
   return (

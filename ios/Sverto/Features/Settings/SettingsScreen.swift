@@ -13,6 +13,7 @@ struct SettingsScreen: View {
 private struct SettingsList: View {
     @State private var model: SettingsViewModel
     @State private var aiUsage: AiUsageViewModel
+    @State private var aiFeatures: AiFeaturesViewModel
     @State private var isCurrencyPickerPresented = false
     @State private var isServerSheetPresented = false
     @State private var isExportsPresented = false
@@ -28,6 +29,7 @@ private struct SettingsList: View {
         self.store = store
         _model = State(initialValue: SettingsViewModel(store: store))
         _aiUsage = State(initialValue: AiUsageViewModel(store: store))
+        _aiFeatures = State(initialValue: AiFeaturesViewModel(store: store))
     }
 
     private var authMode: AuthMode { session.authMode ?? .noauth }
@@ -80,7 +82,10 @@ private struct SettingsList: View {
                     }
                 }
             }
-            AiUsageSection(model: aiUsage)
+            AiFeaturesSection(model: aiFeatures)
+            if aiFeatures.isEnabled {
+                AiUsageSection(model: aiUsage)
+            }
             if authMode != .noauth {
                 DeleteAccountSection()
             }
@@ -94,7 +99,11 @@ private struct SettingsList: View {
             }
         }
         .task { await model.load() }
-        .task { await aiUsage.load() }
+        .task(id: aiFeatures.isEnabled) {
+            if aiFeatures.isEnabled { await aiUsage.load() }
+        }
+        .onAppear { aiFeatures.refresh() }
+        .aiConsentSheet(aiFeatures.aiConsent)
         .sheet(isPresented: $isCurrencyPickerPresented) {
             CurrencyPickerSheet(title: "Choose base currency", selectedId: model.baseCurrencyId) { asset in
                 Task { await selectBaseCurrency(asset) }

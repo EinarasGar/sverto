@@ -73,6 +73,10 @@ impl TransactionProcessor for AssetSaleTransaction {
         self.base.transaction_id()
     }
 
+    fn get_user_id(&self) -> Uuid {
+        self.base.user_id()
+    }
+
     fn get_entries_mut(&mut self) -> &mut Vec<Entry> {
         self.base.entries_mut()
     }

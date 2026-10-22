@@ -74,6 +74,10 @@ impl BaseTransaction {
     pub fn transaction_id(&self) -> Option<Uuid> {
         self.transaction_id
     }
+
+    pub fn user_id(&self) -> Uuid {
+        self.user_id
+    }
     pub fn set_transaction_id(&mut self, transaction_id: Uuid) {
         self.transaction_id = Some(transaction_id);
     }

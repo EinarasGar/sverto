@@ -23,36 +23,61 @@ impl AiEmbeddingService {
 
     pub async fn enqueue_embed_transaction(
         &self,
+        user_id: Uuid,
         transaction_id: Uuid,
         text: String,
     ) -> anyhow::Result<()> {
         self.queue
             .push(EmbeddingJob::Transaction {
                 transaction_id,
+                user_id,
                 text,
             })
             .await
     }
 
-    pub async fn enqueue_embed_group(&self, group_id: Uuid, text: String) -> anyhow::Result<()> {
+    pub async fn enqueue_embed_group(
+        &self,
+        user_id: Uuid,
+        group_id: Uuid,
+        text: String,
+    ) -> anyhow::Result<()> {
         self.queue
-            .push(EmbeddingJob::Group { group_id, text })
+            .push(EmbeddingJob::Group {
+                group_id,
+                user_id,
+                text,
+            })
             .await
     }
 
-    pub async fn enqueue_embed_asset(&self, asset_id: i32, text: String) -> anyhow::Result<()> {
+    pub async fn enqueue_embed_asset(
+        &self,
+        user_id: Uuid,
+        asset_id: i32,
+        text: String,
+    ) -> anyhow::Result<()> {
         self.queue
-            .push(EmbeddingJob::Asset { asset_id, text })
+            .push(EmbeddingJob::Asset {
+                asset_id,
+                user_id,
+                text,
+            })
             .await
     }
 
     pub async fn enqueue_embed_category(
         &self,
+        user_id: Uuid,
         category_id: i32,
         text: String,
     ) -> anyhow::Result<()> {
         self.queue
-            .push(EmbeddingJob::Category { category_id, text })
+            .push(EmbeddingJob::Category {
+                category_id,
+                user_id,
+                text,
+            })
             .await
     }
 

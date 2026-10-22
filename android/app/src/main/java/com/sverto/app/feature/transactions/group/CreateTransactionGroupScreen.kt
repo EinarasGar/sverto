@@ -70,6 +70,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.ai.SuggestionState
+import com.sverto.app.core.aifeatures.AiFeaturesGate
 import com.sverto.app.core.ui.RowDivider
 import com.sverto.app.feature.transactions.NewTransactionSheet
 import com.sverto.app.feature.transactions.create.CATEGORY_SHARED_KEY
@@ -96,6 +97,7 @@ fun CreateTransactionGroupScreen(
     onSuccess: () -> Unit,
     onAddTransaction: (String) -> Unit,
     onEditTransaction: (Int, String) -> Unit,
+    aiFeaturesGate: AiFeaturesGate,
     modifier: Modifier = Modifier,
     editGroupId: String? = null,
     editGroup: TransactionListItem? = null,
@@ -119,6 +121,15 @@ fun CreateTransactionGroupScreen(
     LaunchedEffect(correctionTypeChange) {
         correctionTypeChange?.let { onCorrectionTypeChanged?.invoke(it) }
     }
+
+    val correctionBlockedByAiFeatures by viewModel.correctionBlockedByAiFeatures.collectAsStateWithLifecycle()
+    LaunchedEffect(correctionBlockedByAiFeatures) {
+        correctionBlockedByAiFeatures?.let { message ->
+            viewModel.clearCorrectionBlockedByAiFeatures()
+            aiFeaturesGate.promptToEnable { viewModel.sendCorrection(message) }
+        }
+    }
+
     val currentOnSuccess by rememberUpdatedState(onSuccess)
     val isEditMode = editGroupId != null
 
@@ -340,6 +351,7 @@ fun CreateTransactionGroupScreen(
                             Spacer(Modifier.height(16.dp))
                             CorrectionInput(
                                 state = correctionState,
+                                aiFeaturesGate = aiFeaturesGate,
                                 onSend = { viewModel.sendCorrection(it) },
                             )
                         }

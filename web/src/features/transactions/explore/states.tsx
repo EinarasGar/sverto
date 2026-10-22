@@ -1,8 +1,10 @@
 import { AlignLeft, SearchX } from "lucide-react"
 import { useNavigate } from "@tanstack/react-router"
 
+import { useUserId } from "@/auth"
 import { EmptyState } from "@/components/states/empty-state"
 import { LoadingState, SkeletonBar } from "@/components/states/loading-state"
+import { useAiFeaturesGate } from "@/features/ai-features"
 import { SNAP_A_RECEIPT } from "@/features/uploads"
 
 import {
@@ -52,31 +54,38 @@ export function LedgerEmpty({
   hasUnappliedTokens?: boolean
 }) {
   const navigate = useNavigate()
+  const { runWithAiConsent, dialog: aiFeaturesDialog } =
+    useAiFeaturesGate(useUserId())
   return (
-    <EmptyState
-      data-slot="ledger-empty"
-      data-unapplied={hasUnappliedTokens}
-      size="page"
-      icon={<AlignLeft />}
-      headline="Nothing in the ledger yet"
-      body={LEDGER_EMPTY_BODY}
-      actions={[
-        { label: "Add a transaction", kind: "primary", onClick: onAdd },
-        { label: "Connect a bank", onClick: onConnect },
-        {
-          label: SNAP_A_RECEIPT,
-          onClick: () => {
-            void navigate({
-              to: "/transactions",
-              search: { mode: "review", upload: "receipt" },
-            })
+    <>
+      <EmptyState
+        data-slot="ledger-empty"
+        data-unapplied={hasUnappliedTokens}
+        size="page"
+        icon={<AlignLeft />}
+        headline="Nothing in the ledger yet"
+        body={LEDGER_EMPTY_BODY}
+        actions={[
+          { label: "Add a transaction", kind: "primary", onClick: onAdd },
+          { label: "Connect a bank", onClick: onConnect },
+          {
+            label: SNAP_A_RECEIPT,
+            onClick: () => {
+              runWithAiConsent(() => {
+                void navigate({
+                  to: "/transactions",
+                  search: { mode: "review", upload: "receipt" },
+                })
+              })
+            },
           },
-        },
-      ]}
-      footnote={
-        hasUnappliedTokens ? UNAPPLIED_ONLY_FOOTNOTE : LEDGER_EMPTY_FOOTNOTE
-      }
-    />
+        ]}
+        footnote={
+          hasUnappliedTokens ? UNAPPLIED_ONLY_FOOTNOTE : LEDGER_EMPTY_FOOTNOTE
+        }
+      />
+      {aiFeaturesDialog}
+    </>
   )
 }
 

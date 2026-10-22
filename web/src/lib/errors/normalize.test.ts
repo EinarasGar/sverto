@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest"
 import { FALLBACK_MESSAGES } from "./messages"
 import {
   getErrorMessage,
+  isAiFeaturesDisabled,
   isNormalizedError,
   isRetryableError,
   normalizeAiError,
@@ -143,6 +144,23 @@ describe("normalizeError — enveloped responses", () => {
         })
       ).kind
     ).toBe("forbidden")
+  })
+
+  it("maps the AI features consent 403 as forbidden and keeps its type", () => {
+    const error = normalizeError(
+      axiosResponseError(403, {
+        error_type: "AiFeaturesDisabled",
+        message: "AI features are disabled for this account.",
+        errors: [],
+      })
+    )
+
+    expect(error).toMatchObject({
+      kind: "forbidden",
+      errorType: "AiFeaturesDisabled",
+      message: "AI features are disabled for this account.",
+    })
+    expect(isAiFeaturesDisabled(error)).toBe(true)
   })
 
   it("maps 409 keeping the handler message", () => {
@@ -388,6 +406,19 @@ describe("normalizeAiError", () => {
     expect(
       normalizeAiError({ kind: "input_too_large", message: "Too long." })
     ).toMatchObject({ kind: "validation", fieldErrors: [] })
+  })
+
+  it("maps a job stopped by disabled AI features to the same consent error", () => {
+    const error = normalizeAiError({
+      kind: "ai_features_disabled",
+      message: "AI features are turned off. Enable them to use this feature.",
+    })
+
+    expect(error).toMatchObject({
+      kind: "forbidden",
+      message: "AI features are turned off. Enable them to use this feature.",
+    })
+    expect(isAiFeaturesDisabled(error)).toBe(true)
   })
 
   it("falls back to unknown for an unrecognised payload", () => {

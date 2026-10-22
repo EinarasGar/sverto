@@ -23,6 +23,8 @@ extension ApiError {
             reason.isEmpty ? "Something went wrong" : reason
         case .MissingLocalCredential:
             "Your saved session is no longer available. Please sign in again."
+        case .AiFeaturesDisabled:
+            "AI features are turned off."
         }
     }
 }

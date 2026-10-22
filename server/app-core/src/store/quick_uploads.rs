@@ -3,7 +3,7 @@ use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
 use crate::api::quick_upload;
-use crate::error::ApiError;
+use crate::error::{server_error, ApiError};
 use crate::models::{QuickUploadDetail, QuickUploadsState, UnifiedQuickUploadItem};
 
 use super::infra::SharedInfra;
@@ -125,6 +125,10 @@ pub async fn flush_and_subscribe(
     );
     if !infra.has_connectivity() {
         tracing::info!("QuickUploads: no connectivity, skipping flush");
+        return;
+    }
+    if infra.ai_features_enabled() == Some(false) {
+        tracing::info!("QuickUploads: AI features disabled, keeping uploads queued");
         return;
     }
 
@@ -445,7 +449,14 @@ pub async fn send_quick_upload_correction(
         user_id, upload_id
     );
     let body = serde_json::json!({ "message": message }).to_string();
-    infra.post(&path, &body, auth_token).await?;
+    let resp = infra.post(&path, &body, auth_token).await?;
+    if resp.status >= 400 {
+        let error = server_error(resp.status, &resp.body);
+        if let ApiError::AiFeaturesDisabled = error {
+            infra.set_ai_features_enabled(false);
+        }
+        return Err(error);
+    }
 
     {
         let mut lock = module.lock().unwrap();
@@ -592,6 +603,9 @@ async fn upload_single(
             .and_then(|v| v["id"].as_str().map(|s| s.to_string()))
             .unwrap_or_default();
         Ok(id)
+    } else if let ApiError::AiFeaturesDisabled = server_error(qu_resp.status, &qu_resp.body) {
+        infra.set_ai_features_enabled(false);
+        Err((ApiError::AiFeaturesDisabled.to_string(), false))
     } else if (400..500).contains(&qu_resp.status) && qu_resp.status != 429 {
         Err((qu_resp.body, true))
     } else {

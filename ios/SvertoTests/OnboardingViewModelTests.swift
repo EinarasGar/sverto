@@ -84,18 +84,61 @@ struct OnboardingViewModelTests {
         #expect(model.selectedCurrency == dollar)
         #expect(Set(model.currencyResults.map(\.id)) == [pound.id, dollar.id])
     }
+
+    @Test func aiFeaturesChoiceIsSavedWithTheChosenValue() async {
+        let store = OnboardingCurrencyStore(noHandle: .init())
+        let model = OnboardingViewModel(store: store)
+
+        let keptOff = await model.setAiFeaturesEnabled(false)
+        let turnedOn = await model.setAiFeaturesEnabled(true)
+
+        #expect(keptOff)
+        #expect(turnedOn)
+        #expect(store.aiFeaturesRequests == [false, true])
+        #expect(model.error == nil)
+        #expect(!model.isSaving)
+    }
+
+    @Test func failedAiFeaturesChoiceSurfacesTheErrorAndDoesNotAdvance() async {
+        let store = OnboardingCurrencyStore(noHandle: .init())
+        store.setAiFeaturesFailure(.Network(reason: "Offline"))
+        let model = OnboardingViewModel(store: store)
+
+        let saved = await model.setAiFeaturesEnabled(true)
+
+        #expect(!saved)
+        #expect(model.error == "Offline")
+        #expect(!model.isSaving)
+        model.clearError()
+        #expect(model.error == nil)
+    }
 }
 
 nonisolated private final class OnboardingCurrencyStore: AppStore, @unchecked Sendable {
     private let lock = NSLock()
     private var response: Result<[AssetItem], ApiError> = .success([])
+    private var aiFeaturesFailure: ApiError?
+    private var aiFeaturesValues: [Bool] = []
+
+    var aiFeaturesRequests: [Bool] { lock.withLock { aiFeaturesValues } }
 
     func setResponse(_ response: Result<[AssetItem], ApiError>) {
         lock.withLock { self.response = response }
     }
 
+    func setAiFeaturesFailure(_ failure: ApiError) {
+        lock.withLock { aiFeaturesFailure = failure }
+    }
+
     override func getAllCurrencies() async throws -> [AssetItem] {
         try lock.withLock { response }.get()
+    }
+
+    override func setAiFeaturesEnabled(enabled: Bool) async throws {
+        try lock.withLock {
+            if let aiFeaturesFailure { throw aiFeaturesFailure }
+            aiFeaturesValues.append(enabled)
+        }
     }
 
     override func getOnboardingVersion() -> Int32 { 0 }

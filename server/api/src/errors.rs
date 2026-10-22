@@ -45,6 +45,9 @@ pub enum ApiError {
     #[error("Rate limit exceeded")]
     RateLimited(serde_json::Value),
 
+    #[error("AI features are disabled")]
+    AiFeaturesDisabled,
+
     #[error("{0}")]
     Internal(anyhow::Error),
 }
@@ -97,6 +100,11 @@ impl ApiError {
             .is_some()
         {
             ApiError::ServiceUnavailable
+        } else if err
+            .downcast_ref::<business::dtos::ai_features_disabled_error_dto::BusinessAiFeaturesDisabledError>()
+            .is_some()
+        {
+            ApiError::AiFeaturesDisabled
         } else {
             ApiError::Internal(err)
         }
@@ -169,6 +177,13 @@ impl IntoResponse for ApiError {
                 vec![],
                 Some(details.clone()),
             ),
+            ApiError::AiFeaturesDisabled => (
+                StatusCode::FORBIDDEN,
+                ErrorType::AiFeaturesDisabled,
+                "AI features are disabled for this account.".to_string(),
+                vec![],
+                None,
+            ),
             ApiError::Internal(err) => {
                 tracing::error!(error = ?err, error.type = "internal", "request failed with internal error");
                 (
@@ -229,6 +244,7 @@ impl From<business::dtos::ai_chat_error_dto::AiChatError> for ApiError {
                         ApiError::BadRequest(vm.message)
                     }
                     AiErrorDto::ProviderUnavailable { .. } => ApiError::ServiceUnavailable,
+                    AiErrorDto::AiFeaturesDisabled => ApiError::AiFeaturesDisabled,
                     AiErrorDto::TurnLimit { .. }
                     | AiErrorDto::Fatal { .. }
                     | AiErrorDto::Unknown { .. } => ApiError::Internal(anyhow::anyhow!(vm.message)),

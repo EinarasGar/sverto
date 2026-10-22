@@ -15,12 +15,14 @@ use uuid::Uuid;
 use crate::dtos::ai_error_dto::AiErrorDto;
 use crate::dtos::ai_quick_upload_dto::{QuickUploadDto, QuickUploadNotification};
 use crate::jobs::QuickUploadJob;
+use crate::service_collection::user_service::UsersService;
 
 #[derive(Clone)]
 pub struct AiQuickUploadService {
     db: MyraDb,
     pg_notify: PgNotifyConnection,
     queue: JobQueueHandle,
+    users_service: UsersService,
 }
 
 impl AiQuickUploadService {
@@ -29,6 +31,7 @@ impl AiQuickUploadService {
             db: providers.db.clone(),
             pg_notify: providers.pg_notify.clone(),
             queue: providers.job_queue.clone(),
+            users_service: UsersService::new(providers),
         }
     }
 
@@ -37,6 +40,10 @@ impl AiQuickUploadService {
         user_id: Uuid,
         source_file_id: Uuid,
     ) -> anyhow::Result<QuickUploadDto> {
+        self.users_service
+            .ensure_ai_features_enabled(user_id)
+            .await?;
+
         let conv_query = ai_conversation_queries::create_conversation(user_id);
         let conv_id: Uuid = self.db.fetch_one_scalar(conv_query).await?;
 
@@ -171,6 +178,9 @@ impl AiQuickUploadService {
     }
 
     pub async fn retry(&self, quick_upload_id: Uuid, user_id: Uuid) -> anyhow::Result<bool> {
+        self.users_service
+            .ensure_ai_features_enabled(user_id)
+            .await?;
         self.get_quick_upload(quick_upload_id, user_id).await?;
         let query = ai_quick_upload_queries::try_reset_for_manual_retry(quick_upload_id);
         let rows = self.db.execute_with_rows_affected(query).await?;
@@ -192,6 +202,9 @@ impl AiQuickUploadService {
         user_id: Uuid,
         message: String,
     ) -> anyhow::Result<()> {
+        self.users_service
+            .ensure_ai_features_enabled(user_id)
+            .await?;
         self.get_quick_upload(quick_upload_id, user_id).await?;
 
         self.update_status(quick_upload_id, QuickUploadStatus::Processing)

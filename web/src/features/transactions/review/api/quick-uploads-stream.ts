@@ -2,10 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react"
 import { useQueryClient } from "@tanstack/react-query"
 
 import type { IdentifiableQuickUploadResponse } from "@/api"
-import { getErrorMessage } from "@/lib/errors"
+import { getErrorMessage, isAiFeaturesDisabled } from "@/lib/errors"
 import type { QuickUploadId, UserId } from "@/lib/query"
 import { queryKeys } from "@/lib/query"
 import { openSseStream, parseQuickUploadEvent } from "@/lib/sse"
+import { setCachedAiFeaturesEnabled } from "@/features/ai-features"
 
 import {
   isReceiptWorking,
@@ -135,6 +136,9 @@ export function useQuickUploadWatcher(userId: UserId): QuickUploadWatch {
               void queryClient.invalidateQueries({ queryKey: listKey })
               break
             case "error":
+              if (isAiFeaturesDisabled(event.error)) {
+                setCachedAiFeaturesEnabled(queryClient, false)
+              }
               setFailures((previous) => ({
                 ...previous,
                 [quickUploadId]: event.error.message,

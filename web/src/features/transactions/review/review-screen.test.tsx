@@ -1,4 +1,4 @@
-import { cleanup, screen, within } from "@testing-library/react"
+import { cleanup, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -19,6 +19,15 @@ const useReviewItems = vi.fn()
 const completeMutate = vi.fn()
 const applyIntent = vi.fn()
 const deleteMutate = vi.fn()
+const postAiFeatures = vi.fn()
+
+vi.mock("@/api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/api")>()),
+  UsersApiFactory: () => ({
+    postAiFeatures: (userId: string, body: unknown) =>
+      postAiFeatures(userId, body) as unknown,
+  }),
+}))
 
 vi.mock("./api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("./api")>()),
@@ -64,7 +73,13 @@ function ReviewHost() {
   return <ReviewScreen editor={useTransactionEditor()} />
 }
 const { QUEUE_COLUMNS, queueCellCount } = await import("./presentation")
-const { renderTransactions, stubViewport } = await import("./test-harness")
+const {
+  createTestQueryClient,
+  renderTransactions,
+  stubViewport,
+  TEST_USER_ID,
+} = await import("./test-harness")
+const { seedAuthMe } = await import("@/auth/test-harness")
 
 const NOW = new Date("2026-07-26T12:00:00.000Z")
 
@@ -205,6 +220,51 @@ describe("ReviewScreen states", () => {
       screen.getByRole("button", { name: "Snap a receipt" })
     )
     expect(await screen.findByText("Drop a receipt here")).toBeVisible()
+  })
+
+  it("asks to turn AI features on before opening the receipt upload", async () => {
+    postAiFeatures.mockResolvedValue({ data: {} })
+    await renderTransactions(
+      <ReviewHost />,
+      seedAuthMe(createTestQueryClient(), { ai_features_enabled: false })
+    )
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Snap a receipt" })
+    )
+    const consent = await screen.findByRole("alertdialog")
+    expect(screen.queryByText("Drop a receipt here")).not.toBeInTheDocument()
+
+    await userEvent.click(
+      within(consent).getByRole("button", { name: "Turn on" })
+    )
+
+    expect(await screen.findByText("Drop a receipt here")).toBeVisible()
+    expect(postAiFeatures).toHaveBeenCalledWith(TEST_USER_ID, {
+      enabled: true,
+    })
+  })
+
+  it("keeps the receipt upload closed when AI features stay off", async () => {
+    await renderTransactions(
+      <ReviewHost />,
+      seedAuthMe(createTestQueryClient(), { ai_features_enabled: false })
+    )
+
+    await userEvent.click(
+      screen.getByRole("button", { name: "Snap a receipt" })
+    )
+    await userEvent.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Not now",
+      })
+    )
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    })
+    expect(screen.queryByText("Drop a receipt here")).not.toBeInTheDocument()
+    expect(postAiFeatures).not.toHaveBeenCalled()
   })
 
   it("mentions receipts that are still being read", async () => {

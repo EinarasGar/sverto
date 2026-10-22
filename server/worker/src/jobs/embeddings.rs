@@ -3,6 +3,7 @@ use ai::embedding::embed_text;
 use async_trait::async_trait;
 use business::jobs::EmbeddingJob;
 use business::service_collection::ai_embedding_service::AiEmbeddingService;
+use business::service_collection::user_service::UsersService;
 use business::service_collection::ServiceProviders;
 
 use crate::jobs::WorkerJob;
@@ -18,25 +19,40 @@ impl WorkerJob for EmbeddingJob {
 
     #[tracing::instrument(level = "debug", skip_all)]
     async fn run(&self, providers: &ServiceProviders) -> anyhow::Result<()> {
+        let (EmbeddingJob::Transaction { user_id, .. }
+        | EmbeddingJob::Group { user_id, .. }
+        | EmbeddingJob::Asset { user_id, .. }
+        | EmbeddingJob::Category { user_id, .. }) = self;
+        if !UsersService::new(providers)
+            .is_ai_features_enabled(*user_id)
+            .await?
+        {
+            tracing::debug!("skipping embedding, AI features disabled");
+            return Ok(());
+        }
+
         let svc = AiEmbeddingService::new(providers);
         match self {
             EmbeddingJob::Transaction {
                 transaction_id,
                 text,
+                ..
             } => {
                 let embedding = generate_embedding(text).await?;
                 svc.store_transaction_embedding(*transaction_id, embedding)
                     .await
             }
-            EmbeddingJob::Group { group_id, text } => {
+            EmbeddingJob::Group { group_id, text, .. } => {
                 let embedding = generate_embedding(text).await?;
                 svc.store_group_embedding(*group_id, embedding).await
             }
-            EmbeddingJob::Asset { asset_id, text } => {
+            EmbeddingJob::Asset { asset_id, text, .. } => {
                 let embedding = generate_embedding(text).await?;
                 svc.store_asset_embedding(*asset_id, embedding).await
             }
-            EmbeddingJob::Category { category_id, text } => {
+            EmbeddingJob::Category {
+                category_id, text, ..
+            } => {
                 let embedding = generate_embedding(text).await?;
                 svc.store_category_embedding(*category_id, embedding).await
             }

@@ -16,6 +16,7 @@ use utoipa::ToSchema;
 
 #[cfg(feature = "database")]
 use crate::view_models::users::add_user_view_model::AddUserViewModel;
+use shared::view_models::users::set_ai_features_view_model::SetAiFeaturesRequestViewModel;
 use shared::view_models::users::set_base_asset_view_model::SetBaseAssetRequestViewModel;
 use shared::view_models::users::set_onboarding_view_model::SetOnboardingVersionRequestViewModel;
 
@@ -107,6 +108,27 @@ pub async fn post_onboarding(
 ) -> Result<Json<serde_json::Value>, ApiError> {
     users_service
         .set_onboarding_version(user_id, params.version)
+        .await?;
+    Ok(Json(serde_json::json!({})))
+}
+
+#[utoipa::path(
+    post,
+    path = "/api/users/{user_id}/ai-features",
+    tag = "Users",
+    params(("user_id" = String, Path, description = "Id of the user.")),
+    request_body(content = SetAiFeaturesRequestViewModel),
+    responses((status = 200, description = "AI features preference updated."))
+)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id))]
+pub async fn post_ai_features(
+    _auth: AuthenticatedUser,
+    Path(user_id): Path<Uuid>,
+    UsersServiceState(users_service): UsersServiceState,
+    ValidatedJson(params): ValidatedJson<SetAiFeaturesRequestViewModel>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    users_service
+        .set_ai_features_enabled(user_id, params.enabled)
         .await?;
     Ok(Json(serde_json::json!({})))
 }

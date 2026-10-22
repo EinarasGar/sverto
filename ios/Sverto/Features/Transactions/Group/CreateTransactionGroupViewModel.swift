@@ -112,14 +112,15 @@ final class CreateTransactionGroupViewModel {
         }
     }
 
-    func sendCorrection(_ message: String) async {
+    func sendCorrection(_ message: String) {
         guard canEdit, let uploadId = quickUploadId else { return }
-        let corrected = await correction.send(message, uploadId: uploadId, expecting: .transactionGroup) { proposalData, lookupTables in
+        correction.send(message, uploadId: uploadId, expecting: .transactionGroup) { proposalData, lookupTables in
             ProposalMapper.groupFormState(proposalData: proposalData, lookupTables: lookupTables)
+        } apply: { [weak self] corrected in
+            guard let self else { return }
+            formState = corrected
+            categories.suggestions.markCommitted(text: corrected.description)
         }
-        guard let corrected else { return }
-        formState = corrected
-        categories.suggestions.markCommitted(text: corrected.description)
     }
 
     func updateDate(_ date: Date) {

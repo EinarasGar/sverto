@@ -8,6 +8,7 @@ use business::jobs::QuickUploadJob;
 use business::providers::user_conversation_provider::UserConversationProvider;
 use business::service_collection::ai_data_service::AiDataService;
 use business::service_collection::ai_quick_upload_service::AiQuickUploadService;
+use business::service_collection::user_service::UsersService;
 use business::service_collection::ServiceProviders;
 use dal::query_params::ai_conversation_params::{ProposalType, QuickUploadStatus};
 use uuid::Uuid;
@@ -55,6 +56,31 @@ impl WorkerJob for QuickUploadJob {
     #[tracing::instrument(level = "debug", skip_all, fields(quick_upload_id = %quick_upload_id(self)))]
     async fn run(&self, providers: &ServiceProviders) -> anyhow::Result<()> {
         let service = AiQuickUploadService::new(providers);
+        let (QuickUploadJob::Process {
+            quick_upload_id,
+            user_id,
+        }
+        | QuickUploadJob::Correction {
+            quick_upload_id,
+            user_id,
+            ..
+        }
+        | QuickUploadJob::Retry {
+            quick_upload_id,
+            user_id,
+        }) = self;
+        if !UsersService::new(providers)
+            .is_ai_features_enabled(*user_id)
+            .await?
+        {
+            let dto = AiErrorDto::AiFeaturesDisabled;
+            service
+                .record_conversation_error(*quick_upload_id, &dto)
+                .await?;
+            fail(&service, *quick_upload_id, &dto).await;
+            return Ok(());
+        }
+
         match self {
             QuickUploadJob::Process {
                 quick_upload_id,

@@ -4,6 +4,13 @@ import { Figure } from "@/components/figure"
 import { PanelBoundary } from "@/components/layout/route-boundaries"
 import { MetaChip } from "@/components/primitives"
 import { Switch } from "@/components/ui/switch"
+import {
+  AI_FEATURES_SETTING_CONSEQUENCE,
+  AI_FEATURES_TITLE,
+  useAiFeaturesEnabled,
+  useAiFeaturesGate,
+  useSetAiFeatures,
+} from "@/features/ai-features"
 
 import type { UsageMetricView, UsageWindowView } from "./api"
 import { quotaTone, useAiUsageSuspense } from "./api"
@@ -78,13 +85,45 @@ function UsageBlock() {
   )
 }
 
+function AiFeaturesRow() {
+  const userId = useUserId()
+  const enabled = useAiFeaturesEnabled()
+  const withdraw = useSetAiFeatures(userId)
+  const { runWithAiConsent, dialog } = useAiFeaturesGate(userId)
+
+  return (
+    <>
+      <SettingsListRow
+        label={AI_FEATURES_TITLE}
+        consequence={AI_FEATURES_SETTING_CONSEQUENCE}
+        control={
+          <Switch
+            checked={enabled && !withdraw.isPending}
+            disabled={withdraw.isPending}
+            aria-label={AI_FEATURES_TITLE}
+            onCheckedChange={(checked) => {
+              if (checked) {
+                runWithAiConsent(() => undefined)
+                return
+              }
+              withdraw.mutate(false)
+            }}
+          />
+        }
+      />
+      {dialog}
+    </>
+  )
+}
+
 /**
- * Both switches are `disabled`: there is nowhere to persist them, and a switch that
- * moves and then silently forgets would be a worse lie than one that cannot move.
+ * The placeholder switches are `disabled`: there is nowhere to persist them, and a switch
+ * that moves and then silently forgets would be a worse lie than one that cannot move.
  */
 function PermissionsBlock() {
   return (
     <SettingsList>
+      <AiFeaturesRow />
       <SettingsListRow
         label="Approval required for every write"
         chip={<MetaChip tone="brand">Always on</MetaChip>}
@@ -121,13 +160,17 @@ function PermissionsBlock() {
 }
 
 export function MyraSection() {
+  const aiFeaturesEnabled = useAiFeaturesEnabled()
+
   return (
     <SettingsBlocks>
-      <SettingsBlock title="Usage" note="resets automatically">
-        <PanelBoundary pending={<SettingsQuotaSkeleton />}>
-          <UsageBlock />
-        </PanelBoundary>
-      </SettingsBlock>
+      {aiFeaturesEnabled ? (
+        <SettingsBlock title="Usage" note="resets automatically">
+          <PanelBoundary pending={<SettingsQuotaSkeleton />}>
+            <UsageBlock />
+          </PanelBoundary>
+        </SettingsBlock>
+      ) : null}
 
       <SettingsBlock title="What Myra may do">
         <PermissionsBlock />

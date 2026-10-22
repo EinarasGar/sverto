@@ -22,11 +22,15 @@ enum Jobs {
         #[arg(long)]
         transaction_id: Uuid,
         #[arg(long)]
+        user_id: Uuid,
+        #[arg(long)]
         text: String,
     },
     EmbedTransactionGroup {
         #[arg(long)]
         group_id: Uuid,
+        #[arg(long)]
+        user_id: Uuid,
         #[arg(long)]
         text: String,
     },
@@ -34,11 +38,15 @@ enum Jobs {
         #[arg(long)]
         asset_id: i32,
         #[arg(long)]
+        user_id: Uuid,
+        #[arg(long)]
         text: String,
     },
     EmbedCategory {
         #[arg(long)]
         category_id: i32,
+        #[arg(long)]
+        user_id: Uuid,
         #[arg(long)]
         text: String,
     },
@@ -67,11 +75,13 @@ async fn main() -> anyhow::Result<()> {
             .map_err(Into::into),
         Jobs::EmbedTransaction {
             transaction_id,
+            user_id,
             text,
         } => {
             run_job(
                 EmbeddingJob::Transaction {
                     transaction_id,
+                    user_id,
                     text,
                 },
                 Data::new(services),
@@ -79,25 +89,49 @@ async fn main() -> anyhow::Result<()> {
             )
             .await
         }
-        Jobs::EmbedTransactionGroup { group_id, text } => {
+        Jobs::EmbedTransactionGroup {
+            group_id,
+            user_id,
+            text,
+        } => {
             run_job(
-                EmbeddingJob::Group { group_id, text },
+                EmbeddingJob::Group {
+                    group_id,
+                    user_id,
+                    text,
+                },
                 Data::new(services),
                 Attempt::new_with_value(1),
             )
             .await
         }
-        Jobs::EmbedAsset { asset_id, text } => {
+        Jobs::EmbedAsset {
+            asset_id,
+            user_id,
+            text,
+        } => {
             run_job(
-                EmbeddingJob::Asset { asset_id, text },
+                EmbeddingJob::Asset {
+                    asset_id,
+                    user_id,
+                    text,
+                },
                 Data::new(services),
                 Attempt::new_with_value(1),
             )
             .await
         }
-        Jobs::EmbedCategory { category_id, text } => {
+        Jobs::EmbedCategory {
+            category_id,
+            user_id,
+            text,
+        } => {
             run_job(
-                EmbeddingJob::Category { category_id, text },
+                EmbeddingJob::Category {
+                    category_id,
+                    user_id,
+                    text,
+                },
                 Data::new(services),
                 Attempt::new_with_value(1),
             )

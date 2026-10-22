@@ -28,6 +28,8 @@ class AiChatViewModel(
 
     private val handler = Handler(Looper.getMainLooper())
 
+    private var inFlightRequest: ChatRequest? = null
+
     private val observer =
         object : AiChatObserver {
             override fun onConversationsChanged(conversations: List<uniffi.sverto_core.ConversationItem>) {
@@ -162,6 +164,20 @@ class AiChatViewModel(
         doSendMessage(convId, text, state.selectedFileUris, contentResolver)
     }
 
+    fun retry(
+        request: ChatRequest,
+        contentResolver: android.content.ContentResolver,
+    ) {
+        when (request) {
+            is ChatRequest.Send -> sendMessage(contentResolver)
+            is ChatRequest.ToolApproval -> approveTool(request.approved)
+        }
+    }
+
+    fun clearBlockedByAiFeatures() {
+        _uiState.update { it.copy(blockedByAiFeatures = null) }
+    }
+
     // Broad catches are intentional: per-file upload is best-effort (skip a file on any IO/parse
     // failure) and the outer block surfaces any send failure to the UI as an error state.
     @Suppress("TooGenericExceptionCaught")
@@ -184,6 +200,7 @@ class AiChatViewModel(
                     add(MessagePart.Text(text))
                 }
             }
+        inFlightRequest = ChatRequest.Send(text, fileUris)
         _uiState.update {
             it.copy(
                 // Mark this conversation active so subsequent messages stay in it. (Previously the
@@ -245,27 +262,11 @@ class AiChatViewModel(
         // Move the pending tool out of "approval-requested" so the streamed result can attach to it
         // (approved -> executing; denied -> terminal denied state).
         val newToolState = if (approved) "input-available" else "output-denied"
-        val updatedMessages =
-            state.messages.map { msg ->
-                if (msg.role != "assistant") {
-                    msg
-                } else {
-                    msg.copy(
-                        parts =
-                            msg.parts.map { part ->
-                                if (part is MessagePart.ToolCall && part.callId == callId) {
-                                    part.copy(state = newToolState)
-                                } else {
-                                    part
-                                }
-                            },
-                    )
-                }
-            }
+        inFlightRequest = ChatRequest.ToolApproval(callId, approved)
 
         _uiState.update {
             it.copy(
-                messages = updatedMessages,
+                messages = state.messages.withToolCallState(callId, newToolState),
                 isStreaming = true,
                 pendingApprovalCallId = null,
             )
@@ -386,6 +387,9 @@ class AiChatViewModel(
                         rateLimit = RateLimitInfo(event.message, event.retryAfterSeconds),
                     )
                 }
+                is ChatStreamEvent.AiFeaturesDisabled -> {
+                    return@update state.blockedByAiFeatures(inFlightRequest)
+                }
                 is ChatStreamEvent.Done -> {
                     return@update state.copy(isStreaming = false)
                 }
@@ -395,6 +399,47 @@ class AiChatViewModel(
             state.copy(messages = messages)
         }
     }
+
+    private fun AiChatUiState.blockedByAiFeatures(request: ChatRequest?): AiChatUiState =
+        when (request) {
+            is ChatRequest.Send ->
+                copy(
+                    messages = if (messages.lastOrNull()?.role == "user") messages.dropLast(1) else messages,
+                    inputText = request.text,
+                    selectedFileUris = request.fileUris,
+                    isStreaming = false,
+                    blockedByAiFeatures = request,
+                )
+            is ChatRequest.ToolApproval ->
+                copy(
+                    messages = messages.withToolCallState(request.callId, "approval-requested"),
+                    pendingApprovalCallId = request.callId,
+                    isStreaming = false,
+                    blockedByAiFeatures = request,
+                )
+            null -> copy(isStreaming = false)
+        }
+
+    private fun List<ChatMessage>.withToolCallState(
+        callId: String,
+        toolState: String,
+    ): List<ChatMessage> =
+        map { msg ->
+            if (msg.role != "assistant") {
+                msg
+            } else {
+                msg.copy(
+                    parts =
+                        msg.parts.map { part ->
+                            if (part is MessagePart.ToolCall && part.callId == callId) {
+                                part.copy(state = toolState)
+                            } else {
+                                part
+                            }
+                        },
+                )
+            }
+        }
 
     override fun onCleared() {
         store.unobserveAiChat()

@@ -17,6 +17,7 @@ fun Throwable.friendlyMessage(): String =
         is ApiException.Network -> reason
         is ApiException.Timeout -> reason
         is ApiException.Parse -> reason
+        is ApiException.AiFeaturesDisabled -> "AI features are turned off"
         else -> message ?: "Something went wrong"
     }
 

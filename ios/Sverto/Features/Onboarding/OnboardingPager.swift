@@ -44,19 +44,23 @@ struct OnboardingPager: View {
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 24)
             }
-            OnboardingNavBar(
-                isFirstPage: page == 0,
-                isLastPage: isLastPage,
-                isForwardEnabled: isForwardEnabled,
-                onBack: { withAnimation(reduceMotion ? nil : .default) { page -= 1 } },
-                onNext: { withAnimation(reduceMotion ? nil : .default) { page += 1 } },
-                onFinish: { Task { await model.finish() } }
-            )
+            if pages.indices.contains(page), pages[page] == .aiFeatures {
+                AiFeaturesChoiceBar(onChoose: chooseAiFeatures)
+            } else {
+                OnboardingNavBar(
+                    isFirstPage: page == 0,
+                    isLastPage: isLastPage,
+                    isForwardEnabled: isForwardEnabled,
+                    onBack: { withAnimation(reduceMotion ? nil : .default) { page -= 1 } },
+                    onNext: { withAnimation(reduceMotion ? nil : .default) { page += 1 } },
+                    onFinish: { Task { await model.finish() } }
+                )
+            }
         }
         .background(Color(.systemGroupedBackground))
-        .disabled(model.isFinishing)
+        .disabled(model.isSaving)
         .overlay {
-            if model.isFinishing {
+            if model.isSaving {
                 ZStack {
                     Color.black.opacity(0.32)
                         .ignoresSafeArea()
@@ -65,7 +69,10 @@ struct OnboardingPager: View {
                 }
             }
         }
-        .task { await model.loadCurrencies() }
+        .task {
+            if pages.contains(.baseCurrency) { await model.loadCurrencies() }
+        }
+        .onChange(of: page) { model.clearError() }
         .onChange(of: model.finished) { _, finished in
             if finished { onComplete() }
         }
@@ -78,8 +85,21 @@ struct OnboardingPager: View {
             EmptyView()
         case .baseCurrency:
             BaseCurrencyPage(model: model)
+        case .aiFeatures:
+            AiFeaturesPage()
         case .notifications:
             NotificationsPage()
+        }
+    }
+
+    private func chooseAiFeatures(_ enabled: Bool) {
+        Task {
+            guard await model.setAiFeaturesEnabled(enabled) else { return }
+            if isLastPage {
+                await model.finish()
+            } else {
+                withAnimation(reduceMotion ? nil : .default) { page += 1 }
+            }
         }
     }
 }

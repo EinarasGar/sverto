@@ -29,4 +29,5 @@ pub enum ErrorType {
     ServiceUnavailable,
     RateLimited,
     BadGateway,
+    AiFeaturesDisabled,
 }

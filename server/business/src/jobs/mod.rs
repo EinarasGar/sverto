@@ -3,10 +3,26 @@ use uuid::Uuid;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum EmbeddingJob {
-    Transaction { transaction_id: Uuid, text: String },
-    Group { group_id: Uuid, text: String },
-    Asset { asset_id: i32, text: String },
-    Category { category_id: i32, text: String },
+    Transaction {
+        transaction_id: Uuid,
+        user_id: Uuid,
+        text: String,
+    },
+    Group {
+        group_id: Uuid,
+        user_id: Uuid,
+        text: String,
+    },
+    Asset {
+        asset_id: i32,
+        user_id: Uuid,
+        text: String,
+    },
+    Category {
+        category_id: i32,
+        user_id: Uuid,
+        text: String,
+    },
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]

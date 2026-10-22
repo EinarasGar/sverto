@@ -79,6 +79,10 @@ impl From<AiErrorDto> for AiErrorViewModel {
                 "unknown",
                 "Something went wrong while generating a response.",
             ),
+            AiErrorDto::AiFeaturesDisabled => Self::new(
+                "ai_features_disabled",
+                "AI features are turned off. Enable them to use this feature.",
+            ),
         }
     }
 }

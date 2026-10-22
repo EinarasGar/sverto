@@ -286,7 +286,7 @@ impl AssetsService {
 
         let embed_text = format!("Asset: {} | Ticker: {}", asset_dto.name, asset_dto.ticker);
         self.embedding_service
-            .enqueue_embed_asset(asset_id, embed_text)
+            .enqueue_embed_asset(asset_dto.user_id, asset_id, embed_text)
             .await?;
 
         Ok(ret)
@@ -367,6 +367,7 @@ impl AssetsService {
         let name = dto.name.clone();
         let ticker = dto.ticker.clone();
         let asset_id = dto.asset_id;
+        let user_id = dto.user_id;
         let query = asset_queries::update_asset(
             dto.asset_id,
             dto.name,
@@ -380,7 +381,7 @@ impl AssetsService {
         if name_or_ticker_changed {
             let embed_text = format!("Asset: {} | Ticker: {}", name, ticker);
             self.embedding_service
-                .enqueue_embed_asset(asset_id, embed_text)
+                .enqueue_embed_asset(user_id, asset_id, embed_text)
                 .await?;
         }
 

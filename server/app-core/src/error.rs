@@ -14,6 +14,9 @@ pub enum ApiError {
 
     #[error("No local credential stored for this connection")]
     MissingLocalCredential,
+
+    #[error("AI features are disabled")]
+    AiFeaturesDisabled,
 }
 
 impl ApiError {
@@ -29,8 +32,14 @@ impl ApiError {
 /// Build an `ApiError::Server` from a 4xx/5xx response, surfacing the backend's
 /// human-readable message (and any field errors) when the body parses.
 pub fn server_error(status: u16, body: &str) -> ApiError {
-    let reason = serde_json::from_str::<shared::errors::ApiErrorResponse>(body)
-        .ok()
+    let parsed = serde_json::from_str::<shared::errors::ApiErrorResponse>(body).ok();
+    if parsed
+        .as_ref()
+        .is_some_and(|e| matches!(e.error_type, shared::errors::ErrorType::AiFeaturesDisabled))
+    {
+        return ApiError::AiFeaturesDisabled;
+    }
+    let reason = parsed
         .map(|e| {
             if e.errors.is_empty() {
                 e.message
@@ -86,5 +95,14 @@ mod tests {
             }
             _ => panic!("expected Server error"),
         }
+    }
+
+    #[test]
+    fn server_error_maps_ai_features_disabled_to_dedicated_variant() {
+        let body = r#"{"error_type":"AiFeaturesDisabled","message":"AI features are disabled for this account.","errors":[]}"#;
+        assert!(matches!(
+            server_error(403, body),
+            ApiError::AiFeaturesDisabled
+        ));
     }
 }

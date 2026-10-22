@@ -18,6 +18,9 @@ class QuickUploadViewModel(
     private val _items = MutableStateFlow<List<QuickUploadUiItem>>(emptyList())
     val items: StateFlow<List<QuickUploadUiItem>> = _items.asStateFlow()
 
+    private val _heldByAiFeatures = MutableStateFlow(false)
+    val heldByAiFeatures: StateFlow<Boolean> = _heldByAiFeatures.asStateFlow()
+
     private val observer =
         object : QuickUploadsObserver {
             override fun onQuickUploadsChanged(state: QuickUploadsState) {
@@ -50,7 +53,12 @@ class QuickUploadViewModel(
         viewModelScope.launch {
             withContext(Dispatchers.IO) { store.queueQuickUpload(imageData, thumbnail, mimeType) }
             store.refreshQuickUploads()
+            if (!store.getAiFeaturesEnabled()) _heldByAiFeatures.value = true
         }
+    }
+
+    fun clearHeldByAiFeatures() {
+        _heldByAiFeatures.value = false
     }
 
     fun refresh() {

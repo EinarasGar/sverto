@@ -15,6 +15,7 @@ final class AiChatViewModel {
     private(set) var rateLimit: RateLimitInfo?
     private(set) var historyState: ChatHistoryState = .idle
     private(set) var isHistoryLoadRunning = false
+    let aiConsent: AiConsentGate
 
     private let store: AppStore
     private var sendTask: Task<Void, Never>?
@@ -23,9 +24,11 @@ final class AiChatViewModel {
     private var pendingHistoryRequest: ChatHistoryRequest?
     private var historyGeneration: UInt = 0
     private var historyLoadTask: Task<Void, Never>?
+    private var lastSubmission: ChatSubmission?
 
     init(store: AppStore) {
         self.store = store
+        aiConsent = AiConsentGate(store: store)
     }
 
     private func startObserving() {
@@ -111,6 +114,19 @@ final class AiChatViewModel {
     }
 
     func sendMessage() {
+        guard !isStreaming, canSend else { return }
+        aiConsent.perform { [weak self] in self?.submitMessage() }
+    }
+
+    func sendSuggestion(_ suggestion: String) {
+        aiConsent.perform { [weak self] in
+            guard let self else { return }
+            inputText = suggestion
+            submitMessage()
+        }
+    }
+
+    private func submitMessage() {
         let text = inputText.trimmingCharacters(in: .whitespacesAndNewlines)
         let files = attachments
         guard !isStreaming, canSend else { return }
@@ -126,6 +142,7 @@ final class AiChatViewModel {
         isStreaming = true
         error = nil
         rateLimit = nil
+        lastSubmission = .message(turn: userTurn, text: text, files: files)
         sendTask = Task {
             let targetId: String
             if let conversationId {
@@ -159,20 +176,29 @@ final class AiChatViewModel {
     }
 
     func approveTool(approved: Bool) {
+        guard pendingApprovalCallId != nil else { return }
+        aiConsent.perform { [weak self] in self?.submitToolApproval(approved: approved) }
+    }
+
+    private func submitToolApproval(approved: Bool) {
         guard let conversationId = activeConversationId, let callId = pendingApprovalCallId else { return }
-        let newState: ToolCallState = approved ? .inputAvailable : .outputDenied
+        setToolState(approved ? .inputAvailable : .outputDenied, callId: callId)
+        isStreaming = true
+        pendingApprovalCallId = nil
+        lastSubmission = .toolApproval(callId: callId, approved: approved)
+        Task { await store.approveTool(conversationId: conversationId, callId: callId, approved: approved) }
+    }
+
+    private func setToolState(_ state: ToolCallState, callId: String) {
         messages = messages.map { message in
             guard message.isAssistant else { return message }
             let parts = message.parts.map { part -> MessagePart in
                 guard var tool = part.toolCall, tool.callId == callId else { return part }
-                tool.state = newState
+                tool.state = state
                 return tool.messagePart
             }
             return ChatMessage(role: message.role, parts: parts)
         }
-        isStreaming = true
-        pendingApprovalCallId = nil
-        Task { await store.approveTool(conversationId: conversationId, callId: callId, approved: approved) }
     }
 
     func cancelStream() {
@@ -226,6 +252,21 @@ final class AiChatViewModel {
         store.cancelStream()
         isStreaming = false
         pendingApprovalCallId = nil
+        lastSubmission = nil
+    }
+
+    private func reopenRejectedSubmission() {
+        guard let submission = lastSubmission else { return }
+        lastSubmission = nil
+        switch submission {
+        case let .message(turn, text, files):
+            restoreUnsentTurn(turn, text: text, files: files)
+            aiConsent.requestConsent { [weak self] in self?.submitMessage() }
+        case let .toolApproval(callId, approved):
+            setToolState(.approvalRequested, callId: callId)
+            pendingApprovalCallId = callId
+            aiConsent.requestConsent { [weak self] in self?.submitToolApproval(approved: approved) }
+        }
     }
 
     private func restoreUnsentTurn(_ turn: ChatMessage, text: String, files: [ChatAttachment]) {
@@ -309,6 +350,10 @@ final class AiChatViewModel {
         case let .rateLimited(message, retryAfterSeconds):
             isStreaming = false
             rateLimit = RateLimitInfo(message: message, retryAfterSeconds: retryAfterSeconds)
+            return
+        case .aiFeaturesDisabled:
+            isStreaming = false
+            reopenRejectedSubmission()
             return
         case .done:
             isStreaming = false

@@ -10,7 +10,7 @@ final class OnboardingViewModel {
     private(set) var selectedCurrency: AssetItem?
     private(set) var isLoadingCurrencies = false
     private(set) var currencyLoadError: String?
-    private(set) var isFinishing = false
+    private(set) var isSaving = false
     private(set) var finished = false
     private(set) var error: String?
 
@@ -48,8 +48,25 @@ final class OnboardingViewModel {
         selectedCurrency = item
     }
 
+    func setAiFeaturesEnabled(_ enabled: Bool) async -> Bool {
+        isSaving = true
+        error = nil
+        defer { isSaving = false }
+        do {
+            try await store.setAiFeaturesEnabled(enabled: enabled)
+            return true
+        } catch {
+            self.error = error.friendlyMessage
+            return false
+        }
+    }
+
+    func clearError() {
+        error = nil
+    }
+
     func finish() async {
-        isFinishing = true
+        isSaving = true
         error = nil
         do {
             if let selectedCurrency {
@@ -60,6 +77,6 @@ final class OnboardingViewModel {
         } catch {
             self.error = error.friendlyMessage
         }
-        isFinishing = false
+        isSaving = false
     }
 }

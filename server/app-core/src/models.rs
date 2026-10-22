@@ -16,6 +16,8 @@ pub struct AuthMe {
     pub user_id: String,
     pub default_asset: Option<DefaultAsset>,
     pub onboarding_version: i32,
+    #[serde(default)]
+    pub ai_features_enabled: bool,
     pub role: String,
     pub user_metadata: Option<UserMetadata>,
 }
@@ -541,6 +543,7 @@ pub enum ChatStreamEvent {
         message: String,
         retry_after_seconds: Option<i64>,
     },
+    AiFeaturesDisabled,
     Done,
 }
 

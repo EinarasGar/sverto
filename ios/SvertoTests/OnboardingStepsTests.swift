@@ -2,12 +2,16 @@ import Testing
 @testable import Sverto
 
 struct OnboardingStepsTests {
-    @Test func currentVersionIsOne() {
-        #expect(OnboardingSteps.currentVersion == 1)
+    @Test func currentVersionIsTwo() {
+        #expect(OnboardingSteps.currentVersion == 2)
     }
 
     @Test func freshUserSeesEveryStepInDeclaredOrder() {
-        #expect(OnboardingSteps.steps(forCompletedVersion: 0) == [.welcome, .baseCurrency, .notifications])
+        #expect(OnboardingSteps.steps(forCompletedVersion: 0) == [.welcome, .baseCurrency, .aiFeatures, .notifications])
+    }
+
+    @Test func userWhoCompletedVersionOneSeesOnlyTheAiFeaturesStep() {
+        #expect(OnboardingSteps.steps(forCompletedVersion: 1) == [.aiFeatures])
     }
 
     @Test func completedCurrentVersionHasNothingLeft() {

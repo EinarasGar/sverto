@@ -21,6 +21,7 @@ const ME: AuthMe = {
   onboarding_version: 1,
   role: "user",
   default_asset: { id: 1, ticker: "GBP" },
+  ai_features_enabled: false,
 }
 
 const UNAUTHORIZED: NormalizedUnauthorizedError = {

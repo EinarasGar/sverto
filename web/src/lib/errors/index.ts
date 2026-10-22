@@ -10,6 +10,7 @@ export { isAiErrorDetails } from "./types"
 
 export {
   getErrorMessage,
+  isAiFeaturesDisabled,
   isNormalizedError,
   isRetryableError,
   normalizeAiError,

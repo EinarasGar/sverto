@@ -149,7 +149,11 @@ impl TransactionMetadataService {
                     );
                     self.db.execute(query).await?;
                     self.embedding_service
-                        .enqueue_embed_transaction(transaction_id, new_val.clone())
+                        .enqueue_embed_transaction(
+                            new_transaction.get_user_id(),
+                            transaction_id,
+                            new_val.clone(),
+                        )
                         .await?;
                 }
             }
@@ -162,7 +166,11 @@ impl TransactionMetadataService {
                 ]);
                 self.db.execute(query).await?;
                 self.embedding_service
-                    .enqueue_embed_transaction(transaction_id, new_val.clone())
+                    .enqueue_embed_transaction(
+                        new_transaction.get_user_id(),
+                        transaction_id,
+                        new_val.clone(),
+                    )
                     .await?;
             }
             (Some(_), None) => {
@@ -262,21 +270,21 @@ impl TransactionMetadataService {
             let query = transaction_data_queries::insert_descriptions(update_models.clone());
             self.db.execute(query).await?;
 
-            for model in &update_models {
-                self.embedding_service
-                    .enqueue_embed_transaction(model.transaction_id, model.description.clone())
-                    .await?;
-            }
-
-            update_models.into_iter().for_each(|model| {
-                transactions
+            for model in update_models {
+                let transaction = transactions
                     .iter_mut()
                     .find(|x| x.get_transaction_id() == Some(model.transaction_id))
-                    .unwrap()
-                    .set_metadata_fields(MetadataField::Description(Some(
+                    .unwrap();
+                self.embedding_service
+                    .enqueue_embed_transaction(
+                        transaction.get_user_id(),
+                        model.transaction_id,
                         model.description.clone(),
-                    )));
-            });
+                    )
+                    .await?;
+                transaction
+                    .set_metadata_fields(MetadataField::Description(Some(model.description)));
+            }
         }
 
         Ok(())

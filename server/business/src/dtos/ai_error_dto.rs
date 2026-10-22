@@ -29,6 +29,7 @@ pub enum AiErrorDto {
     Unknown {
         detail: String,
     },
+    AiFeaturesDisabled,
 }
 
 impl From<&AiErrorDto> for serde_json::Value {
@@ -93,6 +94,7 @@ mod tests {
             AiErrorDto::InvalidAttachment { detail: "x".into() },
             AiErrorDto::Fatal { detail: "x".into() },
             AiErrorDto::Unknown { detail: "x".into() },
+            AiErrorDto::AiFeaturesDisabled,
         ]
     }
 

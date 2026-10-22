@@ -4,6 +4,8 @@ export const WELCOME_STEP_BODY = "How Sverto thinks about your money."
 export const CURRENCY_STEP_TITLE = "Base currency"
 export const CURRENCY_STEP_BODY = "The one everything converts into."
 
+export const AI_STEP_BODY = "Myra chat and receipt scanning."
+
 export const START_STEP_TITLE = "Start"
 export const START_STEP_BODY = "Get your first transactions in."
 
@@ -51,6 +53,8 @@ export const CURRENCY_PENDING = "Saving…"
 
 export const CURRENCY_SAVED_NOTE =
   "Saved. Every total from here on is expressed in it."
+
+export const AI_STEP_PENDING = "Saving…"
 
 export const START_TITLE = "Get something in the ledger"
 

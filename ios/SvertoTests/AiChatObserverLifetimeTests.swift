@@ -42,6 +42,7 @@ struct AiChatObserverLifetimeTests {
                 Tab("Other", systemImage: "house", value: 1) { Text("Other tab") }
             }
             .environment(services)
+            .environment(services.shell)
             .environment(ToastCenter())
         }
         let host = UIHostingController(rootView: root(services: services(), selection: 0))

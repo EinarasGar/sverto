@@ -64,6 +64,7 @@ pub(crate) fn create_router(state: AppState) -> Router {
         .route("/assets/{asset_id}/{reference_id}/usermetadata", put(handlers::user_asset_handler::put_custom_asset_pair))
         .route("/base-asset",                                    post(handlers::user_handler::post_base_asset))
         .route("/onboarding",                                    post(handlers::user_handler::post_onboarding))
+        .route("/ai-features",                                   post(handlers::user_handler::post_ai_features))
         .route("/",                                              delete(handlers::user_handler::delete_user))
         .route("/accounts",                                     get(handlers::accounts_handler::get_accounts)
                                                                     .post(handlers::accounts_handler::add_account))

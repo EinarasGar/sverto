@@ -47,6 +47,7 @@ pub struct SharedInfra {
     pub default_asset_id: Mutex<Option<i32>>,
     pub default_asset_ticker: Mutex<Option<String>>,
     pub onboarding_version: Mutex<Option<i32>>,
+    pub ai_features_enabled: Mutex<Option<bool>>,
     pub db_path: String,
     on_offline_changed: Mutex<Option<OnOfflineChangedCallback>>,
     pub auth_provider: Arc<dyn crate::store::AuthProvider>,
@@ -93,6 +94,7 @@ impl SharedInfra {
             default_asset_id: Mutex::new(None),
             default_asset_ticker: Mutex::new(None),
             onboarding_version: Mutex::new(None),
+            ai_features_enabled: Mutex::new(None),
             db_path,
             on_offline_changed: Mutex::new(None),
             auth_provider,
@@ -292,6 +294,15 @@ impl SharedInfra {
         *self.onboarding_version.lock().unwrap() = Some(version);
     }
 
+    pub fn ai_features_enabled(&self) -> Option<bool> {
+        *self.ai_features_enabled.lock().unwrap()
+    }
+
+    pub fn set_ai_features_enabled(&self, enabled: bool) {
+        *self.ai_features_enabled.lock().unwrap() = Some(enabled);
+        self.patch_cached_auth_me("ai_features_enabled", serde_json::json!(enabled));
+    }
+
     pub fn apply_auth_me(&self, auth_me: &AuthMe) {
         *self.user_id.lock().unwrap() = Some(auth_me.user_id.clone());
         *self.default_asset_id.lock().unwrap() =
@@ -301,9 +312,17 @@ impl SharedInfra {
             .as_ref()
             .map(|asset| asset.ticker.clone());
         *self.onboarding_version.lock().unwrap() = Some(auth_me.onboarding_version);
+        *self.ai_features_enabled.lock().unwrap() = Some(auth_me.ai_features_enabled);
     }
 
     pub fn update_cached_auth_me_default_asset(&self, asset_id: i32, ticker: &str) {
+        self.patch_cached_auth_me(
+            "default_asset",
+            serde_json::json!({ "id": asset_id, "ticker": ticker }),
+        );
+    }
+
+    fn patch_cached_auth_me(&self, field: &str, value: serde_json::Value) {
         let url = format!("{}/api/auth/me", self.base_url());
         self.cache.lock().unwrap().remove(&url);
         let Some(body) = self.persistent_cache.get(&url) else {
@@ -312,7 +331,7 @@ impl SharedInfra {
         let Ok(mut auth_me) = serde_json::from_str::<serde_json::Value>(&body) else {
             return;
         };
-        auth_me["default_asset"] = serde_json::json!({ "id": asset_id, "ticker": ticker });
+        auth_me[field] = value;
         self.persistent_cache.put(&url, &auth_me.to_string());
     }
 
@@ -606,6 +625,7 @@ mod tests {
                 ticker: "GBP".to_string(),
             }),
             onboarding_version: 1,
+            ai_features_enabled: true,
             role: "user".to_string(),
             user_metadata: None,
         };
@@ -616,6 +636,7 @@ mod tests {
         assert_eq!(infra.default_asset_id(), Some(10));
         assert_eq!(infra.default_asset_ticker().as_deref(), Some("GBP"));
         assert_eq!(infra.onboarding_version(), Some(1));
+        assert_eq!(infra.ai_features_enabled(), Some(true));
 
         drop(infra);
         let _ = std::fs::remove_file(db_path);

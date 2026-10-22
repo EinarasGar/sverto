@@ -14,6 +14,7 @@ import { render, screen } from "@testing-library/react"
 import { FigureBaseCurrencyProvider } from "@/components/figure"
 
 import { AuthSessionContext, type AuthSession } from "@/auth"
+import { seedAuthMe } from "@/auth/test-harness"
 
 export const TEST_USER_ID = "00000000-0000-0000-0000-000000000000"
 
@@ -43,12 +44,13 @@ export function stubViewport(viewportWidth: number) {
 }
 
 export function createTestQueryClient(): QueryClient {
-  return new QueryClient({
+  const queryClient = new QueryClient({
     defaultOptions: {
       queries: { retry: false, staleTime: Infinity, gcTime: Infinity },
       mutations: { retry: false },
     },
   })
+  return seedAuthMe(queryClient, { ai_features_enabled: true })
 }
 
 export async function renderTransactions(

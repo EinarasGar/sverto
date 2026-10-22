@@ -7,7 +7,20 @@ class OnboardingStepsTest {
     @Test
     fun newUser_seesAllStepsUpToCurrentVersion() {
         val steps = stepsForVersion(0)
-        assertEquals(listOf(OnboardingStepId.WELCOME, OnboardingStepId.BASE_CURRENCY, OnboardingStepId.NOTIFICATIONS), steps)
+        assertEquals(
+            listOf(
+                OnboardingStepId.WELCOME,
+                OnboardingStepId.BASE_CURRENCY,
+                OnboardingStepId.AI_FEATURES,
+                OnboardingStepId.NOTIFICATIONS,
+            ),
+            steps,
+        )
+    }
+
+    @Test
+    fun versionOneUser_seesOnlyAiFeaturesStep() {
+        assertEquals(listOf(OnboardingStepId.AI_FEATURES), stepsForVersion(1))
     }
 
     @Test
@@ -16,7 +29,7 @@ class OnboardingStepsTest {
     }
 
     @Test
-    fun currentVersionIsOne() {
-        assertEquals(1, CURRENT_ONBOARDING_VERSION)
+    fun currentVersionIsTwo() {
+        assertEquals(2, CURRENT_ONBOARDING_VERSION)
     }
 }

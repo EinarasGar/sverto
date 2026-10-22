@@ -5,6 +5,7 @@ use sqlx::types::Uuid;
 use crate::idens::ai_conversation_idens::{
     AiChatIden, AiConversationsIden, AiMessagesIden, AiWorkflowQuickUploadIden,
 };
+use crate::idens::user_idens::UsersIden;
 use crate::query_params::ai_conversation_params::{
     ConversationErrorTarget, GetConversationsParams, GetConversationsSearchType, GetMessagesParams,
     UpdateConversationErrorParams,
@@ -124,6 +125,12 @@ pub fn get_chats_needing_titles(limit: u64) -> DbQueryWithValues {
             Expr::col((AiConversationsIden::Table, AiConversationsIden::Id))
                 .equals((AiChatIden::Table, AiChatIden::ConversationId)),
         )
+        .inner_join(
+            UsersIden::Table,
+            Expr::col((UsersIden::Table, UsersIden::Id))
+                .equals((AiConversationsIden::Table, AiConversationsIden::UserId)),
+        )
+        .and_where(Expr::col((UsersIden::Table, UsersIden::AiFeaturesEnabled)).eq(true))
         .and_where(Expr::col(AiChatIden::Title).is_null())
         .and_where(Expr::exists(
             Query::select()

@@ -8,6 +8,7 @@ import {
 } from "@/components/ai-elements"
 import { useShellWidth } from "@/components/layout/breakpoints"
 import { PageHeader } from "@/components/primitives"
+import { useAiFeaturesGate } from "@/features/ai-features"
 
 import {
   togglePin,
@@ -48,13 +49,18 @@ export function MyraScreen({
   const chat = useMyraChat(userId)
   const conversations = useConversations(userId)
   const usage = useAiUsage(userId)
+  const { runWithAiConsent, dialog: aiFeaturesDialog } =
+    useAiFeaturesGate(userId)
 
   const [draft, setDraft] = useState("")
   const [pins, setPins] = useState<readonly AnswerCard[]>([])
   const [mountedAt] = useState(() => Date.now())
   const askedRef = useRef<string | null>(null)
+  const latestChat = useRef(chat)
 
-  const send = chat.send
+  useEffect(() => {
+    latestChat.current = chat
+  })
 
   useEffect(() => {
     if (ask === undefined || ask.trim() === "") {
@@ -68,9 +74,14 @@ export function MyraScreen({
       page === undefined || page === ""
         ? ask
         : `${ask}\n\n${CONTEXT_SUFFIX(page)}`
-    send(message, page === undefined || page === "" ? null : page)
+    runWithAiConsent(() =>
+      latestChat.current.send(
+        message,
+        page === undefined || page === "" ? null : page
+      )
+    )
     onAskConsumed?.()
-  }, [ask, contextPage, onAskConsumed, send])
+  }, [ask, contextPage, onAskConsumed, runWithAiConsent])
 
   const pinCard = useCallback((card: AnswerCard) => {
     setPins((previous) => togglePin(previous, card))
@@ -82,10 +93,21 @@ export function MyraScreen({
 
   const refine = useCallback(
     (prompt: string) => {
-      send(prompt)
+      runWithAiConsent(() => latestChat.current.send(prompt))
     },
-    [send]
+    [runWithAiConsent]
   )
+
+  const respond = useCallback(
+    (toolCallIds: readonly string[], approved: boolean) => {
+      runWithAiConsent(() => latestChat.current.respond(toolCallIds, approved))
+    },
+    [runWithAiConsent]
+  )
+
+  const retry = useCallback(() => {
+    runWithAiConsent(() => latestChat.current.retry())
+  }, [runWithAiConsent])
 
   const pinnedIds = useMemo(() => pins.map((pin) => pin.id), [pins])
 
@@ -153,8 +175,8 @@ export function MyraScreen({
                     pinnedIds={pinnedIds}
                     onPin={pinCard}
                     onRefine={refine}
-                    onRespond={chat.respond}
-                    onRetry={chat.retry}
+                    onRespond={respond}
+                    onRetry={retry}
                   />
                 ))}
               </ConversationContent>
@@ -174,9 +196,10 @@ export function MyraScreen({
               streaming={chat.isStreaming}
               draft={draft}
               onDraftChange={setDraft}
-              onSend={(message, attachments) => {
-                chat.send(message, null, attachments)
-              }}
+              runWithAiConsent={runWithAiConsent}
+              onSend={(message, attachments) =>
+                latestChat.current.send(message, null, attachments)
+              }
               onStop={chat.stop}
             />
           </div>
@@ -188,6 +211,7 @@ export function MyraScreen({
           )}
         </div>
       </div>
+      {aiFeaturesDialog}
     </div>
   )
 }

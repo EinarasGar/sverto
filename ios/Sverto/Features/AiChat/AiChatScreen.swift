@@ -31,11 +31,8 @@ private struct AiChatContent: View {
                     Button("Retry", action: model.retryHistory)
                 }
             } else if model.messages.isEmpty, !model.isStreaming {
-                SuggestionChips { suggestion in
-                    model.inputText = suggestion
-                    model.sendMessage()
-                }
-                .disabled(model.isHistoryLoadRunning)
+                SuggestionChips(onSuggestion: model.sendSuggestion)
+                    .disabled(model.isHistoryLoadRunning)
             } else {
                 ChatThreadView(model: model)
             }
@@ -88,6 +85,7 @@ private struct AiChatContent: View {
         .sheet(isPresented: $isConversationsPresented) {
             ConversationsSheet(model: model)
         }
+        .aiConsentSheet(model.aiConsent)
         .task { await model.loadConversations() }
         .onChange(of: model.error) { _, error in
             guard let error else { return }

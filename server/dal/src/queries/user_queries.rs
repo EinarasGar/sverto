@@ -95,6 +95,7 @@ pub fn get_user_basic_info(user_id: Uuid) -> DbQueryWithValues {
         .column((UsersIden::Table, UsersIden::Id))
         .column((UsersIden::Table, UsersIden::Username))
         .column((UsersIden::Table, UsersIden::DefaultAsset))
+        .column((UsersIden::Table, UsersIden::AiFeaturesEnabled))
         .from(UsersIden::Table)
         .and_where(Expr::col((UsersIden::Table, UsersIden::Id)).eq(user_id))
         .build_sqlx(PostgresQueryBuilder)
@@ -108,6 +109,7 @@ pub fn get_user_full_info(user_id: Uuid) -> DbQueryWithValues {
         .column((UsersIden::Table, UsersIden::Username))
         .column((UsersIden::Table, UsersIden::DefaultAsset))
         .column((UsersIden::Table, UsersIden::OnboardingVersion))
+        .column((UsersIden::Table, UsersIden::AiFeaturesEnabled))
         .column((UserRolesIden::Table, UserRolesIden::RoleName))
         .expr_as(
             Expr::col((
@@ -290,6 +292,7 @@ pub fn get_user_onboarding_info(user_id: Uuid) -> DbQueryWithValues {
         .column((UsersIden::Table, UsersIden::Username))
         .column((UsersIden::Table, UsersIden::DefaultAsset))
         .column((UsersIden::Table, UsersIden::OnboardingVersion))
+        .column((UsersIden::Table, UsersIden::AiFeaturesEnabled))
         .expr_as(
             Expr::col((AssetsIden::Table, AssetsIden::Ticker)),
             Alias::new("default_ticker"),
@@ -320,6 +323,16 @@ pub fn update_user_onboarding_version(user_id: Uuid, version: i32) -> DbQueryWit
     Query::update()
         .table(UsersIden::Table)
         .value(UsersIden::OnboardingVersion, version)
+        .and_where(Expr::col(UsersIden::Id).eq(user_id))
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn update_user_ai_features_enabled(user_id: Uuid, enabled: bool) -> DbQueryWithValues {
+    Query::update()
+        .table(UsersIden::Table)
+        .value(UsersIden::AiFeaturesEnabled, enabled)
         .and_where(Expr::col(UsersIden::Id).eq(user_id))
         .build_sqlx(PostgresQueryBuilder)
         .into()

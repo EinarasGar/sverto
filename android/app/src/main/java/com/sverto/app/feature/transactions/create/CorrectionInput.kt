@@ -33,11 +33,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.sverto.app.core.aifeatures.AiFeaturesGate
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun CorrectionInput(
     state: CorrectionState,
+    aiFeaturesGate: AiFeaturesGate,
     onSend: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -107,8 +109,10 @@ fun CorrectionInput(
                         FilledIconButton(
                             onClick = {
                                 if (text.isNotBlank()) {
-                                    onSend(text.trim())
-                                    text = ""
+                                    aiFeaturesGate.runWhenEnabled {
+                                        onSend(text.trim())
+                                        text = ""
+                                    }
                                 }
                             },
                             enabled = text.isNotBlank() && state != CorrectionState.SENDING,

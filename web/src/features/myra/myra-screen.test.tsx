@@ -4,11 +4,15 @@ import { act, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
+import type { AuthMe } from "@/api"
+import { authMeQueryKey } from "@/auth"
+
 const createConversation = vi.fn()
 const listConversations = vi.fn()
 const getMessages = vi.fn()
 const getUsage = vi.fn()
 const getAccounts = vi.fn()
+const postAiFeatures = vi.fn()
 
 vi.mock("@/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api")>()),
@@ -28,11 +32,21 @@ vi.mock("@/api", async (importOriginal) => ({
     getAccounts: (userId: string, options: unknown) =>
       getAccounts(userId, options) as unknown,
   }),
+  UsersApiFactory: () => ({
+    postAiFeatures: (userId: string, body: unknown) =>
+      postAiFeatures(userId, body) as unknown,
+  }),
 }))
 
 const { MyraScreen } = await import("./myra-screen")
-const { renderMyra, sseFrame, sseResponse, stubViewport, TEST_USER_ID } =
-  await import("./test-harness")
+const {
+  createTestQueryClient,
+  renderMyra,
+  sseFrame,
+  sseResponse,
+  stubViewport,
+  TEST_USER_ID,
+} = await import("./test-harness")
 
 const AGGREGATE_OUTPUT = JSON.stringify({
   currency: "GBP",
@@ -99,6 +113,7 @@ beforeEach(() => {
     ],
   })
   getMessages.mockResolvedValue({ data: [] })
+  postAiFeatures.mockResolvedValue({ data: {} })
   getUsage.mockResolvedValue({
     data: {
       hourly: {
@@ -441,6 +456,149 @@ describe("Myra, end to end over a real SSE stream", () => {
     const approval = await screen.findByTestId("approval")
     expect(within(approval).getByText("Tesco")).toBeInTheDocument()
     expect(screen.getByText("log a shop")).toBeInTheDocument()
+  })
+})
+
+function aiFeaturesDisabledResponse(): Response {
+  return new Response(
+    JSON.stringify({
+      error_type: "AiFeaturesDisabled",
+      message: "AI features are disabled for this account.",
+      errors: [],
+    }),
+    { status: 403, headers: { "content-type": "application/json" } }
+  )
+}
+
+function messageBox(): HTMLElement {
+  return screen.getByRole("textbox", { name: /ask about your money/i })
+}
+
+describe("Myra while AI features are off", () => {
+  it("asks before sending, and keeps the draft when the answer is Not now", async () => {
+    await renderMyra(
+      <MyraScreen />,
+      createTestQueryClient({ aiFeaturesEnabled: false })
+    )
+    const user = await ask("groceries?")
+
+    const dialog = await screen.findByRole("alertdialog")
+    expect(within(dialog).getByText("Turn on AI features?")).toBeVisible()
+    await user.click(within(dialog).getByRole("button", { name: "Not now" }))
+
+    await waitFor(() => {
+      expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument()
+    })
+    expect(sseCalls).toHaveLength(0)
+    expect(createConversation).not.toHaveBeenCalled()
+    expect(postAiFeatures).not.toHaveBeenCalled()
+    expect(messageBox()).toHaveValue("groceries?")
+  })
+
+  it("sends the message once AI features are turned on", async () => {
+    sseQueue = [sseResponse(ANSWER_FRAMES)]
+    await renderMyra(
+      <MyraScreen />,
+      createTestQueryClient({ aiFeaturesEnabled: false })
+    )
+    const user = await ask("groceries?")
+
+    await user.click(await screen.findByRole("button", { name: "Turn on" }))
+
+    await waitFor(() => {
+      expect(sseCalls).toHaveLength(1)
+    })
+    expect(postAiFeatures).toHaveBeenCalledWith(TEST_USER_ID, {
+      enabled: true,
+    })
+    expect(JSON.parse(String(sseCalls[0]?.init?.body))).toEqual({
+      message: "groceries?",
+      file_ids: [],
+    })
+    expect(
+      await screen.findByText("You spent most on groceries.")
+    ).toBeInTheDocument()
+    expect(messageBox()).toHaveValue("")
+  })
+
+  it("asks again when the server refuses a stale flag, then resends the same message", async () => {
+    sseQueue = [aiFeaturesDisabledResponse(), sseResponse(ANSWER_FRAMES)]
+    const queryClient = createTestQueryClient()
+    await renderMyra(<MyraScreen />, queryClient)
+    const user = await ask("groceries?")
+
+    const dialog = await screen.findByRole("alertdialog")
+    expect(
+      queryClient.getQueryData<AuthMe>(authMeQueryKey)?.ai_features_enabled
+    ).toBe(false)
+    expect(screen.queryByText("groceries?")).not.toBeInTheDocument()
+
+    await user.click(within(dialog).getByRole("button", { name: "Turn on" }))
+
+    await waitFor(() => {
+      expect(sseCalls).toHaveLength(2)
+    })
+    expect(createConversation).toHaveBeenCalledTimes(1)
+    expect(sseCalls[1]?.url).toContain("/conversations/conv-1/messages")
+    expect(JSON.parse(String(sseCalls[1]?.init?.body))).toEqual({
+      message: "groceries?",
+      file_ids: [],
+    })
+    expect(
+      await screen.findByText("You spent most on groceries.")
+    ).toBeInTheDocument()
+  })
+
+  it("asks before an approval is sent to Myra", async () => {
+    sseQueue = [
+      sseResponse(PROPOSAL_FRAMES),
+      sseResponse([sseFrame("done", "")]),
+    ]
+    const queryClient = createTestQueryClient()
+    await renderMyra(<MyraScreen />, queryClient)
+    const user = await ask("log a tesco shop")
+    const approval = await screen.findByTestId("approval")
+
+    act(() => {
+      queryClient.setQueryData<AuthMe>(authMeQueryKey, (me) =>
+        me === undefined ? me : { ...me, ai_features_enabled: false }
+      )
+    })
+    await user.click(
+      within(approval).getByRole("button", { name: /^approve$/i })
+    )
+
+    expect(await screen.findByRole("alertdialog")).toBeInTheDocument()
+    expect(sseCalls).toHaveLength(1)
+
+    await user.click(screen.getByRole("button", { name: "Turn on" }))
+    await waitFor(() => {
+      expect(sseCalls).toHaveLength(2)
+    })
+    expect(JSON.parse(String(sseCalls[1]?.init?.body))).toEqual({
+      tool_approvals: [{ tool_call_id: "call-w1", approved: true }],
+    })
+  })
+
+  it("puts a refused approval back to pending so it can be approved again", async () => {
+    sseQueue = [sseResponse(PROPOSAL_FRAMES), aiFeaturesDisabledResponse()]
+    await renderMyra(<MyraScreen />)
+    const user = await ask("log a tesco shop")
+    const approval = await screen.findByTestId("approval")
+
+    await user.click(
+      within(approval).getByRole("button", { name: /^approve$/i })
+    )
+    await user.click(
+      within(await screen.findByRole("alertdialog")).getByRole("button", {
+        name: "Not now",
+      })
+    )
+
+    expect(
+      await within(approval).findByRole("button", { name: /^approve$/i })
+    ).toBeEnabled()
+    expect(sseCalls).toHaveLength(2)
   })
 })
 

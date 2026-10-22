@@ -7,27 +7,27 @@ import {
   START_PENDING,
   START_SKIP,
   START_TITLE,
-  STEP_LABEL,
 } from "./copy"
 import { PathAction } from "./path-card"
 import { START_PATHS, type StartPath } from "./start-paths"
 import { StepFrame, StepNav } from "./step-layout"
-import { ONBOARDING_STEPS, stepIndex } from "./steps"
 
 export function StartStep({
+  eyebrow,
   onChoose,
   onSkip,
   onBack,
   isSubmitting,
 }: {
+  eyebrow: string
   onChoose: (path: StartPath["id"]) => void
   onSkip: () => void
-  onBack: () => void
+  onBack?: () => void
   isSubmitting: boolean
 }) {
   return (
     <StepFrame
-      eyebrow={STEP_LABEL(stepIndex("start"), ONBOARDING_STEPS.length)}
+      eyebrow={eyebrow}
       title={START_TITLE}
       intro={START_INTRO}
       onSubmit={(event) => {
@@ -53,7 +53,7 @@ export function StartStep({
       <Footnote>{START_FOOTNOTE}</Footnote>
 
       <StepNav
-        onBack={onBack}
+        {...(onBack ? { onBack } : {})}
         nextLabel={isSubmitting ? START_PENDING : START_SKIP}
         nextDisabled={isSubmitting}
         note={START_NAV_NOTE}

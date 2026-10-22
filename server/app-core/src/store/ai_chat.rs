@@ -644,6 +644,10 @@ async fn drive_chat_stream(
                 awaiting_approval = true;
                 break;
             }
+            ChatStreamEvent::AiFeaturesDisabled => {
+                infra.set_ai_features_enabled(false);
+                break;
+            }
             ChatStreamEvent::Error { .. } | ChatStreamEvent::Done => break,
             _ => {}
         }

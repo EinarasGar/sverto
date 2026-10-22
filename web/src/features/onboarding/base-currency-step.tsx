@@ -17,13 +17,12 @@ import {
   CURRENCY_PENDING,
   CURRENCY_SEARCH_PLACEHOLDER,
   CURRENCY_TITLE,
-  STEP_LABEL,
 } from "./copy"
 import { StepFrame, StepNav } from "./step-layout"
-import { ONBOARDING_STEPS, stepIndex } from "./steps"
 import { useCurrencyAssets } from "./currency-assets"
 
 interface BaseCurrencyStepProps {
+  eyebrow: string
   onConfirm: (asset: AssetRef) => void
   isSubmitting: boolean
   onBack?: () => void
@@ -39,6 +38,7 @@ function matches(asset: AssetRef, needle: string): boolean {
 }
 
 export function BaseCurrencyStep({
+  eyebrow,
   onConfirm,
   isSubmitting,
   onBack,
@@ -83,7 +83,7 @@ export function BaseCurrencyStep({
 
   return (
     <StepFrame
-      eyebrow={STEP_LABEL(stepIndex("currency"), ONBOARDING_STEPS.length)}
+      eyebrow={eyebrow}
       title={CURRENCY_TITLE}
       intro={CURRENCY_INTRO}
       onSubmit={(event) => {

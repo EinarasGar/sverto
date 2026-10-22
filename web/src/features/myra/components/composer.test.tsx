@@ -31,6 +31,9 @@ function renderComposer(onSend = vi.fn(), draft = "") {
       streaming={false}
       draft={draft}
       onDraftChange={() => {}}
+      runWithAiConsent={(send) => {
+        send()
+      }}
       onSend={onSend}
       onStop={() => {}}
     />

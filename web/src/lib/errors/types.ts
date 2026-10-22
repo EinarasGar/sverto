@@ -8,6 +8,7 @@ const ERROR_TYPES = [
   "ServiceUnavailable",
   "RateLimited",
   "BadGateway",
+  "AiFeaturesDisabled",
 ] as const
 
 type ErrorType = (typeof ERROR_TYPES)[number]
@@ -35,6 +36,7 @@ const AI_ERROR_KINDS = [
   "turn_limit",
   "fatal",
   "unknown",
+  "ai_features_disabled",
 ] as const
 
 type AiErrorKind = (typeof AI_ERROR_KINDS)[number]

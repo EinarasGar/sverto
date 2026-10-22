@@ -28,10 +28,13 @@ use argon2::{
 
 use crate::dtos::{
     add_user_dto::AddUserDto,
+    ai_features_disabled_error_dto::BusinessAiFeaturesDisabledError,
     user_full_dto::UserFullDto,
+    user_onboarding_dto::UserOnboardingDto,
     user_role_dto::{UserRoleDto, UserRoleEnumDto},
 };
 
+#[derive(Clone)]
 pub struct UsersService {
     db: MyraDb,
     file_provider: Arc<dyn FileProvider>,
@@ -95,23 +98,17 @@ impl UsersService {
             default_asset_id: user.default_asset,
             default_ticker: None,
             onboarding_version: 0,
+            ai_features_enabled: false,
         };
 
         Ok(ret_obj)
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
-    pub async fn get_onboarding_info(
-        &self,
-        user_id: Uuid,
-    ) -> anyhow::Result<(Option<i32>, Option<String>, i32)> {
+    pub async fn get_onboarding_info(&self, user_id: Uuid) -> anyhow::Result<UserOnboardingDto> {
         let query = user_queries::get_user_onboarding_info(user_id);
         let model = self.db.fetch_one::<UserOnboardingModel>(query).await?;
-        Ok((
-            model.default_asset,
-            model.default_ticker,
-            model.onboarding_version,
-        ))
+        Ok(model.into())
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, asset_id = %asset_id))]
@@ -133,6 +130,32 @@ impl UsersService {
         let query = user_queries::update_user_onboarding_version(user_id, version);
         self.db.execute(query).await?;
         Ok(())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, enabled))]
+    pub async fn set_ai_features_enabled(
+        &self,
+        user_id: Uuid,
+        enabled: bool,
+    ) -> anyhow::Result<()> {
+        let query = user_queries::update_user_ai_features_enabled(user_id, enabled);
+        self.db.execute(query).await?;
+        Ok(())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn is_ai_features_enabled(&self, user_id: Uuid) -> anyhow::Result<bool> {
+        let query = user_queries::get_user_basic_info(user_id);
+        let model = self.db.fetch_one::<UserBasicModel>(query).await?;
+        Ok(model.ai_features_enabled)
+    }
+
+    pub async fn ensure_ai_features_enabled(&self, user_id: Uuid) -> anyhow::Result<()> {
+        if self.is_ai_features_enabled(user_id).await? {
+            Ok(())
+        } else {
+            Err(BusinessAiFeaturesDisabledError.into())
+        }
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]

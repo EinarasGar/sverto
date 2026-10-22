@@ -53,6 +53,7 @@ pub trait TransactionProcessor {
     fn get_add_transaction_model(&self) -> AddTransactionModel;
     fn get_entries_mut(&mut self) -> &mut Vec<Entry>;
     fn get_transaction_id(&self) -> Option<Uuid>;
+    fn get_user_id(&self) -> Uuid;
     fn set_transaction_id(&mut self, transaction_id: Uuid);
 }
 
