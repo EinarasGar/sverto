@@ -83,10 +83,15 @@ describe("served landing HTML", () => {
     expect([...origins]).toHaveLength(1)
   })
 
-  it("ships the commit feed as the only island and no other client bundle", () => {
+  it("ships the commit feed as the only island and no client bundle besides the Plausible tracker", () => {
     const islands = [...html.matchAll(/<astro-island\b[^>]*>/g)]
     expect(islands).toHaveLength(1)
     expect(islands[0]?.[0]).toContain('component-export="CommitFeed"')
-    expect(html).not.toMatch(/<script[^>]+\bsrc=/)
+
+    const scriptSources = [
+      ...html.matchAll(/<script[^>]+\bsrc="([^"]*)"/g),
+    ].map((match) => match[1])
+    expect(scriptSources).toHaveLength(1)
+    expect(scriptSources[0]).toMatch(/^https:\/\/plausible\.io\/js\//)
   })
 })

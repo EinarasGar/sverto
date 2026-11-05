@@ -11,6 +11,12 @@
 </p>
 
 <p align="center">
+  <a href="https://apps.apple.com/app/sverto/id6819424663"><img src="landing/public/badges/app-store.svg" alt="Download on the App Store" height="40" /></a>
+  &nbsp;
+  <a href="https://play.google.com/store/apps/details?id=com.sverto.app"><img src="landing/public/badges/google-play.svg" alt="Get it on Google Play" height="40" /></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/EinarasGar/sverto/stargazers"><img src="https://img.shields.io/github/stars/EinarasGar/sverto?style=social" alt="Stars" /></a>
   <a href="https://github.com/EinarasGar/sverto/commits/main"><img src="https://img.shields.io/github/last-commit/EinarasGar/sverto" alt="Last commit" /></a>
   <img src="https://img.shields.io/badge/self--hosted-ready-green" alt="Self-hosted ready" />
@@ -81,9 +87,9 @@ The AI assistant uses Gemini and stores embeddings in your PostgreSQL database. 
 
 ## Available everywhere
 
-- **Web** — Full-featured web app. Run it on your own server or access it from any browser.
-- **Android** — Native Kotlin app with Jetpack Compose, powered by the shared Rust core.
-- **iOS** — Native SwiftUI app, powered by the shared Rust core.
+- **[Web](https://app.sverto.com)** — Full-featured web app. Run it on your own server or access it from any browser.
+- **[Android](https://play.google.com/store/apps/details?id=com.sverto.app)** — Native Kotlin app with Jetpack Compose, powered by the shared Rust core.
+- **[iOS](https://apps.apple.com/app/sverto/id6819424663)** — Native SwiftUI app, powered by the shared Rust core.
 
 ### Web
 
@@ -157,7 +163,7 @@ Running open source software yourself can be rewarding, but it comes with fricti
 
 No setup. No API keys to manage. And every subscription directly supports Sverto's development.
 
-We collect only the telemetry needed to keep the service fast and reliable — error traces and performance metrics, nothing more. Your financial data is never sold, shared, or mined for advertising.
+The app collects only the telemetry needed to keep the service fast and reliable — error traces and performance metrics, nothing more. The website counts visits with cookie-free [Plausible](https://plausible.io/sverto.com), and the stats are public. Your financial data is never sold, shared, or mined for advertising.
 
 → [**Try it at sverto.com**](https://sverto.com)
 

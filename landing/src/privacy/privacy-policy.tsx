@@ -1,5 +1,6 @@
 import { LandingFooter } from "../landing/landing-footer"
 import { LandingHeader } from "../landing/landing-header"
+import { LANDING_ANALYTICS_URL } from "../landing/links"
 
 import "./privacy-policy.css"
 
@@ -32,7 +33,7 @@ export function PrivacyPolicy() {
             information.
           </p>
           <p className="privacy-date">
-            Last updated: <time dateTime="2026-10-22">22 October 2026</time> ·
+            Last updated: <time dateTime="2026-11-06">6 November 2026</time> ·
             MB Sverto
           </p>
         </header>
@@ -140,6 +141,20 @@ export function PrivacyPolicy() {
                   device SDKs.
                 </li>
                 <li>
+                  <strong>Website visit statistics:</strong> when you visit
+                  sverto.com, the page address, referring website and campaign
+                  tags, browser and operating system, device type, approximate
+                  location (country, region and city) derived from your IP
+                  address, scroll depth and time on page. We count visits with
+                  Plausible Analytics, which sets no cookies and stores nothing
+                  on your device. Your IP address and browser user agent are
+                  used only to form a visitor identifier that changes every day,
+                  and are not stored. The Sverto web app and mobile apps do not
+                  send these statistics. The statistics are public, so you can
+                  see exactly what we see on{" "}
+                  <a href={LANDING_ANALYTICS_URL}>our analytics dashboard</a>.
+                </li>
+                <li>
                   <strong>Authentication security information:</strong> Clerk
                   processes IP addresses and device/session information and can
                   derive approximate city/country information from the IP
@@ -171,7 +186,7 @@ export function PrivacyPolicy() {
                 and display their records; calculate balances and investment
                 performance; search information; operate requested imports,
                 connections and AI features; prevent abuse; diagnose failures;
-                and respond to requests.
+                measure visits to our website; and respond to requests.
               </p>
               <p>
                 Where the GDPR applies, the lawful bases for these activities
@@ -185,9 +200,10 @@ export function PrivacyPolicy() {
                 </li>
                 <li>
                   <strong>Legitimate interests:</strong> keeping the service
-                  secure and reliable, preventing misuse, investigating problems
-                  and handling communications, subject to your rights and
-                  reasonable expectations.
+                  secure and reliable, preventing misuse, investigating
+                  problems, understanding how many people visit our website and
+                  how they find it, and handling communications, subject to your
+                  rights and reasonable expectations.
                 </li>
                 <li>
                   <strong>Legal obligations:</strong> processing required to
@@ -231,6 +247,15 @@ export function PrivacyPolicy() {
                     used to diagnose problems and maintain the service.
                     Diagnostic records can include account or resource
                     identifiers.
+                  </dd>
+                </div>
+                <div>
+                  <dt>Plausible Analytics</dt>
+                  <dd>
+                    Cookie-free visit statistics for our website, sverto.com.
+                    Plausible does not store IP addresses or use the statistics
+                    for advertising or profiling, and receives nothing from the
+                    Sverto web app or mobile apps.
                   </dd>
                 </div>
                 <div>
@@ -378,8 +403,9 @@ export function PrivacyPolicy() {
               <p>
                 Our primary Railway application services, PostgreSQL database,
                 Redis service and uploaded-file bucket are hosted in EU West
-                (Amsterdam). Our Axiom logs and traces are stored in US East, so
-                some information is processed outside the EU.
+                (Amsterdam), and Plausible processes website visit statistics on
+                servers in Germany. Our Axiom logs and traces are stored in US
+                East, so some information is processed outside the EU.
               </p>
               <p>
                 Authentication, AI and other providers can process information
@@ -404,6 +430,7 @@ export function PrivacyPolicy() {
                   Axiom DPA
                 </a>
                 , <a href="https://clerk.com/legal/dpa">Clerk DPA</a>,{" "}
+                <a href="https://plausible.io/dpa">Plausible DPA</a>,{" "}
                 <a href="https://business.safety.google/processorterms/">
                   Google processor terms
                 </a>
@@ -467,6 +494,16 @@ export function PrivacyPolicy() {
                   <dd>
                     Logs and traces are retained for 30 days in our Axiom
                     dataset.
+                  </dd>
+                </div>
+                <div>
+                  <dt>Website visit statistics</dt>
+                  <dd>
+                    Plausible deletes the daily value used to recognise repeat
+                    visits every 24 hours, so visits on different days cannot be
+                    linked. IP addresses and user agents are not stored. The
+                    resulting statistics are kept while our Plausible account is
+                    active.
                   </dd>
                 </div>
                 <div>

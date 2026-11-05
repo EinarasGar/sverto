@@ -1,3 +1,4 @@
+import { StoreBadges } from "../cta"
 import {
   LandingSection,
   SectionEyebrow,
@@ -52,11 +53,14 @@ export function ClientsSection() {
         <SectionHeading className="mt-0 max-w-[720px]">
           At your desk. In your pocket. One ledger underneath.
         </SectionHeading>
-        <p className="max-w-[420px] text-[13.5px] leading-[1.6] text-pretty text-ink-2 lg:text-[15px] lg:leading-[1.65]">
-          The web app for the monthly review, native iOS and Android apps for
-          the receipt you&rsquo;re holding right now. Your accounts,
-          transactions and holdings stay together wherever you open Sverto.
-        </p>
+        <div className="max-w-[420px]">
+          <p className="text-[13.5px] leading-[1.6] text-pretty text-ink-2 lg:text-[15px] lg:leading-[1.65]">
+            The web app for the monthly review, native iOS and Android apps for
+            the receipt you&rsquo;re holding right now. Your accounts,
+            transactions and holdings stay together wherever you open Sverto.
+          </p>
+          <StoreBadges className="mt-4 lg:mt-5" />
+        </div>
       </SectionSplit>
 
       <div className="relative mt-8 pb-[28%] sm:pb-[10%] md:pb-[7%] lg:mt-12">

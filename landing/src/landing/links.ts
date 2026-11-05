@@ -1,6 +1,11 @@
 export const LANDING_SOURCE_URL = "https://github.com/EinarasGar/sverto"
 export const LANDING_LICENCE_URL =
   "https://github.com/EinarasGar/sverto/blob/main/LICENSE"
+export const LANDING_ANALYTICS_URL = "https://plausible.io/sverto.com"
+export const LANDING_APP_STORE_URL =
+  "https://apps.apple.com/app/sverto/id6819424663"
+export const LANDING_GOOGLE_PLAY_URL =
+  "https://play.google.com/store/apps/details?id=com.sverto.app"
 
 export interface LandingLink {
   readonly label: string
@@ -55,6 +60,7 @@ export const LANDING_FOOTER_GROUPS: readonly LandingFooterGroup[] = [
       { label: "Status", target: null },
       { label: "Contact", target: null },
       { label: "Privacy", target: "/privacy" },
+      { label: "Public analytics", target: LANDING_ANALYTICS_URL },
     ],
   },
 ]

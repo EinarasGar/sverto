@@ -1,4 +1,4 @@
-import { SourceButton, StartFreeButton } from "../cta"
+import { SourceButton, StartFreeButton, StoreBadges } from "../cta"
 import { LandingSection, MetaLabel, SectionEyebrow } from "../section"
 import { ProductShot } from "./product-shot"
 
@@ -28,9 +28,12 @@ export function HeroSection() {
             spreadsheet in the middle that you reconcile by hand at the end of
             every month.
           </p>
-          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3 lg:mt-8">
-            <StartFreeButton className="w-full sm:w-auto" />
-            <SourceButton className="w-full sm:w-auto" />
+          <div className="mt-6 flex flex-col gap-2.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-3 lg:mt-8">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:gap-3">
+              <StartFreeButton className="w-full sm:w-auto" />
+              <SourceButton className="w-full sm:w-auto" />
+            </div>
+            <StoreBadges className="sm:gap-3" />
           </div>
           <ul className="mt-5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] leading-none text-ink-3">
             <li>Free while we&rsquo;re gathering feedback</li>
@@ -38,10 +41,6 @@ export function HeroSection() {
               ·
             </li>
             <li>AGPL-3.0, self-host it instead</li>
-            <li aria-hidden className="text-border-strong">
-              ·
-            </li>
-            <li>Web + iOS + Android</li>
           </ul>
         </div>
 

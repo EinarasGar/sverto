@@ -8,6 +8,8 @@ Clients: a web app, a native iOS app built with SwiftUI and a native Android app
 
 - [Sverto](https://sverto.com/): The product overview — the ledger model, multi-currency, investing, Myra, self-hosting, pricing
 - [App](https://app.sverto.com/): The hosted application (account required)
+- [iOS app](https://apps.apple.com/app/sverto/id6819424663): Sverto on the App Store
+- [Android app](https://play.google.com/store/apps/details?id=com.sverto.app): Sverto on Google Play
 
 ## Source
 

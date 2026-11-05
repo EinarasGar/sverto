@@ -1,10 +1,15 @@
 import type * as React from "react"
 
 import { cn } from "@/lib/utils"
+import { focusRing } from "@/components/primitives/focus-ring"
 import { Button } from "@/components/ui/button"
 
 import { appUrl } from "./app-url"
-import { LANDING_SOURCE_URL } from "./links"
+import {
+  LANDING_APP_STORE_URL,
+  LANDING_GOOGLE_PLAY_URL,
+  LANDING_SOURCE_URL,
+} from "./links"
 
 const CTA = "h-11 rounded-button px-[22px] text-[14px] font-semibold"
 
@@ -53,6 +58,45 @@ export function SourceButton({ className }: { className?: string }) {
       <GithubGlyph />
       Read the source
     </SecondaryLinkButton>
+  )
+}
+
+const STORE_BADGES = [
+  {
+    href: LANDING_APP_STORE_URL,
+    src: "/badges/app-store.svg",
+    alt: "Download on the App Store",
+    width: 120,
+  },
+  {
+    href: LANDING_GOOGLE_PLAY_URL,
+    src: "/badges/google-play.svg",
+    alt: "Get it on Google Play",
+    width: 135,
+  },
+]
+
+export function StoreBadges({ className }: { className?: string }) {
+  return (
+    <div className={cn("flex flex-wrap items-center gap-2.5", className)}>
+      {STORE_BADGES.map((badge) => (
+        <a
+          key={badge.href}
+          href={badge.href}
+          target="_blank"
+          rel="noopener"
+          className={cn("block", focusRing.button)}
+        >
+          <img
+            src={badge.src}
+            alt={badge.alt}
+            width={badge.width}
+            height={40}
+            className="block h-10 w-auto"
+          />
+        </a>
+      ))}
+    </div>
   )
 }
 
