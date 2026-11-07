@@ -190,6 +190,7 @@ const VISIBILITY_LABELS: Record<TransactionVisibility, string> = {
   default: "reviewed",
   ghost: "unreviewed",
   hidden: "hidden",
+  action: "needs action",
 }
 
 export function tokenLabel(token: LedgerFilterToken): {

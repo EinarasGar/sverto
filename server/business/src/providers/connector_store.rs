@@ -139,6 +139,11 @@ impl ConnectorStore for BusinessConnectorStore {
         self.db
             .execute(connector_queries::insert_raw_page(insert))
             .await?;
+        self.db
+            .execute(connector_queries::refresh_provider_account_fetch_claim(
+                provider_account_ref,
+            ))
+            .await?;
 
         tracing::info!(provider_account_ref = %provider_account_ref, stream = %page.stream, "archived raw page");
         Ok(())

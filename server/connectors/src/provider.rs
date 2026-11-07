@@ -4,6 +4,7 @@ use async_trait::async_trait;
 use serde_json::Value;
 
 use crate::enablebanking::provider::EnableBankingProvider;
+use crate::ibkr::provider::IbkrProvider;
 use crate::models::{account::ProviderAccount, aspsp::Aspsp, transaction::MappedTransaction};
 use crate::port::{Connector, ConnectorStore};
 use crate::trading212::provider::Trading212Provider;
@@ -15,6 +16,7 @@ pub enum ProviderKind {
     Trading212,
     TrueLayer,
     EnableBanking,
+    Ibkr,
 }
 
 impl ProviderKind {
@@ -23,6 +25,7 @@ impl ProviderKind {
             ProviderKind::Trading212 => "trading212",
             ProviderKind::TrueLayer => "truelayer",
             ProviderKind::EnableBanking => "enablebanking",
+            ProviderKind::Ibkr => "ibkr",
         }
     }
 
@@ -31,23 +34,38 @@ impl ProviderKind {
         matches!(self, ProviderKind::EnableBanking)
     }
 
-    pub fn map_item(self, stream: &str, item: &Value) -> Option<MappedTransaction> {
-        match self {
-            ProviderKind::Trading212 => match stream {
-                "transactions" => Some(crate::trading212::mapper::map_transaction(item)),
-                "orders" => Some(crate::trading212::mapper::map_order(item)),
-                "dividends" => Some(crate::trading212::mapper::map_dividend(item)),
-                _ => None,
-            },
-            ProviderKind::TrueLayer => match stream {
-                "transactions" => Some(crate::truelayer::mapper::map_transaction(item)),
-                _ => None,
-            },
-            ProviderKind::EnableBanking => match stream {
-                "transactions" => Some(crate::enablebanking::mapper::map_transaction(item)),
-                _ => None,
-            },
+    fn map_items<'a>(
+        self,
+        items: impl Iterator<Item = (&'a str, &'a Value)>,
+    ) -> Vec<MappedTransaction> {
+        if self == ProviderKind::Ibkr {
+            // Rows are mapped together: withholding tax rows are folded into their dividends.
+            return crate::ibkr::mapper::map_rows(
+                items
+                    .filter(|(stream, _)| *stream == "statement")
+                    .map(|(_, item)| item),
+            );
         }
+        items
+            .filter_map(|(stream, item)| match (self, stream) {
+                (ProviderKind::Trading212, "transactions") => {
+                    Some(crate::trading212::mapper::map_transaction(item))
+                }
+                (ProviderKind::Trading212, "orders") => {
+                    Some(crate::trading212::mapper::map_order(item))
+                }
+                (ProviderKind::Trading212, "dividends") => {
+                    Some(crate::trading212::mapper::map_dividend(item))
+                }
+                (ProviderKind::TrueLayer, "transactions") => {
+                    Some(crate::truelayer::mapper::map_transaction(item))
+                }
+                (ProviderKind::EnableBanking, "transactions") => {
+                    Some(crate::enablebanking::mapper::map_transaction(item))
+                }
+                _ => None,
+            })
+            .collect()
     }
 }
 
@@ -59,6 +77,7 @@ impl FromStr for ProviderKind {
             "trading212" => Ok(ProviderKind::Trading212),
             "truelayer" => Ok(ProviderKind::TrueLayer),
             "enablebanking" => Ok(ProviderKind::EnableBanking),
+            "ibkr" => Ok(ProviderKind::Ibkr),
             other => anyhow::bail!("unknown provider kind: {other}"),
         }
     }
@@ -129,18 +148,19 @@ pub fn map_pages(
     kind: ProviderKind,
     pages: &[crate::models::sync::RawPage],
 ) -> Vec<crate::models::transaction::ProviderTransaction> {
+    let items = pages.iter().flat_map(|page| {
+        page.payload
+            .as_array()
+            .into_iter()
+            .flatten()
+            .map(|item| (page.stream.as_str(), item))
+    });
     let mut transactions = Vec::new();
     let mut skipped = Vec::new();
-    for page in pages {
-        let Some(items) = page.payload.as_array() else {
-            continue;
-        };
-        for item in items {
-            match kind.map_item(&page.stream, item) {
-                Some(MappedTransaction::Provider(p)) => transactions.push(p),
-                Some(MappedTransaction::Skipped(s)) => skipped.push(s),
-                None => {}
-            }
+    for mapped in kind.map_items(items) {
+        match mapped {
+            MappedTransaction::Provider(p) => transactions.push(p),
+            MappedTransaction::Skipped(s) => skipped.push(s),
         }
     }
     crate::models::transaction::log_skipped(kind.as_str(), &skipped);
@@ -152,10 +172,12 @@ impl ProviderKind {
         static TRADING212: Trading212Provider = Trading212Provider;
         static TRUELAYER: TrueLayerProvider = TrueLayerProvider;
         static ENABLEBANKING: EnableBankingProvider = EnableBankingProvider;
+        static IBKR: IbkrProvider = IbkrProvider;
         match self {
             ProviderKind::Trading212 => &TRADING212,
             ProviderKind::TrueLayer => &TRUELAYER,
             ProviderKind::EnableBanking => &ENABLEBANKING,
+            ProviderKind::Ibkr => &IBKR,
         }
     }
 }

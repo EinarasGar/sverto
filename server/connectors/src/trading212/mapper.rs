@@ -1,4 +1,7 @@
-use crate::models::{MappedTransaction, ProviderTransaction, SkippedTransaction};
+use crate::models::{
+    MappedTransaction, ProviderTransaction, ProviderTransactionKind, SkippedTransaction,
+};
+use rust_decimal::Decimal;
 use serde_json::Value;
 
 fn skipped(external_id: impl Into<String>, reason: impl Into<String>) -> MappedTransaction {
@@ -72,7 +75,9 @@ pub fn map_transaction(raw: &Value) -> MappedTransaction {
         date,
         description,
         asset_identifier: None,
+        isin: None,
         quantity: None,
+        kind: ProviderTransactionKind::Regular,
     })
 }
 
@@ -159,7 +164,9 @@ pub fn map_order(raw: &Value) -> MappedTransaction {
         date,
         description: format!("{side} {quantity} {ticker}"),
         asset_identifier: Some(ticker),
+        isin: None,
         quantity: Some(quantity),
+        kind: ProviderTransactionKind::Trade { fee: Decimal::ZERO },
     })
 }
 
@@ -206,6 +213,10 @@ pub fn map_dividend(raw: &Value) -> MappedTransaction {
         date,
         description: format!("Dividend {ticker}"),
         asset_identifier: Some(ticker),
+        isin: None,
         quantity: None,
+        kind: ProviderTransactionKind::Dividend {
+            withholding_tax: Decimal::ZERO,
+        },
     })
 }

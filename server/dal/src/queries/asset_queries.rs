@@ -2,8 +2,8 @@ use std::collections::{HashMap, HashSet};
 
 use sea_query::{
     extension::postgres::PgExpr, Alias, Asterisk, CommonTableExpression, Cond, Expr, ExprTrait,
-    Func, OnConflict, Order, PostgresQueryBuilder, Query, QueryStatementBuilder, SimpleExpr, Value,
-    WindowStatement, WithClause,
+    Func, OnConflict, Order, PostgresQueryBuilder, Query, QueryStatementBuilder, SelectStatement,
+    SimpleExpr, Value, WindowStatement, WithClause,
 };
 use sea_query_sqlx::SqlxBinder;
 use sqlx::types::{time::OffsetDateTime, Uuid};
@@ -112,6 +112,69 @@ pub fn get_asset_ids_by_tickers(user_id: Uuid, tickers: Vec<String>) -> DbQueryW
         )
         .build_sqlx(PostgresQueryBuilder)
         .into()
+}
+
+fn base_currency_join(query: &mut SelectStatement) -> &mut SelectStatement {
+    query
+        .expr_as(
+            Expr::col((AssetsAliasIden::BaseAssetJoin, AssetsIden::Ticker)),
+            Alias::new("base_currency"),
+        )
+        .join_as(
+            sea_query::JoinType::LeftJoin,
+            AssetsIden::Table,
+            AssetsAliasIden::BaseAssetJoin,
+            Expr::col((AssetsAliasIden::BaseAssetJoin, AssetsIden::Id))
+                .equals((AssetsIden::Table, AssetsIden::BasePairId)),
+        )
+}
+
+#[macros::named_query]
+pub fn get_assets_by_isins(user_id: Uuid, isins: Vec<String>) -> DbQueryWithValues {
+    base_currency_join(
+        Query::select()
+            .column((AssetsIden::Table, AssetsIden::Id))
+            .column((AssetsIden::Table, AssetsIden::Isin))
+            .from(AssetsIden::Table),
+    )
+    .and_where(Expr::col((AssetsIden::Table, AssetsIden::Isin)).is_in(isins))
+    .and_where(
+        Expr::col((AssetsIden::Table, AssetsIden::UserId))
+            .is_null()
+            .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(user_id)),
+    )
+    .build_sqlx(PostgresQueryBuilder)
+    .into()
+}
+
+/// Stock and fund assets whose ticker root (before the first `.`) matches, case-insensitively.
+/// The root expression must stay identical to `idx_assets_ticker_root_lower` for the index to apply.
+#[macros::named_query]
+pub fn get_assets_by_root_symbols(user_id: Uuid, root_symbols: Vec<String>) -> DbQueryWithValues {
+    let root_symbol = || Expr::cust("LOWER(SPLIT_PART(\"assets\".\"ticker\", '.', 1))");
+    let root_symbols: Vec<String> = root_symbols.iter().map(|s| s.to_lowercase()).collect();
+
+    base_currency_join(
+        Query::select()
+            .column((AssetsIden::Table, AssetsIden::Id))
+            .expr_as(root_symbol(), Alias::new("root_symbol"))
+            .from(AssetsIden::Table),
+    )
+    .and_where(root_symbol().is_in(root_symbols))
+    .and_where(
+        Expr::col((AssetsIden::Table, AssetsIden::AssetType)).is_in([
+            asset_type_ids::STOCK,
+            asset_type_ids::MUTUAL_FUND,
+            asset_type_ids::ETF,
+        ]),
+    )
+    .and_where(
+        Expr::col((AssetsIden::Table, AssetsIden::UserId))
+            .is_null()
+            .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(user_id)),
+    )
+    .build_sqlx(PostgresQueryBuilder)
+    .into()
 }
 
 #[macros::named_query]

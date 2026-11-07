@@ -40,6 +40,7 @@ function importInvalidations(userId: UserId) {
 export interface CreateConnectionVariables {
   providerKind: ProviderKind
   credential?: string
+  providerKeyId?: string
 }
 
 export function useCreateConnection(userId: UserId) {
@@ -48,13 +49,16 @@ export function useCreateConnection(userId: UserId) {
     optimisticMutationOptions<ConnectionId, CreateConnectionVariables>({
       queryClient,
       mutationKey: mutationKeys.user(userId).connectors(),
-      mutationFn: async ({ providerKind, credential }) => {
+      mutationFn: async ({ providerKind, credential, providerKeyId }) => {
         const response = await api(ConnectorsApiFactory).createConnection(
           userId,
           {
             provider_kind: providerKind,
             credential_mode: CredentialMode.Stored,
             ...(credential === undefined ? {} : { credential }),
+            ...(providerKeyId === undefined
+              ? {}
+              : { provider_key_id: providerKeyId }),
           }
         )
         return response.data.connection_id

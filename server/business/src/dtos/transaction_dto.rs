@@ -11,6 +11,7 @@ pub enum TransactionVisibilityDto {
     Default,
     Ghost,
     Hidden,
+    Action,
 }
 
 impl TransactionVisibilityDto {
@@ -19,6 +20,7 @@ impl TransactionVisibilityDto {
             Self::Default => "default",
             Self::Ghost => "ghost",
             Self::Hidden => "hidden",
+            Self::Action => "action",
         }
     }
 
@@ -27,6 +29,7 @@ impl TransactionVisibilityDto {
             "default" => Some(Self::Default),
             "ghost" => Some(Self::Ghost),
             "hidden" => Some(Self::Hidden),
+            "action" => Some(Self::Action),
             _ => None,
         }
     }

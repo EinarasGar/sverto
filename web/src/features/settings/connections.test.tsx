@@ -75,6 +75,7 @@ function binding(overrides: Partial<ConnectorBinding> = {}): ConnectorBinding {
     sverto_account_id: "a1",
     status: "active",
     write_mode: "ghost",
+    sync_in_progress: false,
     created_at: NOW - 10_000,
     updated_at: NOW - 10_000,
     last_sync_at: NOW - 14 * 60,

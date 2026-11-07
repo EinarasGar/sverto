@@ -191,6 +191,23 @@ pub fn clear_group_id_on_transaction(transaction_id: Uuid) -> DbQueryWithValues 
 }
 
 #[macros::named_query]
+pub fn replace_transaction_visibility(
+    user_id: Uuid,
+    transaction_id: Uuid,
+    from: String,
+    to: String,
+) -> DbQueryWithValues {
+    Query::update()
+        .table(TransactionIden::Table)
+        .value(TransactionIden::Visibility, to)
+        .and_where(Expr::col(TransactionIden::Id).eq(transaction_id))
+        .and_where(Expr::col(TransactionIden::UserId).eq(user_id))
+        .and_where(Expr::col(TransactionIden::Visibility).eq(from))
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
 pub fn update_transactions_visibility(
     user_id: Uuid,
     transaction_ids: Vec<Uuid>,

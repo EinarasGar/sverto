@@ -131,6 +131,9 @@ function ApiKeyDialog({
 }) {
   const create = useCreateConnection(useUserId())
   const [key, setKey] = useState("")
+  const [keyId, setKeyId] = useState("")
+  const keyFields = provider.keyFields
+  const missingKeyId = keyFields !== undefined && keyId.trim() === ""
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -139,8 +142,26 @@ function ApiKeyDialog({
           <DialogTitle>Connect {provider.name}</DialogTitle>
           <DialogDescription>{CONNECT_KEY_CONSEQUENCE}</DialogDescription>
         </DialogHeader>
+        {keyFields === undefined ? null : (
+          <Field>
+            <FieldLabel htmlFor="provider-key-id">
+              {keyFields.keyIdLabel}
+            </FieldLabel>
+            <Input
+              id="provider-key-id"
+              autoComplete="off"
+              value={keyId}
+              onChange={(event) => {
+                setKeyId(event.target.value)
+              }}
+            />
+            <FieldDescription>{keyFields.help}</FieldDescription>
+          </Field>
+        )}
         <Field>
-          <FieldLabel htmlFor="provider-api-key">API key</FieldLabel>
+          <FieldLabel htmlFor="provider-api-key">
+            {keyFields?.secretLabel ?? "API key"}
+          </FieldLabel>
           <Input
             id="provider-api-key"
             type="password"
@@ -165,13 +186,20 @@ function ApiKeyDialog({
             Cancel
           </Button>
           <Button
-            disabled={key.trim() === "" || create.isPending}
+            disabled={key.trim() === "" || missingKeyId || create.isPending}
             onClick={() => {
               create.mutate(
-                { providerKind: provider.kind, credential: key.trim() },
+                {
+                  providerKind: provider.kind,
+                  credential: key.trim(),
+                  ...(keyFields === undefined
+                    ? {}
+                    : { providerKeyId: keyId.trim() }),
+                },
                 {
                   onSuccess: () => {
                     setKey("")
+                    setKeyId("")
                     onOpenChange(false)
                   },
                 }

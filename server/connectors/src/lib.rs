@@ -1,6 +1,7 @@
 pub mod client_supplied;
-pub mod enablebanking;
 pub mod dedup;
+pub mod enablebanking;
+pub mod ibkr;
 pub mod models;
 pub mod port;
 pub mod provider;

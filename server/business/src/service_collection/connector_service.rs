@@ -21,8 +21,7 @@ use crate::dtos::bad_request_error_dto::BusinessBadRequestError;
 use crate::dtos::connectors::{
     BeginOauthOptionsDto, BindingStatusDto, BindingUpdateStatusDto, BindingWriteModeDto,
     ConnectionStatusDto, ConnectorBindingDto, ConnectorConnectionDto, CredentialModeDto,
-    OAuthSessionStartDto, OAuthSessionStateDto, ProviderAccountDto,
-    ProviderAccountTransactionDto,
+    OAuthSessionStartDto, OAuthSessionStateDto, ProviderAccountDto, ProviderAccountTransactionDto,
 };
 use crate::dtos::not_found_error_dto::BusinessNotFoundError;
 use crate::providers::connector_store::BusinessConnectorStore;

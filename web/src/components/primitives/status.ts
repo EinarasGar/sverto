@@ -1,3 +1,5 @@
+import { CircleAlert } from "lucide-react"
+
 export const STATUS_WORDS = {
   active: { label: "Active", tone: "text-positive", dot: "bg-positive" },
   pending: { label: "Pending", tone: "text-attention", dot: "bg-attention" },
@@ -9,6 +11,12 @@ export const STATUS_WORDS = {
   paused: { label: "Paused", tone: "text-ghost", dot: "bg-ghost" },
   notLinked: { label: "Not linked", tone: "text-ghost", dot: "bg-ghost" },
   unreviewed: { label: "Unreviewed", tone: "text-ghost", dot: "bg-ghost" },
+  needsAction: {
+    label: "Needs action",
+    tone: "text-attention",
+    dot: "bg-attention",
+    icon: CircleAlert,
+  },
 } as const
 
 export type StatusWord = keyof typeof STATUS_WORDS

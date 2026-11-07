@@ -5,6 +5,7 @@ import type { TransactionVisibility } from "@/api"
 import type { VisibilityIntent, VisibilitySubject } from "./visibility"
 import {
   HIDING_AN_UNREVIEWED_ROW,
+  HIDING_A_ROW_THAT_NEEDS_ACTION,
   inverseIntent,
   planVisibility,
   refusedCount,
@@ -40,6 +41,13 @@ describe("what a single transition is allowed to do", () => {
     expect(transition).toEqual({
       kind: "refused",
       reason: HIDING_AN_UNREVIEWED_ROW,
+    })
+  })
+
+  it("refuses to hide a transaction that needs action, so unhide cannot drop the flag", () => {
+    expect(visibilityTransition("action", "hide")).toEqual({
+      kind: "refused",
+      reason: HIDING_A_ROW_THAT_NEEDS_ACTION,
     })
   })
 

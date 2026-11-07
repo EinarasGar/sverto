@@ -70,6 +70,7 @@ pub struct ConnectorBindingViewModel {
     pub last_sync_at: Option<time::OffsetDateTime>,
     pub last_sync_status: Option<String>,
     pub last_sync_error: Option<String>,
+    pub sync_in_progress: bool,
     #[serde(with = "timestamp")]
     #[schema(value_type = i64)]
     pub created_at: time::OffsetDateTime,
@@ -108,6 +109,7 @@ impl From<ConnectorBindingDto> for ConnectorBindingViewModel {
             last_sync_at: dto.last_sync_at,
             last_sync_status: dto.last_sync_status,
             last_sync_error: dto.last_sync_error,
+            sync_in_progress: dto.sync_in_progress,
             created_at: dto.created_at,
             updated_at: dto.updated_at,
         }

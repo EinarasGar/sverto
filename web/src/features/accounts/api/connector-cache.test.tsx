@@ -26,6 +26,7 @@ function binding(overrides: Partial<ConnectorBinding>): ConnectorBinding {
     provider_account_id: "provider",
     status: "active",
     write_mode: "review",
+    sync_in_progress: false,
     created_at: 1_700_000_000,
     updated_at: 1_700_000_000,
     ...overrides,

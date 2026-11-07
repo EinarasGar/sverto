@@ -4108,6 +4108,12 @@ export interface ConnectorBinding {
      */
     'sverto_account_id': string;
     /**
+     * A sync holds the provider account (its claim is fresh); another sync would wait.
+     * @type {boolean}
+     * @memberof ConnectorBinding
+     */
+    'sync_in_progress': boolean;
+    /**
      * 
      * @type {number}
      * @memberof ConnectorBinding
@@ -6786,7 +6792,8 @@ export type TransactionInput = { type: 'account_fees' } & AccountFeesTransaction
 export const TransactionVisibility = {
     Default: 'default',
     Ghost: 'ghost',
-    Hidden: 'hidden'
+    Hidden: 'hidden',
+    Action: 'action'
 } as const;
 
 export type TransactionVisibility = typeof TransactionVisibility[keyof typeof TransactionVisibility];

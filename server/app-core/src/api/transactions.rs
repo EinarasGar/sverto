@@ -63,6 +63,7 @@ fn map_visibility(
         Vm::Default => crate::models::TransactionVisibility::Default,
         Vm::Ghost => crate::models::TransactionVisibility::Ghost,
         Vm::Hidden => crate::models::TransactionVisibility::Hidden,
+        Vm::Action => crate::models::TransactionVisibility::Action,
     }
 }
 

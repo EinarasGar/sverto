@@ -22,6 +22,7 @@ rust_decimal = { version = "1", features = ["serde-with-arbitrary-precision"] }
 base64 = "0.22"
 serde_urlencoded = "0.7"
 url = "2"
+quick-xml = "0.38"
 
 [dev-dependencies]
 mockall = "0.14.0"

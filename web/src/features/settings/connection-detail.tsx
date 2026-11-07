@@ -70,6 +70,7 @@ function BindingActions({
   const update = useUpdateBinding(userId)
   const sync = useSyncBinding(userId)
   const paused = binding.status === "paused"
+  const syncing = sync.isPending || binding.syncInProgress
 
   return (
     <>
@@ -99,12 +100,12 @@ function BindingActions({
       <Button
         variant="ghost"
         size="xs"
-        disabled={sync.isPending}
+        disabled={syncing}
         onClick={() => {
           sync.mutate({ bindingId: binding.bindingId })
         }}
       >
-        {sync.isPending ? "Syncing…" : "Sync now"}
+        {syncing ? "Syncing…" : "Sync now"}
       </Button>
       <Button
         variant="ghost"

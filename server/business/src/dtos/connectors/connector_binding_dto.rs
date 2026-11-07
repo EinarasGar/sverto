@@ -90,6 +90,7 @@ pub struct ConnectorBindingDto {
     pub last_sync_at: Option<OffsetDateTime>,
     pub last_sync_status: Option<String>,
     pub last_sync_error: Option<String>,
+    pub sync_in_progress: bool,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }
@@ -108,6 +109,7 @@ impl From<ConnectorBindingRow> for ConnectorBindingDto {
             last_sync_at: row.last_sync_at,
             last_sync_status: row.last_sync_status,
             last_sync_error: row.last_sync_error,
+            sync_in_progress: row.sync_in_progress,
             created_at: row.created_at,
             updated_at: row.updated_at,
         }
