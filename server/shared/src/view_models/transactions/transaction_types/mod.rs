@@ -134,6 +134,79 @@ pub type TransactionWithId = IdentifiableTransactionWithIdentifiableEntries;
 pub type RequiredTransactionWithId = RequiredIdentifiableTransactionWithIdentifiableEntries;
 
 #[cfg(feature = "backend")]
+impl From<TransactionDto> for IdentifiableTransactionWithIdentifiableEntries {
+    fn from(value: TransactionDto) -> Self {
+        match value.transaction_type {
+            TransactionTypeDto::Regular(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::RegularTransaction(
+                    IdentifiableRegularTransactionWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::AssetPurchase(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::AssetPurchase(
+                    IdentifiableAssetPurchaseWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::AssetSale(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::AssetSale(
+                    IdentifiableAssetSaleWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::CashTransferIn(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::CashTransferIn(
+                    IdentifiableCashTransferInWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::CashTransferOut(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::CashTransferOut(
+                    IdentifiableCashTransferOutWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::CashDividend(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::CashDividend(
+                    IdentifiableCashDividendWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::AssetDividend(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::AssetDividend(
+                    IdentifiableAssetDividendWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::AssetTransferOut(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::AssetTransferOut(
+                    IdentifiableAssetTransferOutWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::AssetTransferIn(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::AssetTransferIn(
+                    IdentifiableAssetTransferInWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::AssetTrade(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::AssetTrade(
+                    IdentifiableAssetTradeWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::AssetBalanceTransfer(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::AssetBalanceTransfer(
+                    IdentifiableAssetBalanceTransferWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::AccountFees(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::AccountFees(
+                    IdentifiableAccountFeesWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+            TransactionTypeDto::CashBalanceTransfer(_) => {
+                IdentifiableTransactionWithIdentifiableEntries::CashBalanceTransfer(
+                    IdentifiableCashBalanceTransferWithIdentifiableEntriesViewModel::from(value),
+                )
+            }
+        }
+    }
+}
+
+#[cfg(feature = "backend")]
 impl From<TransactionDto> for RequiredIdentifiableTransactionWithIdentifiableEntries {
     fn from(value: TransactionDto) -> Self {
         match value.transaction_type {

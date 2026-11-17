@@ -19,6 +19,7 @@ use crate::{
         portfolio_overview::investment_transaction::cash_dividend::CashDividend,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             metadata::MetadataField,
             transaction::{Transaction, TransactionPortfolioAction},
         },
@@ -99,6 +100,8 @@ impl TransactionProcessor for CashDividendTransaction {
             TransactionTypeDto::CashDividend(metadata) => metadata,
             _ => panic!("Invalid transaction type"),
         };
+
+        entry_rules::check([entry_rules::positive(&metadata.entry, "entry")])?;
 
         let mut base = BaseTransaction::new(
             user_id,

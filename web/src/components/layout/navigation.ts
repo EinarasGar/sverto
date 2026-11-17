@@ -3,6 +3,7 @@ import {
   AlignLeft,
   Check,
   CreditCard,
+  FileUp,
   House,
   Settings,
   Sparkle,
@@ -16,6 +17,7 @@ export type NavId =
   | "review"
   | "portfolio"
   | "accounts"
+  | "imports"
   | "myra"
   | "settings"
 
@@ -92,6 +94,17 @@ const ACCOUNTS: NavDestination = {
   match: "/accounts",
 }
 
+const IMPORTS: NavDestination = {
+  id: "imports",
+  label: "Import",
+  title: "Import",
+  eyebrow: "Ledger intake",
+  description: "Turn files into a reviewed ledger proposal",
+  icon: FileUp,
+  link: { to: "/imports" },
+  match: "/imports",
+}
+
 const MYRA: NavDestination = {
   id: "myra",
   label: "Myra",
@@ -119,6 +132,7 @@ export const RAIL_NAV: readonly NavDestination[] = [
   TRANSACTIONS,
   PORTFOLIO,
   ACCOUNTS,
+  IMPORTS,
 ]
 
 export const TAB_NAV: readonly NavDestination[] = [
@@ -134,6 +148,7 @@ export const MENU_NAV: readonly NavDestination[] = [
   TRANSACTIONS,
   PORTFOLIO,
   ACCOUNTS,
+  IMPORTS,
   MYRA,
   SETTINGS,
 ]
@@ -148,6 +163,7 @@ export const DESTINATIONS: readonly NavDestination[] = [
   REVIEW,
   PORTFOLIO,
   ACCOUNTS,
+  IMPORTS,
   MYRA,
   SETTINGS,
 ]

@@ -7,6 +7,7 @@ pub struct ConversationModel {
     pub user_id: Uuid,
     pub title: Option<String>,
     pub last_error: Option<serde_json::Value>,
+    pub untitled_history_head: Option<Vec<u8>>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
 }
@@ -14,16 +15,6 @@ pub struct ConversationModel {
 pub struct ChatNeedingTitleModel {
     pub conversation_id: Uuid,
     pub user_id: Uuid,
-}
-
-#[derive(Debug, sqlx::FromRow)]
-pub struct MessageModel {
-    pub id: Uuid,
-    pub conversation_id: Uuid,
-    pub role: String,
-    pub content: serde_json::Value,
-    pub file_ids: Vec<Uuid>,
-    pub created_at: OffsetDateTime,
 }
 
 #[derive(Debug, sqlx::FromRow)]

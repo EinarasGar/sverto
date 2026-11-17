@@ -13,7 +13,12 @@ pub struct BusinessFieldErrorDto {
 
 impl fmt::Display for BusinessValidationErrorDto {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "Validation failed: {} error(s)", self.errors.len())
+        let errors: Vec<String> = self
+            .errors
+            .iter()
+            .map(|error| format!("{}: {}", error.field, error.message))
+            .collect();
+        write!(f, "Validation failed: {}", errors.join("; "))
     }
 }
 

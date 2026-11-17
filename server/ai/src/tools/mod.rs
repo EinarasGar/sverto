@@ -17,9 +17,11 @@ pub mod record_cash_transfer;
 pub mod record_dividend;
 pub mod record_fee;
 pub mod record_transfer;
+pub mod run_extraction_script;
 pub mod run_script;
 pub mod search_assets;
 pub mod search_categories;
+pub mod submit_reading;
 pub mod update_asset_valuation;
 pub mod update_transaction;
 
@@ -55,3 +57,9 @@ macro_rules! impl_tool_error_from {
 }
 
 impl_tool_error_from!(anyhow::Error, serde_json::Error);
+
+impl From<ToolError> for rig::tool::ToolExecutionError {
+    fn from(error: ToolError) -> Self {
+        rig::tool::ToolExecutionError::other(error.0)
+    }
+}

@@ -1,13 +1,13 @@
 use std::collections::HashMap;
 
 use dal::enums::{
-    fee_categories::DatabaseFeeCategories,
+    account_types::DatabaseAccountTypes, fee_categories::DatabaseFeeCategories,
     transaction_type_categories::DatabaseTransactionTypeCategories,
 };
 
 use crate::dynamic_enums::{
-    fee_categories::FeeCategories, transaction_type_categories::TransactionTypeCategories,
-    DynamicEnum,
+    account_types::AccountTypes, fee_categories::FeeCategories,
+    transaction_type_categories::TransactionTypeCategories, DynamicEnum,
 };
 
 /// Category id the helper assigns to Cash Balance Transfer. The real id is
@@ -15,8 +15,6 @@ use crate::dynamic_enums::{
 /// rather than assuming a literal.
 pub(crate) const CASH_BALANCE_TRANSFER_CATEGORY: i32 = 15;
 
-/// Populates the dynamic-enum statics with the category mappings the
-/// migrations seed, so entity tests can stamp and detect categories without a
 /// database. The statics are process-global and shared by parallel tests:
 /// every caller installs identical values and nothing tears them down, which
 /// keeps concurrent test execution safe.
@@ -44,4 +42,14 @@ pub(crate) fn load_dynamic_enums() {
     fees.insert(DatabaseFeeCategories::Exchange, 1);
     fees.insert(DatabaseFeeCategories::WithholdingTax, 8);
     FeeCategories::set_static_map(Some(fees));
+
+    let mut account_types = HashMap::new();
+    account_types.insert(DatabaseAccountTypes::Credit, 4);
+    account_types.insert(DatabaseAccountTypes::Mortgage, 7);
+    account_types.insert(DatabaseAccountTypes::Loan, 8);
+    account_types.insert(DatabaseAccountTypes::Investment, 3);
+    account_types.insert(DatabaseAccountTypes::PersonalPension, 5);
+    account_types.insert(DatabaseAccountTypes::WorkplacePension, 6);
+    account_types.insert(DatabaseAccountTypes::CryptoWallet, 10);
+    AccountTypes::set_static_map(Some(account_types));
 }

@@ -2,11 +2,11 @@ use std::sync::Arc;
 
 use super::{ToolError, ToolMode};
 use crate::data_provider::AiDataProvider;
-use crate::embedding::embed_query;
+use crate::embedding::{embed_query, EmbeddingModel};
 use crate::models::tool_output::QueryTransactionsArgs;
 use crate::models::transactions::QueryTransactionsParams;
-use rig::{completion::request::ToolDefinition, embeddings::EmbeddingModel, tool::Tool};
-use serde_json::json;
+use rig::tool::{Tool, ToolContext, ToolExecutionError};
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 const NORMAL_LIMIT: i64 = 50;
@@ -15,18 +15,18 @@ const CODE_MODE_SEMANTIC_LIMIT: i64 = 1000;
 const CODE_MODE_BROWSE_LIMIT: i64 = 50_000;
 const CODE_MODE_MAX: i64 = 50_000;
 
-pub struct QueryTransactionsTool<M: EmbeddingModel, D: AiDataProvider> {
+pub struct QueryTransactionsTool<D: AiDataProvider> {
     data: Arc<D>,
-    embedding_model: M,
+    embedding_model: EmbeddingModel,
     mode: ToolMode,
 }
 
-impl<M: EmbeddingModel, D: AiDataProvider> QueryTransactionsTool<M, D> {
-    pub fn new(data: Arc<D>, embedding_model: M) -> Self {
+impl<D: AiDataProvider> QueryTransactionsTool<D> {
+    pub fn new(data: Arc<D>, embedding_model: EmbeddingModel) -> Self {
         Self::with_mode(data, embedding_model, ToolMode::Normal)
     }
 
-    pub fn with_mode(data: Arc<D>, embedding_model: M, mode: ToolMode) -> Self {
+    pub fn with_mode(data: Arc<D>, embedding_model: EmbeddingModel, mode: ToolMode) -> Self {
         Self {
             data,
             embedding_model,
@@ -35,52 +35,59 @@ impl<M: EmbeddingModel, D: AiDataProvider> QueryTransactionsTool<M, D> {
     }
 }
 
-impl<M: EmbeddingModel + Send + Sync, D: AiDataProvider> Tool for QueryTransactionsTool<M, D> {
+impl<D: AiDataProvider> Tool for QueryTransactionsTool<D> {
     const NAME: &'static str = "query_transactions";
 
     type Error = ToolError;
     type Args = QueryTransactionsArgs;
-    type Output = String;
+    type Output = Value;
 
-    async fn definition(&self, _prompt: String) -> ToolDefinition {
+    fn description(&self) -> String {
         match self.mode {
-            ToolMode::Normal => ToolDefinition {
-                name: Self::NAME.to_string(),
-                description: "Find and browse the user's transactions. Provide `query` to search by meaning OR merchant/keyword (e.g. 'eating out', 'tesco', 'that dentist charge'); omit it to browse most-recent-first. Optionally filter by account_id, transaction_types (names like 'regular','asset_purchase','cash_dividend','asset_balance_transfer'), and date_from/date_to. Each row gives the amount together with its unit (currency code or asset ticker — never a bare number) and a transaction_id. At most 50 rows are returned; when more match (has_more=true) the result carries a note — use run_script with a query_transactions dataset to total, deduplicate, or otherwise analyze the full set instead of paging. For grouped totals (e.g. spending by category) use aggregate_transactions; to expand one row's full legs and fees use get_transaction_detail with its transaction_id.".to_string(),
-                parameters: json!({
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string", "description": "Optional keyword or natural-language phrase to search descriptions by text and meaning. Omit to browse chronologically. Note: meaning-search only matches transactions that have a description (ordinary income/expense and groups)."},
-                        "account_id": {"type": "string", "description": "Optional account UUID to restrict to (from list_accounts)."},
-                        "transaction_types": {"type": "array", "items": {"type": "string"}, "description": "Optional list of transaction-type names to include: regular, asset_purchase, asset_sale, cash_dividend, asset_dividend, account_fees, cash_transfer_in, cash_transfer_out, asset_transfer_in, asset_transfer_out, asset_trade, asset_balance_transfer, cash_balance_transfer."},
-                        "date_from": {"type": "string", "description": "Optional start date (YYYY-MM-DD or RFC3339)."},
-                        "date_to": {"type": "string", "description": "Optional end date (YYYY-MM-DD or RFC3339); inclusive."},
-                        "limit": {"type": "integer", "description": "Max rows to return (default 50)."},
-                        "cursor": {"type": "string", "description": "Pass next_cursor from a previous browse call to fetch the next page (browse only, i.e. when no query)."}
-                    },
-                    "required": []
-                }),
-            },
-            ToolMode::CodeMode => ToolDefinition {
-                name: Self::NAME.to_string(),
-                description: "The user's transactions matching optional filters, as a flat array. args {query?, account_id?, transaction_types?, date_from?, date_to?, limit?} — omit query to load the full set in the range (most-recent-first); pass query to load the most relevant matches. If more rows match than can be returned, the call errors asking you to narrow the range/filters, so scope with date_from/date_to. Each row: {transaction_id, date, transaction_type, description, amount (number, negative = spending/outflow), unit (currency code or asset ticker), account}.".to_string(),
-                parameters: json!({
-                    "type": "object",
-                    "properties": {
-                        "query": {"type": "string"},
-                        "account_id": {"type": "string"},
-                        "transaction_types": {"type": "array", "items": {"type": "string"}},
-                        "date_from": {"type": "string"},
-                        "date_to": {"type": "string"},
-                        "limit": {"type": "integer"}
-                    }
-                }),
-            },
+            ToolMode::Normal => "Find and browse the user's transactions. Provide `query` to search by meaning OR merchant/keyword (e.g. 'eating out', 'tesco', 'that dentist charge'); omit it to browse most-recent-first. Optionally filter by account_id, transaction_types (names like 'regular','asset_purchase','cash_dividend','asset_balance_transfer'), and date_from/date_to. Each row gives the amount together with its unit (currency code or asset ticker — never a bare number) and a transaction_id. At most 50 rows are returned; when more match (has_more=true) the result carries a note — use run_script with a query_transactions dataset to total, deduplicate, or otherwise analyze the full set instead of paging. For grouped totals (e.g. spending by category) use aggregate_transactions; to expand one row's full legs and fees use get_transaction_detail with its transaction_id.".to_string(),
+            ToolMode::CodeMode => "The user's transactions matching optional filters, as a flat array. args {query?, account_id?, transaction_types?, date_from?, date_to?, limit?} — omit query to load the full set in the range (most-recent-first); pass query to load the most relevant matches. If more rows match than can be returned, the call errors asking you to narrow the range/filters, so scope with date_from/date_to. Each row: {transaction_id, date, transaction_type, description, amount (number, negative = spending/outflow), unit (currency code or asset ticker), account}.".to_string(),
         }
     }
 
+    fn parameters(&self) -> Value {
+        match self.mode {
+            ToolMode::Normal => json!({
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string", "description": "Optional keyword or natural-language phrase to search descriptions by text and meaning. Omit to browse chronologically. Note: meaning-search only matches transactions that have a description (ordinary income/expense and groups)."},
+                    "account_id": {"type": "string", "description": "Optional account UUID to restrict to (from list_accounts)."},
+                    "transaction_types": {"type": "array", "items": {"type": "string"}, "description": "Optional list of transaction-type names to include: regular, asset_purchase, asset_sale, cash_dividend, asset_dividend, account_fees, cash_transfer_in, cash_transfer_out, asset_transfer_in, asset_transfer_out, asset_trade, asset_balance_transfer, cash_balance_transfer."},
+                    "date_from": {"type": "string", "description": "Optional start date (YYYY-MM-DD or RFC3339)."},
+                    "date_to": {"type": "string", "description": "Optional end date (YYYY-MM-DD or RFC3339); inclusive."},
+                    "limit": {"type": "integer", "description": "Max rows to return (default 50)."},
+                    "cursor": {"type": "string", "description": "Pass next_cursor from a previous browse call to fetch the next page (browse only, i.e. when no query)."}
+                },
+                "required": []
+            }),
+            ToolMode::CodeMode => json!({
+                "type": "object",
+                "properties": {
+                    "query": {"type": "string"},
+                    "account_id": {"type": "string"},
+                    "transaction_types": {"type": "array", "items": {"type": "string"}},
+                    "date_from": {"type": "string"},
+                    "date_to": {"type": "string"},
+                    "limit": {"type": "integer"}
+                }
+            }),
+        }
+    }
+
+    fn map_error(&self, error: Self::Error) -> ToolExecutionError {
+        error.into()
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(tool = Self::NAME))]
-    async fn call(&self, args: Self::Args) -> std::result::Result<Self::Output, Self::Error> {
+    async fn call(
+        &self,
+        _context: &mut ToolContext,
+        args: Self::Args,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         let account_id = match &args.account_id {
             Some(s) => Some(
                 s.parse::<Uuid>()
@@ -141,13 +148,13 @@ impl<M: EmbeddingModel + Send + Sync, D: AiDataProvider> Tool for QueryTransacti
                         "query_transactions matched more rows than the {limit}-row dataset limit; narrow date_from/date_to or add filters so the full set fits, then retry."
                     )));
                 }
-                serde_json::to_string(&result.transactions).map_err(Into::into)
+                serde_json::to_value(&result.transactions).map_err(Into::into)
             }
             ToolMode::Normal => {
                 if result.has_more {
                     result.note = Some("This is a partial list; more transactions match these filters. To total, deduplicate, or otherwise analyze ALL matching transactions, call run_script with a dataset {\"name\": \"txns\", \"tool\": \"query_transactions\", \"args\": { ...the same query and filters... }} rather than paging through this list.".to_string());
                 }
-                serde_json::to_string(&result).map_err(Into::into)
+                serde_json::to_value(&result).map_err(Into::into)
             }
         }
     }

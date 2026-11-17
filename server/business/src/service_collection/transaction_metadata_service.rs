@@ -149,10 +149,9 @@ impl TransactionMetadataService {
                     );
                     self.db.execute(query).await?;
                     self.embedding_service
-                        .enqueue_embed_transaction(
+                        .enqueue_embed_transactions(
                             new_transaction.get_user_id(),
-                            transaction_id,
-                            new_val.clone(),
+                            vec![(transaction_id, new_val.clone())],
                         )
                         .await?;
                 }
@@ -166,10 +165,9 @@ impl TransactionMetadataService {
                 ]);
                 self.db.execute(query).await?;
                 self.embedding_service
-                    .enqueue_embed_transaction(
+                    .enqueue_embed_transactions(
                         new_transaction.get_user_id(),
-                        transaction_id,
-                        new_val.clone(),
+                        vec![(transaction_id, new_val.clone())],
                     )
                     .await?;
             }
@@ -270,20 +268,23 @@ impl TransactionMetadataService {
             let query = transaction_data_queries::insert_descriptions(update_models.clone());
             self.db.execute(query).await?;
 
+            let mut by_user: HashMap<Uuid, Vec<(Uuid, String)>> = HashMap::new();
             for model in update_models {
                 let transaction = transactions
                     .iter_mut()
                     .find(|x| x.get_transaction_id() == Some(model.transaction_id))
                     .unwrap();
-                self.embedding_service
-                    .enqueue_embed_transaction(
-                        transaction.get_user_id(),
-                        model.transaction_id,
-                        model.description.clone(),
-                    )
-                    .await?;
+                by_user
+                    .entry(transaction.get_user_id())
+                    .or_default()
+                    .push((model.transaction_id, model.description.clone()));
                 transaction
                     .set_metadata_fields(MetadataField::Description(Some(model.description)));
+            }
+            for (user_id, descriptions) in by_user {
+                self.embedding_service
+                    .enqueue_embed_transactions(user_id, descriptions)
+                    .await?;
             }
         }
 

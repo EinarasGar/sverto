@@ -2,7 +2,11 @@ export { AccountConnection } from "./account-connection"
 export type { DeletableAccount } from "./account-delete-dialog"
 export { AccountDeleteDialog } from "./account-delete-dialog"
 export { AccountDetail } from "./account-detail"
-export type { AccountEditorMode } from "./account-editor"
+export type {
+  AccountEditorMode,
+  AccountPrefill,
+  CreatedAccount,
+} from "./account-editor"
 export { AccountEditor } from "./account-editor"
 export {
   NEW_ACCOUNT,

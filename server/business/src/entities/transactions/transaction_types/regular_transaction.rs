@@ -11,6 +11,7 @@ use crate::{
         portfolio_overview::investment_transaction::regular_cash_change::RegularCashChange,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             metadata::MetadataField,
             transaction::{Transaction, TransactionPortfolioAction},
         },
@@ -94,6 +95,8 @@ impl TransactionProcessor for RegularTransaction {
             TransactionTypeDto::Regular(metadata) => metadata,
             _ => panic!("Invalid transaction type"),
         };
+
+        entry_rules::check([entry_rules::non_zero(&metadata.entry, "entry")])?;
 
         let mut base = BaseTransaction::new(
             user_id,

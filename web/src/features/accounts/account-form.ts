@@ -145,13 +145,15 @@ export function formatSharePercent(fraction: number): string {
 export function emptyAccountForm(defaults: {
   accountTypeId?: number | null
   liquidityTypeId?: number | null
+  name?: string
+  identifiers?: readonly IdentifierDraft[]
 }): AccountFormState {
   return {
-    name: "",
+    name: defaults.name ?? "",
     accountTypeId: defaults.accountTypeId ?? null,
     liquidityTypeId: defaults.liquidityTypeId ?? null,
     sharePercent: "100",
-    identifiers: [],
+    identifiers: defaults.identifiers ?? [],
   }
 }
 

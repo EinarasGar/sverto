@@ -7,6 +7,7 @@ pub enum AiConversationsIden {
     CreatedAt,
     UpdatedAt,
     LastError,
+    History,
 }
 
 impl Iden for AiConversationsIden {
@@ -18,6 +19,7 @@ impl Iden for AiConversationsIden {
             Self::CreatedAt => "created_at",
             Self::UpdatedAt => "updated_at",
             Self::LastError => "last_error",
+            Self::History => "history",
         }
     }
 }
@@ -36,30 +38,6 @@ impl Iden for AiChatIden {
             Self::ConversationId => "conversation_id",
             Self::Title => "title",
             Self::UpdatedAt => "updated_at",
-        }
-    }
-}
-
-pub enum AiMessagesIden {
-    Table,
-    Id,
-    ConversationId,
-    Role,
-    Content,
-    FileIds,
-    CreatedAt,
-}
-
-impl Iden for AiMessagesIden {
-    fn unquoted(&self) -> &str {
-        match self {
-            Self::Table => "ai_messages",
-            Self::Id => "id",
-            Self::ConversationId => "conversation_id",
-            Self::Role => "role",
-            Self::Content => "content",
-            Self::FileIds => "file_ids",
-            Self::CreatedAt => "created_at",
         }
     }
 }

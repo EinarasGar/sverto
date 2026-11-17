@@ -101,8 +101,8 @@ setup-env: ## Create .env file (worktree-aware). Use auth=noauth|database|clerk 
 		"JAEGER_UI_PORT=2$${PREFIX}05" \
 		"SEQ_PORT=2$${PREFIX}00" \
 		"COOKIE_SECURE=false" \
-		"MINIO_PORT=2$${PREFIX}06" \
-		"MINIO_CONSOLE_PORT=2$${PREFIX}07" \
+		"S3_PORT=2$${PREFIX}06" \
+		"S3_CONSOLE_PORT=2$${PREFIX}07" \
 		"REDIS_PORT=2$${PREFIX}08" \
 		"REDIS_URL=redis://localhost:2$${PREFIX}08" \
 		"VAULT_PORT=2$${PREFIX}10" \
@@ -112,13 +112,18 @@ setup-env: ## Create .env file (worktree-aware). Use auth=noauth|database|clerk 
 		"MARKET_DATA_API_KEY=dev-market-data-key" \
 		"S3_ENDPOINT=http://localhost:2$${PREFIX}06" \
 		"S3_BUCKET_NAME=myra-files" \
-		"S3_ACCESS_KEY=minioadmin" \
-		"S3_SECRET_KEY=minioadmin123" \
+		"S3_ACCESS_KEY=rustfsadmin" \
+		"S3_SECRET_KEY=rustfsadmin123" \
 		"S3_REGION=us-east-1" \
 		> .env; \
-	printf '\n%s\n%s\n' \
-		"AI_MODEL=gemini-3-flash-preview" \
+	printf '\n%s\n%s\n%s\n%s\n%s\n%s\n%s\n' \
+		"AI_PROVIDER=gemini" \
+		"AI_MODEL=gemini-3.8-flash" \
+		"AI_EMBEDDING_PROVIDER=gemini" \
 		"AI_EMBEDDING_MODEL=gemini-embedding-2-preview" \
+		"IMPORT_CLASSIFIER=llm" \
+		"SYSTEM_ONE_PROVIDER=typesafe" \
+		"SYSTEM_ONE_MODEL=jev-1.14.0" \
 		>> .env; \
 	SECRETS_FILE=".secrets.dev"; \
 	if [ ! -f "$$SECRETS_FILE" ]; then \
@@ -126,7 +131,11 @@ setup-env: ## Create .env file (worktree-aware). Use auth=noauth|database|clerk 
 		exit 1; \
 	fi; \
 	. ./$$SECRETS_FILE; \
-	printf '%s\n' "AI_API_KEY=$${AI_API_KEY}" >> .env; \
+	printf '%s\n%s\n%s\n' \
+		"AI_API_KEY=$${AI_API_KEY}" \
+		"AI_EMBEDDING_API_KEY=$${AI_EMBEDDING_API_KEY:-$${AI_API_KEY}}" \
+		"SYSTEM_ONE_KEY=$${SYSTEM_ONE_KEY}" \
+		>> .env; \
 	if [ -n "$${TRUELAYER_CLIENT_ID}" ]; then \
 		printf '\n%s\n%s\n%s\n%s\n%s\n' \
 			"# TrueLayer" \
@@ -300,8 +309,8 @@ status: ## Show service ports, status, and useful links
 	check_infra "OTLP Collector" $(OTLP_PORT) jaeger; \
 	check_infra "Jaeger UI     " $(JAEGER_UI_PORT) jaeger; \
 	check_infra "Seq Logs      " $(SEQ_PORT) seq; \
-	check_infra "MinIO         " $(MINIO_PORT) minio; \
-	check_infra "MinIO Console " $(MINIO_CONSOLE_PORT) minio; \
+	check_infra "RustFS        " $(S3_PORT) rustfs; \
+	check_infra "RustFS Console" $(S3_CONSOLE_PORT) rustfs; \
 	check_infra "Redis         " $(REDIS_PORT) redis; \
 	check_infra "Vault         " $(VAULT_PORT) vault; \
 	check_emulator; \
@@ -398,7 +407,7 @@ android-run: android-emulator ## Build, install, and launch the dev Android app 
 	@SERIAL="$(AVD_SERIAL)"; \
 	cd android && ANDROID_SERIAL="$$SERIAL" ./gradlew installDevDebug && \
 	$(ADB) -s "$$SERIAL" reverse tcp:$(SERVER_PORT) tcp:$(SERVER_PORT) >/dev/null && \
-	$(ADB) -s "$$SERIAL" reverse tcp:$(MINIO_PORT) tcp:$(MINIO_PORT) >/dev/null && \
+	$(ADB) -s "$$SERIAL" reverse tcp:$(S3_PORT) tcp:$(S3_PORT) >/dev/null && \
 	echo "$(GREEN)Launching on $$SERIAL$(NC)" && \
 	$(ADB) -s "$$SERIAL" shell am start -n com.sverto.app.dev/com.sverto.app.MainActivity
 

@@ -215,11 +215,8 @@ fn chat_sse_response(
                 ChatStreamEventDto::Text(text) => {
                     yield Ok(Event::default().event("text").data(text));
                 }
-                ChatStreamEventDto::ToolCall { call_id, name, input, signature } => {
-                    let mut data = serde_json::json!({ "call_id": call_id, "name": name, "input": input });
-                    if let Some(sig) = signature {
-                        data["signature"] = serde_json::Value::String(sig);
-                    }
+                ChatStreamEventDto::ToolCall { call_id, name, input } => {
+                    let data = serde_json::json!({ "call_id": call_id, "name": name, "input": input });
                     yield Ok(Event::default().event("tool_call").data(data.to_string()));
                 }
                 ChatStreamEventDto::ToolResult { name, output } => {

@@ -18,13 +18,7 @@ interface SseUnknownEvent {
 export type AiChatStreamEvent =
   | { type: "text"; text: string }
   | { type: "reasoning"; text: string }
-  | {
-      type: "tool_call"
-      callId: string
-      name: string
-      input: unknown
-      signature?: string
-    }
+  | { type: "tool_call"; callId: string; name: string; input: unknown }
   | { type: "tool_result"; name: string; output: unknown }
   | { type: "tool_request"; toolCallId: string; name: string; args: unknown }
   | AiStreamErrorEvent
@@ -55,13 +49,11 @@ export function parseAiChatEvent(message: SseMessage): AiChatStreamEvent {
       const name = readString(payload, "name")
       if (callId === undefined || name === undefined)
         return unknownEvent(message)
-      const signature = readString(payload, "signature")
       return {
         type: "tool_call",
         callId,
         name,
         input: readValue(payload, "input"),
-        ...(signature === undefined ? {} : { signature }),
       }
     }
     case "tool_result": {

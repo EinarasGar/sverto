@@ -26,6 +26,7 @@ pub enum AssetsIden {
     BasePairId,
     UserId,
     Embedding,
+    Isin,
 }
 
 #[allow(dead_code)]
@@ -108,6 +109,7 @@ impl Iden for AssetsIden {
             Self::BasePairId => "base_pair_id",
             Self::UserId => "user_id",
             Self::Embedding => "embedding",
+            Self::Isin => "isin",
         }
     }
 }

@@ -7,7 +7,6 @@ use crate::providers::user_conversation_provider::{subscription_stream, UserConv
 use crate::providers::user_rate_limiter::UserRateLimiter;
 use crate::rate_limiting::rate_limiter::RateLimiter;
 use crate::service_collection::ai_action_service::AiActionService;
-use crate::service_collection::ai_conversation_service::AiConversationService;
 use crate::service_collection::ai_data_service::AiDataService;
 use crate::service_collection::user_service::UsersService;
 use futures::{Stream, StreamExt};
@@ -52,8 +51,7 @@ impl AiChatService {
         );
 
         let config = ai::config::AiConfig::try_from_env()?;
-        let agent =
-            ai::agents::chat::build_chat_agent_for_user(config, data, actions.clone()).await;
+        let agent = ai::agents::chat::build_chat_agent_for_user(config, data, actions.clone());
 
         let rate_limit = Arc::new(UserRateLimiter::new(self.rate_limiter.clone(), user_id));
         let conv = ai::conversation::Conversation::new(conv_agent.clone(), rate_limit);
@@ -76,30 +74,14 @@ impl AiChatService {
         user_id: Uuid,
         conversation_id: Uuid,
     ) -> Result<impl Stream<Item = ChatStreamEventDto>, AiChatError> {
-        use crate::dtos::ai_chat_dto::ChatHistoryMessageDto;
-
         let providers = self.services.create_providers();
-        let conv_service = AiConversationService::new(&providers);
-        let conversation = conv_service
-            .get_conversation(conversation_id, user_id)
+        let conversation =
+            Arc::new(UserConversationProvider::open(&providers, user_id, conversation_id).await?);
+        let rate_limit = Arc::new(UserRateLimiter::new(self.rate_limiter.clone(), user_id));
+        let retryable = ai::conversation::Conversation::new(conversation, rate_limit)
+            .can_continue()
             .await
-            .map_err(AiChatError::Internal)?;
-        let last_message = conv_service
-            .get_last_message(conversation_id, user_id)
-            .await
-            .map_err(AiChatError::Internal)?
-            .and_then(|m| serde_json::from_value::<ChatHistoryMessageDto>(m.content).ok());
-        let retryable = match last_message {
-            Some(ChatHistoryMessageDto::User { .. })
-            | Some(ChatHistoryMessageDto::ToolResult { .. })
-            | Some(ChatHistoryMessageDto::ToolApproval { .. }) => true,
-            // A dangling tool call with no recorded failure is most likely a
-            // pending approval — retrying would corrupt the approval flow.
-            Some(ChatHistoryMessageDto::AssistantToolCall { .. }) => {
-                conversation.last_error.is_some()
-            }
-            _ => false,
-        };
+            .map_err(|e| AiChatError::Ai(AiErrorDto::from(e)))?;
         if !retryable {
             return Err(AiChatError::NothingToRetry);
         }

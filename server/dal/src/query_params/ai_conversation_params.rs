@@ -114,11 +114,6 @@ impl GetConversationsParams {
     }
 }
 
-pub struct GetMessagesParams {
-    pub conversation_id: Uuid,
-    pub user_id: Uuid,
-}
-
 pub struct UpdateConversationErrorParams {
     pub target: ConversationErrorTarget,
     pub error: Option<serde_json::Value>,

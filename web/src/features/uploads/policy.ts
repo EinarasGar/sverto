@@ -3,9 +3,9 @@ export const MAX_UPLOAD_BYTES = 20_971_520
 export const MAX_FILE_NAME_LENGTH = 255
 
 export interface UploadPolicy {
-  readonly mimeTypes: readonly string[]
+  readonly mimeTypes: readonly string[] | null
   readonly maxBytes: number
-  readonly accept: string
+  readonly accept: string | undefined
   readonly typesLabel: string
 }
 
@@ -26,6 +26,13 @@ export const RECEIPT_POLICY: UploadPolicy = {
 }
 
 export const ATTACHMENT_POLICY: UploadPolicy = RECEIPT_POLICY
+
+export const IMPORT_POLICY: UploadPolicy = {
+  mimeTypes: null,
+  maxBytes: MAX_UPLOAD_BYTES,
+  accept: undefined,
+  typesLabel: "CSV, Excel, PDF, OFX and other statement files",
+}
 
 export const REJECTION_REASONS = {
   type: "type",
@@ -71,7 +78,10 @@ export function checkFile(file: File, policy: UploadPolicy): FileVerdict {
       why: "File names cannot contain / or \\.",
     }
   }
-  if (!policy.mimeTypes.includes(baseMimeType(file.type))) {
+  if (
+    policy.mimeTypes !== null &&
+    !policy.mimeTypes.includes(baseMimeType(file.type))
+  ) {
     return {
       ok: false,
       reason: REJECTION_REASONS.type,
@@ -93,6 +103,11 @@ export function checkFile(file: File, policy: UploadPolicy): FileVerdict {
     }
   }
   return { ok: true }
+}
+
+export function declaredMimeType(file: File): string {
+  const type = baseMimeType(file.type)
+  return type === "" ? "application/octet-stream" : type
 }
 
 export function isImageType(mimeType: string): boolean {

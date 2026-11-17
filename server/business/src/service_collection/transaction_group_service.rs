@@ -148,6 +148,27 @@ impl TransactionGroupService {
         category_id: i32,
         date: Option<OffsetDateTime>,
     ) -> anyhow::Result<(Uuid, usize)> {
+        let grouped = self
+            .group_existing_transactions_inner(
+                user_id,
+                transaction_ids,
+                description,
+                category_id,
+                date,
+            )
+            .await?;
+        self.db.commit_transaction().await?;
+        Ok(grouped)
+    }
+
+    pub(crate) async fn group_existing_transactions_inner(
+        &self,
+        user_id: Uuid,
+        transaction_ids: Vec<Uuid>,
+        description: String,
+        category_id: i32,
+        date: Option<OffsetDateTime>,
+    ) -> anyhow::Result<(Uuid, usize)> {
         let mut seen = HashSet::new();
         let unique_ids: Vec<Uuid> = transaction_ids
             .into_iter()
@@ -186,7 +207,6 @@ impl TransactionGroupService {
         };
 
         self.db.start_transaction().await?;
-
         let insert_group_query =
             transaction_group_queries::insert_transaction_group(AddTransactionGroupModel {
                 category_id,
@@ -204,8 +224,6 @@ impl TransactionGroupService {
                 "One or more transactions are already part of a group"
             ));
         }
-
-        self.db.commit_transaction().await?;
 
         self.embedding_service
             .enqueue_embed_group(user_id, group_id, description)

@@ -30,6 +30,8 @@ pub enum AiError {
     InvalidAttachment { detail: String },
     #[error("Request cannot succeed: {detail}")]
     Fatal { detail: String },
+    #[error("The model's answer did not match the requested structure: {detail}")]
+    InvalidAnswer { detail: String },
     #[error("Unexpected AI error: {detail}")]
     Unknown { detail: String },
 }
@@ -67,6 +69,7 @@ impl AiError {
                 min_delay_secs: Some(5),
             },
             Self::ProviderUnavailable { .. }
+            | Self::InvalidAnswer { .. }
             | Self::Unknown { .. }
             | Self::InvalidAttachment { .. } => RetryClass::Transient {
                 min_delay_secs: None,
@@ -78,78 +81,70 @@ impl AiError {
     }
 }
 
-fn classify_status(status: u16, detail: String) -> AiError {
+fn classify_status(status: u16, detail: &str) -> Option<AiError> {
     match status {
-        429 => AiError::ProviderRateLimited,
-        500..=599 => AiError::ProviderUnavailable { detail },
-        400 | 401 | 403 | 404 => AiError::Fatal { detail },
-        _ => AiError::unknown(detail),
+        429 => Some(AiError::ProviderRateLimited),
+        500..=599 => Some(AiError::ProviderUnavailable {
+            detail: detail.to_string(),
+        }),
+        400 | 401 | 403 | 404 => Some(AiError::Fatal {
+            detail: detail.to_string(),
+        }),
+        _ => None,
     }
 }
 
-fn classify_provider_message(msg: &str) -> AiError {
-    let upper = msg.to_uppercase();
-    // 1. Explicit rate-limit tokens (check before numeric fallbacks)
-    if upper.contains("RESOURCE_EXHAUSTED")
-        || upper.contains("EXHAUSTED")
-        || upper.contains("QUOTA")
-    {
-        AiError::ProviderRateLimited
-    // 2. Explicit transient tokens
-    } else if upper.contains("UNAVAILABLE")
-        || upper.contains("OVERLOADED")
-        || upper.contains("DEADLINE_EXCEEDED")
-    {
-        AiError::ProviderUnavailable {
-            detail: msg.to_string(),
-        }
-    // 3. Explicit fatal tokens
-    } else if upper.contains("PERMISSION_DENIED")
-        || upper.contains("UNAUTHENTICATED")
-        || upper.contains("INVALID_ARGUMENT")
-        || upper.contains("API KEY")
-    {
-        AiError::Fatal {
-            detail: msg.to_string(),
-        }
-    // 4. Anchored numeric checks for http_client Display strings (last resort)
-    } else if upper.contains("STATUS CODE: 429") {
-        AiError::ProviderRateLimited
-    } else if upper.contains("STATUS CODE: 500")
-        || upper.contains("STATUS CODE: 503")
-        || upper.contains("HTTP 5")
-    {
-        AiError::ProviderUnavailable {
-            detail: msg.to_string(),
-        }
-    } else {
-        AiError::unknown(msg)
+fn classify_code(code: &str, detail: &str) -> Option<AiError> {
+    match code {
+        "RESOURCE_EXHAUSTED" => Some(AiError::ProviderRateLimited),
+        "UNAVAILABLE" | "DEADLINE_EXCEEDED" | "INTERNAL" => Some(AiError::ProviderUnavailable {
+            detail: detail.to_string(),
+        }),
+        "INVALID_ARGUMENT"
+        | "FAILED_PRECONDITION"
+        | "PERMISSION_DENIED"
+        | "UNAUTHENTICATED"
+        | "NOT_FOUND" => Some(AiError::Fatal {
+            detail: detail.to_string(),
+        }),
+        _ => None,
     }
 }
 
-impl From<rig::http_client::Error> for AiError {
-    fn from(e: rig::http_client::Error) -> Self {
-        use rig::http_client::Error as HE;
-        match e {
-            HE::InvalidStatusCode(status) => {
-                classify_status(status.as_u16(), format!("HTTP {status}"))
+fn classify_report(report: &rig::error::ErrorReport) -> AiError {
+    let detail = rig::redact::text(&report.message).into_owned();
+    if report.refusal {
+        return AiError::Fatal { detail };
+    }
+    report
+        .http_status
+        .and_then(|status| classify_status(status, &detail))
+        .or_else(|| {
+            report
+                .code
+                .as_deref()
+                .and_then(|code| classify_code(code, &detail))
+        })
+        .unwrap_or_else(|| {
+            if report.retryable {
+                AiError::ProviderUnavailable { detail }
+            } else if report.kind == rig::error::ErrorKind::Response {
+                AiError::Fatal { detail }
+            } else {
+                AiError::unknown(detail)
             }
-            HE::InvalidStatusCodeWithMessage(status, msg) => classify_status(status.as_u16(), msg),
-            other => AiError::ProviderUnavailable {
-                detail: other.to_string(),
-            },
-        }
+        })
+}
+
+impl From<rig::error::ErrorReport> for AiError {
+    fn from(report: rig::error::ErrorReport) -> Self {
+        classify_report(&report)
     }
 }
 
-impl From<rig::completion::CompletionError> for AiError {
-    fn from(e: rig::completion::CompletionError) -> Self {
-        use rig::completion::CompletionError as CE;
-        match e {
-            CE::HttpError(he) => he.into(),
-            CE::ProviderError(msg) => classify_provider_message(&msg),
-            other => AiError::unknown(other.to_string()),
-        }
+impl From<rig::error::ProviderError> for AiError {
+    fn from(e: rig::error::ProviderError) -> Self {
+        classify_report(&e.report())
     }
 }
 
@@ -157,8 +152,9 @@ impl From<rig::completion::PromptError> for AiError {
     fn from(e: rig::completion::PromptError) -> Self {
         use rig::completion::PromptError as PE;
         match e {
-            PE::CompletionError(ce) => ce.into(),
-            PE::MaxTurnsError { max_turns, .. } => AiError::TurnLimit {
+            PE::Report(report) => report.into(),
+            PE::Provider(error) => error.into(),
+            PE::MaxTurns { max_turns, .. } => AiError::TurnLimit {
                 max_turns: u32::try_from(max_turns).unwrap_or(u32::MAX),
             },
             other => AiError::unknown(other.to_string()),
@@ -166,24 +162,15 @@ impl From<rig::completion::PromptError> for AiError {
     }
 }
 
-impl From<rig::agent::StreamingError> for AiError {
-    fn from(e: rig::agent::StreamingError) -> Self {
-        use rig::agent::StreamingError as SE;
+impl From<rig::memory::SessionError> for AiError {
+    fn from(e: rig::memory::SessionError) -> Self {
+        use rig::memory::SessionError as SE;
         match e {
-            SE::Completion(ce) => ce.into(),
-            SE::Prompt(pe) => (*pe).into(),
-            other => AiError::unknown(other.to_string()),
-        }
-    }
-}
-
-impl From<rig::embeddings::embedding::EmbeddingError> for AiError {
-    fn from(e: rig::embeddings::embedding::EmbeddingError) -> Self {
-        use rig::embeddings::embedding::EmbeddingError as EE;
-        match e {
-            EE::HttpError(he) => he.into(),
-            EE::ProviderError(msg) => classify_provider_message(&msg),
-            other => AiError::unknown(other.to_string()),
+            SE::OldLayout | SE::Format { .. } | SE::Record { .. } => AiError::Fatal {
+                detail: e.to_string(),
+            },
+            SE::Changed { .. } => AiError::ConcurrencyLimited,
+            SE::Io(_) => AiError::unknown(e.to_string()),
         }
     }
 }
@@ -200,39 +187,36 @@ impl From<crate::rate_limit_provider::RateLimitError> for AiError {
     }
 }
 
-/// The approval hook cancels the prompt loop to pause for user approval —
-/// that is a normal control-flow event, not an error. Callers check this
-/// BEFORE converting to `AiError`.
-pub fn is_prompt_cancelled(e: &rig::agent::StreamingError) -> bool {
-    use rig::agent::StreamingError;
-    use rig::completion::PromptError;
-    matches!(e, StreamingError::Prompt(p) if matches!(**p, PromptError::PromptCancelled { .. }))
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    use rig::completion::{CompletionError, PromptError};
+    use rig::completion::PromptError;
+    use rig::error::ProviderError;
+    use rig::http_client::StatusCode;
 
     #[test]
     fn max_turns_maps_to_turn_limit() {
-        let e = PromptError::MaxTurnsError {
+        let e = PromptError::MaxTurns {
             max_turns: 5,
-            chat_history: Box::new(vec![]),
-            prompt: Box::new(rig::completion::message::Message::user("x")),
+            chat_history: vec![],
+            prompt: rig::message::Message::user("x"),
         };
         assert_eq!(AiError::from(e), AiError::TurnLimit { max_turns: 5 });
     }
 
     #[test]
     fn provider_resource_exhausted_maps_to_provider_rate_limited() {
-        let e = CompletionError::ProviderError("RESOURCE_EXHAUSTED: quota".into());
+        let e = ProviderError::from_provider_body(
+            r#"{"error":{"code":429,"status":"RESOURCE_EXHAUSTED","message":"quota"}}"#,
+        );
         assert_eq!(AiError::from(e), AiError::ProviderRateLimited);
     }
 
     #[test]
     fn provider_unavailable_maps_to_provider_unavailable() {
-        let e = CompletionError::ProviderError("The model is overloaded".into());
+        let e = ProviderError::from_provider_body(
+            r#"{"error":{"code":503,"status":"UNAVAILABLE","message":"The model is overloaded"}}"#,
+        );
         assert!(matches!(
             AiError::from(e),
             AiError::ProviderUnavailable { .. }
@@ -241,9 +225,7 @@ mod tests {
 
     #[test]
     fn http_status_503_maps_to_provider_unavailable() {
-        let e = CompletionError::HttpError(rig::http_client::Error::InvalidStatusCode(
-            http::StatusCode::SERVICE_UNAVAILABLE,
-        ));
+        let e = ProviderError::from_http_response(StatusCode::SERVICE_UNAVAILABLE, "");
         assert!(matches!(
             AiError::from(e),
             AiError::ProviderUnavailable { .. }
@@ -252,16 +234,38 @@ mod tests {
 
     #[test]
     fn http_status_429_maps_to_provider_rate_limited() {
-        let e = CompletionError::HttpError(rig::http_client::Error::InvalidStatusCode(
-            http::StatusCode::TOO_MANY_REQUESTS,
-        ));
+        let e = ProviderError::from_http_response(StatusCode::TOO_MANY_REQUESTS, "");
         assert!(matches!(AiError::from(e), AiError::ProviderRateLimited));
     }
 
     #[test]
     fn unrecognized_provider_error_maps_to_unknown() {
-        let e = CompletionError::ProviderError("some brand new failure mode".into());
+        let e = ProviderError::Provider("some brand new failure mode".into());
         assert!(matches!(AiError::from(e), AiError::Unknown { .. }));
+    }
+
+    #[test]
+    fn a_refused_prompt_is_fatal() {
+        let mut report = ProviderError::Provider("blocked".into()).report();
+        report.refusal = true;
+        assert!(matches!(AiError::from(report), AiError::Fatal { .. }));
+    }
+
+    #[test]
+    fn transport_errors_do_not_carry_the_api_key() {
+        let mut report = ProviderError::Truncated.report();
+        report.message = "error sending request for url (https://x/v1:generate?alt=sse&key=AIzaSyA1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q)".into();
+
+        let AiError::ProviderUnavailable { detail } = AiError::from(report) else {
+            panic!("expected a transient provider error");
+        };
+        assert!(!detail.contains("AIzaSy"), "{detail}");
+    }
+
+    #[test]
+    fn a_turn_the_model_ended_without_an_answer_is_fatal() {
+        let e = ProviderError::Response("the model stopped: SAFETY".into());
+        assert!(matches!(AiError::from(e), AiError::Fatal { .. }));
     }
 
     #[test]
@@ -307,34 +311,26 @@ mod tests {
 
     #[test]
     fn invalid_argument_with_numbers_is_fatal_not_transient() {
-        let e = CompletionError::ProviderError(
-            "INVALID_ARGUMENT: input exceeds the maximum number of tokens allowed (500000)".into(),
+        let e = ProviderError::from_provider_body(
+            r#"{"error":{"code":400,"status":"INVALID_ARGUMENT","message":"input exceeds the maximum number of tokens allowed (500000)"}}"#,
         );
         assert!(matches!(AiError::from(e), AiError::Fatal { .. }));
     }
 
     #[test]
     fn permission_denied_is_fatal() {
-        let e = CompletionError::ProviderError("PERMISSION_DENIED: API key not valid".into());
+        let e = ProviderError::from_provider_body(
+            r#"{"error":{"code":403,"status":"PERMISSION_DENIED","message":"API key not valid"}}"#,
+        );
         assert!(matches!(AiError::from(e), AiError::Fatal { .. }));
     }
 
     #[test]
     fn http_401_is_fatal_terminal() {
-        let e = CompletionError::HttpError(rig::http_client::Error::InvalidStatusCode(
-            http::StatusCode::UNAUTHORIZED,
-        ));
+        let e = ProviderError::from_http_response(StatusCode::UNAUTHORIZED, "");
         let err = AiError::from(e);
         assert!(matches!(err, AiError::Fatal { .. }));
         assert!(matches!(err.retry_class(), RetryClass::Terminal));
-    }
-
-    #[test]
-    fn embedding_quota_message_is_provider_rate_limited() {
-        let e = CompletionError::ProviderError(
-            "Resource has been exhausted (e.g. check quota).".into(),
-        );
-        assert!(matches!(AiError::from(e), AiError::ProviderRateLimited));
     }
 
     #[test]
@@ -348,17 +344,5 @@ mod tests {
                 min_delay_secs: Some(5)
             }
         ));
-    }
-
-    #[test]
-    fn prompt_cancelled_is_detected() {
-        use rig::agent::StreamingError;
-        let cancelled = StreamingError::Prompt(Box::new(PromptError::PromptCancelled {
-            chat_history: vec![],
-            reason: "approval".into(),
-        }));
-        assert!(is_prompt_cancelled(&cancelled));
-        let not_cancelled = StreamingError::Completion(CompletionError::ProviderError("x".into()));
-        assert!(!is_prompt_cancelled(&not_cancelled));
     }
 }

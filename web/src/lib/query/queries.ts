@@ -1,4 +1,4 @@
-import type { QueryKey } from "@tanstack/react-query"
+import type { Query, QueryKey } from "@tanstack/react-query"
 import { queryOptions } from "@tanstack/react-query"
 
 import { normalizeError } from "@/lib/errors"
@@ -17,6 +17,7 @@ export interface ApiQueryConfig<TData, TKey extends QueryKey> {
   gcTime?: number
   enabled?: boolean
   meta?: SvertoQueryMeta
+  refetchInterval?: (data: TData | undefined) => number | false
 }
 
 export function apiQueryOptions<TData, TKey extends QueryKey>(
@@ -30,6 +31,12 @@ export function apiQueryOptions<TData, TKey extends QueryKey>(
     ...(config.gcTime === undefined ? {} : { gcTime: config.gcTime }),
     ...(config.enabled === undefined ? {} : { enabled: config.enabled }),
     ...(config.meta === undefined ? {} : { meta: config.meta }),
+    ...(config.refetchInterval === undefined
+      ? {}
+      : {
+          refetchInterval: (query: Query<TData, Error, TData, TKey>) =>
+            config.refetchInterval?.(query.state.data) ?? false,
+        }),
   })
 }
 

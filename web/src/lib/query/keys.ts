@@ -8,6 +8,7 @@ export type TransactionGroupId = string
 export type ConversationId = string
 export type QuickUploadId = string
 export type FileId = string
+export type ImportSessionId = string
 export type ConnectionId = string
 export type BindingId = string
 export type ProviderAccountId = string
@@ -143,6 +144,7 @@ export const queryKeys = {
     const filesRoot = [...root, "files"] as const
     const connectorsRoot = [...root, "connectors"] as const
     const exportsRoot = [...root, "exports"] as const
+    const importsRoot = [...root, "imports"] as const
 
     return {
       all: () => root,
@@ -313,6 +315,17 @@ export const queryKeys = {
         list: () => [...exportsRoot, "list"] as const,
       },
 
+      imports: {
+        all: () => importsRoot,
+        list: () => [...importsRoot, "list"] as const,
+        detail: (sessionId: ImportSessionId) =>
+          [...importsRoot, "detail", sessionId] as const,
+        pending: (sessionId: ImportSessionId) =>
+          [...importsRoot, "pending", sessionId] as const,
+        items: (sessionId: ImportSessionId) =>
+          [...importsRoot, "items", sessionId] as const,
+      },
+
       connectors: {
         all: () => connectorsRoot,
         aspsps: {
@@ -383,6 +396,7 @@ export const mutationKeys = {
     ai: () => ["mutate", "user", userId, "ai"] as const,
     files: () => ["mutate", "user", userId, "files"] as const,
     exports: () => ["mutate", "user", userId, "exports"] as const,
+    imports: () => ["mutate", "user", userId, "imports"] as const,
     account: () => ["mutate", "user", userId, "account"] as const,
   }),
 } as const

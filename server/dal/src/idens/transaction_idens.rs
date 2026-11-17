@@ -165,3 +165,35 @@ impl Iden for CombinedTransactionIden {
         }
     }
 }
+
+pub enum TransactionSourcesIden {
+    Table,
+    UserId,
+    TransactionId,
+    AccountId,
+    AssetId,
+    OccurredOn,
+    Description,
+    Kind,
+    Stream,
+    ExternalRef,
+    ItemisedFee,
+}
+
+impl Iden for TransactionSourcesIden {
+    fn unquoted(&self) -> &str {
+        match self {
+            Self::Table => "transaction_sources",
+            Self::UserId => "user_id",
+            Self::TransactionId => "transaction_id",
+            Self::AccountId => "account_id",
+            Self::AssetId => "asset_id",
+            Self::OccurredOn => "occurred_on",
+            Self::Description => "description",
+            Self::Kind => "kind",
+            Self::Stream => "stream",
+            Self::ExternalRef => "external_ref",
+            Self::ItemisedFee => "itemised_fee",
+        }
+    }
+}

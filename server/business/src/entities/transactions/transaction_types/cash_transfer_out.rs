@@ -19,6 +19,7 @@ use crate::{
         portfolio_overview::investment_transaction::cash_transfer_out::CashTransferOut,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             transaction::{Transaction, TransactionPortfolioAction},
         },
     },
@@ -84,6 +85,8 @@ impl TransactionProcessor for CashTransferOutTransaction {
             TransactionTypeDto::CashTransferOut(metadata) => metadata,
             _ => panic!("Invalid transaction type"),
         };
+
+        entry_rules::check([entry_rules::negative(&metadata.entry, "entry")])?;
 
         let mut base = BaseTransaction::new(
             user_id,

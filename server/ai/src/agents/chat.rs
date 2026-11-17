@@ -1,16 +1,16 @@
 use std::sync::Arc;
 
-use rig::agent::Agent;
-use rig::client::{CompletionClient, EmbeddingsClient};
-use rig::embeddings::EmbeddingModel;
-use rig::providers::gemini;
-use rig::tool::{ToolDyn, ToolSet};
+use rig::agent::AgentBuilder;
+use rig::completion::{CacheRetention, Effort};
+use rig::tool::server::ToolServer;
+use rig::tool::ToolSet;
 
 use crate::action_provider::AiActionProvider;
 use crate::config::AiConfig;
 use crate::data_provider::AiDataProvider;
-use crate::embedding::EMBEDDING_DIMS;
-use crate::provider::create_gemini_client;
+use crate::embedding::EmbeddingModel;
+use crate::models::agent::ModelAgent;
+use crate::provider::{completion_model, embedding_model, with_reasoning};
 use crate::tools::aggregate_transactions::AggregateTransactionsTool;
 use crate::tools::create_custom_asset::CreateCustomAssetTool;
 use crate::tools::create_transaction::CreateTransactionTool;
@@ -36,9 +36,6 @@ use crate::tools::search_categories::SearchCategoriesTool;
 use crate::tools::update_asset_valuation::UpdateAssetValuationTool;
 use crate::tools::update_transaction::UpdateTransactionTool;
 use crate::tools::ToolMode;
-use gemini::completion::gemini_api_types::{
-    AdditionalParameters, GenerationConfig, ThinkingConfig,
-};
 
 const SYSTEM_PROMPT: &str = r#"You are Myra, a personal finance assistant. You help users understand their spending, income, and financial patterns by querying their transaction data.
 
@@ -124,39 +121,26 @@ const SYSTEM_PROMPT: &str = r#"You are Myra, a personal finance assistant. You h
 {current_date}
 "#;
 
-pub async fn build_chat_agent_for_user<D: AiDataProvider, A: AiActionProvider>(
+pub fn build_chat_agent_for_user<D: AiDataProvider, A: AiActionProvider>(
     config: AiConfig,
     data: Arc<D>,
     actions: Arc<A>,
-) -> Agent<gemini::completion::CompletionModel> {
-    let client = create_gemini_client(&config.api_key);
-    let embedding_model =
-        client.embedding_model_with_ndims(&config.embedding_model, EMBEDDING_DIMS);
+) -> ModelAgent {
+    let embedding_model = embedding_model(&config);
 
     let current_date = time::OffsetDateTime::now_utc().date().to_string();
     let preamble = SYSTEM_PROMPT.replace("{current_date}", &current_date);
 
-    let code_mode_sources: Arc<ToolSet> = Arc::new(ToolSet::from_tools_boxed(read_tools(
-        &data,
-        &embedding_model,
-        ToolMode::CodeMode,
-    )));
+    let normal_read_tools = ToolServer::new().run();
+    normal_read_tools.add_tools(read_tools(&data, &embedding_model, ToolMode::Normal));
 
-    client
-        .agent(&config.model)
-        .preamble(&preamble)
+    let builder = AgentBuilder::new(completion_model(&config))
+        .preamble(preamble)
         .max_tokens(16384)
         .default_max_turns(5)
-        .additional_params(
-            serde_json::to_value(
-                AdditionalParameters::default().with_config(GenerationConfig {
-                    thinking_config: Some(build_thinking_config(&config.model)),
-                    ..Default::default()
-                }),
-            )
-            .unwrap(),
-        )
-        .tools(read_tools(&data, &embedding_model, ToolMode::Normal))
+        .cache(CacheRetention::Short);
+    let agent = with_reasoning(builder, &config, Effort::Medium)
+        .tool_server_handle(normal_read_tools)
         .tool(CreateTransactionTool::new(actions.clone()))
         .tool(GroupTransactionsTool::new(actions.clone()))
         .tool(CreateCustomAssetTool::new(actions.clone()))
@@ -170,55 +154,47 @@ pub async fn build_chat_agent_for_user<D: AiDataProvider, A: AiActionProvider>(
         .tool(RecordFeeTool::new(actions.clone()))
         .tool(UpdateTransactionTool::new(actions.clone()))
         .tool(DeleteTransactionTool::new(actions.clone()))
-        .tool(RunScriptTool::new(code_mode_sources).await)
-        .build()
+        .tool(RunScriptTool::new(read_tools(
+            &data,
+            &embedding_model,
+            ToolMode::CodeMode,
+        )))
+        .build();
+    ModelAgent {
+        agent,
+        model: config.model,
+    }
 }
 
 /// The read-only tools, built once for a given mode. `Normal` instances are
 /// registered on the agent; `CodeMode` instances back `run_script`'s datasets.
-fn read_tools<D, M>(data: &Arc<D>, embedding_model: &M, mode: ToolMode) -> Vec<Box<dyn ToolDyn>>
-where
-    D: AiDataProvider,
-    M: EmbeddingModel + Clone + Send + Sync + 'static,
-{
-    vec![
-        Box::new(QueryTransactionsTool::with_mode(
-            data.clone(),
-            embedding_model.clone(),
-            mode,
-        )) as Box<dyn ToolDyn>,
-        Box::new(AggregateTransactionsTool::with_mode(data.clone(), mode)) as Box<dyn ToolDyn>,
-        Box::new(ListAccountsTool::with_mode(data.clone(), mode)) as Box<dyn ToolDyn>,
-        Box::new(SearchCategoriesTool::with_mode(
-            data.clone(),
-            embedding_model.clone(),
-            mode,
-        )) as Box<dyn ToolDyn>,
-        Box::new(SearchAssetsTool::with_mode(
-            data.clone(),
-            embedding_model.clone(),
-            mode,
-        )) as Box<dyn ToolDyn>,
-        Box::new(GetHoldingsTool::with_mode(data.clone(), mode)) as Box<dyn ToolDyn>,
-        Box::new(GetNetWorthHistoryTool::with_mode(data.clone(), mode)) as Box<dyn ToolDyn>,
-        Box::new(GetPortfolioOverviewTool::with_mode(data.clone(), mode)) as Box<dyn ToolDyn>,
-        Box::new(GetAssetPriceTool::with_mode(data.clone(), mode)) as Box<dyn ToolDyn>,
-        Box::new(GetTransactionDetailTool::with_mode(data.clone(), mode)) as Box<dyn ToolDyn>,
-    ]
-}
-
-fn build_thinking_config(model: &str) -> ThinkingConfig {
-    if model.starts_with("gemini-3") {
-        ThinkingConfig {
-            thinking_budget: None,
-            thinking_level: Some(gemini::completion::gemini_api_types::ThinkingLevel::Medium),
-            include_thoughts: Some(true),
-        }
-    } else {
-        ThinkingConfig {
-            thinking_budget: Some(2048),
-            thinking_level: None,
-            include_thoughts: Some(true),
-        }
-    }
+fn read_tools<D: AiDataProvider>(
+    data: &Arc<D>,
+    embedding_model: &EmbeddingModel,
+    mode: ToolMode,
+) -> ToolSet {
+    let mut tools = ToolSet::default();
+    tools.add_tool(QueryTransactionsTool::with_mode(
+        data.clone(),
+        embedding_model.clone(),
+        mode,
+    ));
+    tools.add_tool(AggregateTransactionsTool::with_mode(data.clone(), mode));
+    tools.add_tool(ListAccountsTool::with_mode(data.clone(), mode));
+    tools.add_tool(SearchCategoriesTool::with_mode(
+        data.clone(),
+        embedding_model.clone(),
+        mode,
+    ));
+    tools.add_tool(SearchAssetsTool::with_mode(
+        data.clone(),
+        embedding_model.clone(),
+        mode,
+    ));
+    tools.add_tool(GetHoldingsTool::with_mode(data.clone(), mode));
+    tools.add_tool(GetNetWorthHistoryTool::with_mode(data.clone(), mode));
+    tools.add_tool(GetPortfolioOverviewTool::with_mode(data.clone(), mode));
+    tools.add_tool(GetAssetPriceTool::with_mode(data.clone(), mode));
+    tools.add_tool(GetTransactionDetailTool::with_mode(data.clone(), mode));
+    tools
 }

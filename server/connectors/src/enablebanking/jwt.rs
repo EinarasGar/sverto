@@ -82,8 +82,7 @@ LzArwzHDjMfKxMmp
 
     #[test]
     fn jwt_header_carries_rs256_and_kid() {
-        let token =
-            encode_token(1_700_000_000, "app-uuid-123", &test_key()).unwrap();
+        let token = encode_token(1_700_000_000, "app-uuid-123", &test_key()).unwrap();
         let header = b64url_decode(token.split('.').next().unwrap());
         assert_eq!(header["alg"], "RS256");
         assert_eq!(header["kid"], "app-uuid-123");

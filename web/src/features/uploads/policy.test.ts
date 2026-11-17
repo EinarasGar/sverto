@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest"
 import {
   checkFile,
   formatBytes,
+  IMPORT_POLICY,
   isImageType,
   MAX_UPLOAD_BYTES,
   RECEIPT_POLICY,
@@ -17,7 +18,8 @@ function fileOf(name: string, type: string, size: number, content = "x"): File {
 
 describe("checkFile", () => {
   it("accepts the receipt formats the backend can read", () => {
-    for (const type of RECEIPT_POLICY.mimeTypes) {
+    expect(RECEIPT_POLICY.mimeTypes).not.toBeNull()
+    for (const type of RECEIPT_POLICY.mimeTypes ?? []) {
       expect(checkFile(fileOf("receipt", type, 1024), RECEIPT_POLICY)).toEqual({
         ok: true,
       })
@@ -43,6 +45,22 @@ describe("checkFile", () => {
     expect(verdict.reason).toBe(REJECTION_REASONS.type)
     expect(verdict.why).toContain("text/csv")
     expect(verdict.why).toContain(RECEIPT_POLICY.typesLabel)
+  })
+
+  it("still refuses an empty, oversized or badly named import file", () => {
+    for (const [file, reason] of [
+      [fileOf("blank.ofx", "", 0, ""), REJECTION_REASONS.empty],
+      [
+        fileOf("huge.csv", "text/csv", MAX_UPLOAD_BYTES + 1),
+        REJECTION_REASONS.size,
+      ],
+      [fileOf("nested/statement.qif", "", 500), REJECTION_REASONS.name],
+    ] as const) {
+      const verdict = checkFile(file, IMPORT_POLICY)
+      expect(verdict.ok).toBe(false)
+      if (verdict.ok) continue
+      expect(verdict.reason).toBe(reason)
+    }
   })
 
   it("rejects a file larger than the backend's 20 MB ceiling", () => {

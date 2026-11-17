@@ -4,8 +4,8 @@ use super::ToolError;
 use crate::action_provider::AiActionProvider;
 use crate::models::action::{RecordTransferParams, TransferKind};
 use crate::models::tool_output::RecordTransferArgs;
-use rig::{completion::request::ToolDefinition, tool::Tool};
-use serde_json::json;
+use rig::tool::{Tool, ToolContext, ToolExecutionError};
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 pub struct RecordTransferTool<A: AiActionProvider> {
@@ -23,48 +23,56 @@ impl<A: AiActionProvider> Tool for RecordTransferTool<A> {
 
     type Error = ToolError;
     type Args = RecordTransferArgs;
-    type Output = String;
+    type Output = Value;
 
-    async fn definition(&self, _prompt: String) -> ToolDefinition {
-        ToolDefinition {
-            name: Self::NAME.to_string(),
-            description: "Move money (cash) or an asset between TWO of the user's OWN accounts (e.g. a pension contribution, a mortgage payment from a current account, or moving savings between accounts). Use transfer_kind 'cash' to move a currency amount, or 'asset' to move units of a held asset. This is NOT a buy or sell: to buy or sell an asset use record_asset_trade; to record spending or income use create_transaction. Resolve account_ids via list_accounts and asset_id via search_assets before calling. Call this tool directly when the user describes a transfer — the UI shows an Accept/Reject card for the user to confirm, so do NOT ask for confirmation in chat.".to_string(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "transfer_kind": {
-                        "type": "string",
-                        "enum": ["cash", "asset"],
-                        "description": "'cash' to move a currency amount between accounts, 'asset' to move units of a held asset between accounts."
-                    },
-                    "from_account_id": {
-                        "type": "string",
-                        "description": "UUID of the source account the money or asset leaves. Use list_accounts to discover account IDs."
-                    },
-                    "to_account_id": {
-                        "type": "string",
-                        "description": "UUID of the destination account the money or asset arrives in. Use list_accounts to discover account IDs."
-                    },
-                    "asset_id": {
-                        "type": "integer",
-                        "description": "ID of what is moved: for 'cash' this is the currency asset (e.g. GBP); for 'asset' this is the asset being moved. Use search_assets to resolve a ticker/name to an asset_id."
-                    },
-                    "amount": {
-                        "type": "number",
-                        "description": "Amount to move (positive). For 'cash' it is the currency amount; for 'asset' it is the number of units."
-                    },
-                    "date": {
-                        "type": "string",
-                        "description": "Optional. Transfer date/time in ISO 8601 format (e.g. '2026-05-11' or '2026-05-11T14:30:00Z'). Defaults to now."
-                    }
+    fn description(&self) -> String {
+        "Move money (cash) or an asset between TWO of the user's OWN accounts (e.g. a pension contribution, a mortgage payment from a current account, or moving savings between accounts). Use transfer_kind 'cash' to move a currency amount, or 'asset' to move units of a held asset. This is NOT a buy or sell: to buy or sell an asset use record_asset_trade; to record spending or income use create_transaction. Resolve account_ids via list_accounts and asset_id via search_assets before calling. Call this tool directly when the user describes a transfer — the UI shows an Accept/Reject card for the user to confirm, so do NOT ask for confirmation in chat.".to_string()
+    }
+
+    fn parameters(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "transfer_kind": {
+                    "type": "string",
+                    "enum": ["cash", "asset"],
+                    "description": "'cash' to move a currency amount between accounts, 'asset' to move units of a held asset between accounts."
                 },
-                "required": ["transfer_kind", "from_account_id", "to_account_id", "asset_id", "amount"]
-            }),
-        }
+                "from_account_id": {
+                    "type": "string",
+                    "description": "UUID of the source account the money or asset leaves. Use list_accounts to discover account IDs."
+                },
+                "to_account_id": {
+                    "type": "string",
+                    "description": "UUID of the destination account the money or asset arrives in. Use list_accounts to discover account IDs."
+                },
+                "asset_id": {
+                    "type": "integer",
+                    "description": "ID of what is moved: for 'cash' this is the currency asset (e.g. GBP); for 'asset' this is the asset being moved. Use search_assets to resolve a ticker/name to an asset_id."
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Amount to move (positive). For 'cash' it is the currency amount; for 'asset' it is the number of units."
+                },
+                "date": {
+                    "type": "string",
+                    "description": "Optional. Transfer date/time in ISO 8601 format (e.g. '2026-05-11' or '2026-05-11T14:30:00Z'). Defaults to now."
+                }
+            },
+            "required": ["transfer_kind", "from_account_id", "to_account_id", "asset_id", "amount"]
+        })
+    }
+
+    fn map_error(&self, error: Self::Error) -> ToolExecutionError {
+        error.into()
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(tool = Self::NAME, asset_id = args.asset_id))]
-    async fn call(&self, args: Self::Args) -> std::result::Result<Self::Output, Self::Error> {
+    async fn call(
+        &self,
+        _context: &mut ToolContext,
+        args: Self::Args,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         let kind = match args.transfer_kind.to_lowercase().as_str() {
             "cash" => TransferKind::Cash,
             "asset" => TransferKind::Asset,
@@ -99,6 +107,6 @@ impl<A: AiActionProvider> Tool for RecordTransferTool<A> {
             .record_transfer(params)
             .await
             .map_err(|e| ToolError(e.to_string()))?;
-        serde_json::to_string(&result).map_err(Into::into)
+        serde_json::to_value(&result).map_err(Into::into)
     }
 }

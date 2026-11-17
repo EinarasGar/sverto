@@ -3,13 +3,14 @@ use std::collections::{HashMap, HashSet};
 use dal::{
     models::{
         asset_models::{
-            Asset, AssetBasePair, AssetId, AssetPair, AssetPairId, AssetPairSharedMetadata,
-            AssetPairUserMetadata, AssetRaw, AssetTickerId, AssetWithMetadata, PublicAsset,
+            asset_type_ids, Asset, AssetBasePair, AssetId, AssetPair, AssetPairId,
+            AssetPairSharedMetadata, AssetPairUserMetadata, AssetRaw, AssetRefModel,
+            AssetWithMetadata, VisibleAsset,
         },
         base::{Count, Exsists, TotalCount},
     },
     queries::asset_queries,
-    query_params::get_assets_params::GetAssetsParams,
+    query_params::{get_asset_refs_params::GetAssetRefsParams, get_assets_params::GetAssetsParams},
 };
 
 #[mockall_double::double]
@@ -139,9 +140,29 @@ impl AssetsService {
         if tickers.is_empty() {
             return Ok(HashMap::new());
         }
-        let query = asset_queries::get_asset_ids_by_tickers(user_id, tickers.into_iter().collect());
-        let rows = self.db.fetch_all::<AssetTickerId>(query).await?;
+        let query = asset_queries::get_asset_refs(GetAssetRefsParams::by_tickers(
+            user_id,
+            tickers.into_iter().collect(),
+        ));
+        let rows = self.db.fetch_all::<AssetRefModel>(query).await?;
         Ok(rows.into_iter().map(|row| (row.ticker, row.id)).collect())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn currency_tickers(
+        &self,
+        user_id: Uuid,
+        tickers: HashSet<String>,
+    ) -> anyhow::Result<HashSet<String>> {
+        if tickers.is_empty() {
+            return Ok(HashSet::new());
+        }
+        let query = asset_queries::get_asset_refs(
+            GetAssetRefsParams::by_tickers(user_id, tickers.into_iter().collect())
+                .with_asset_type(asset_type_ids::CURRENCY),
+        );
+        let rows = self.db.fetch_all::<AssetRefModel>(query).await?;
+        Ok(rows.into_iter().map(|row| row.ticker).collect())
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(pair1, pair2))]
@@ -184,19 +205,18 @@ impl AssetsService {
         Ok(ret_vec)
     }
 
-    #[tracing::instrument(level = "debug", skip_all)]
-    pub async fn get_public_assets(
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn search_visible_assets(
         &self,
-        page: u64,
-        search: Option<String>,
+        user_id: Uuid,
+        search: String,
+        limit: u64,
     ) -> anyhow::Result<Vec<AssetDto>> {
-        let page_size = 20;
-        let query = asset_queries::get_public_assets(page_size, page, search);
-        let models = self.db.fetch_all::<PublicAsset>(query).await?;
-
-        let ret_vec: Vec<AssetDto> = models.into_iter().map(|val| val.into()).collect();
-
-        Ok(ret_vec)
+        let models = self
+            .db
+            .fetch_all::<VisibleAsset>(asset_queries::search_visible_assets(user_id, search, limit))
+            .await?;
+        Ok(models.into_iter().map(Into::into).collect())
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]

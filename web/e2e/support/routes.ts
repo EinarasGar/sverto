@@ -89,3 +89,9 @@ export function assetDetailRoute(assetId: number): AppRoute {
     ready: PAGE_HEADER,
   }
 }
+
+export const IMPORTS: AppRoute = {
+  name: "imports",
+  path: "/imports",
+  ready: PAGE_HEADER,
+}

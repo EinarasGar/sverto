@@ -3,11 +3,11 @@ use sea_query_sqlx::SqlxBinder;
 use sqlx::types::Uuid;
 
 use crate::idens::ai_conversation_idens::{
-    AiChatIden, AiConversationsIden, AiMessagesIden, AiWorkflowQuickUploadIden,
+    AiChatIden, AiConversationsIden, AiWorkflowQuickUploadIden,
 };
 use crate::idens::user_idens::UsersIden;
 use crate::query_params::ai_conversation_params::{
-    ConversationErrorTarget, GetConversationsParams, GetConversationsSearchType, GetMessagesParams,
+    ConversationErrorTarget, GetConversationsParams, GetConversationsSearchType,
     UpdateConversationErrorParams,
 };
 
@@ -54,29 +54,12 @@ pub fn get_conversations(params: GetConversationsParams) -> DbQueryWithValues {
         .column((AiConversationsIden::Table, AiConversationsIden::CreatedAt))
         .column((AiConversationsIden::Table, AiConversationsIden::UpdatedAt))
         .column((AiConversationsIden::Table, AiConversationsIden::LastError))
+        .column((AiChatIden::Table, AiChatIden::Title))
         .expr_as(
             Expr::cust(
-                r#"COALESCE(ai_chat.title, (
-                    SELECT left((
-                        SELECT string_agg(word, ' ' ORDER BY ord)
-                        FROM (
-                            SELECT word, ord
-                            FROM regexp_split_to_table(
-                                trim(regexp_replace(m.content ->> 'content', '\s+', ' ', 'g')),
-                                ' '
-                            ) WITH ORDINALITY AS words(word, ord)
-                            WHERE word <> ''
-                            ORDER BY ord
-                            LIMIT 8
-                        ) preview_words
-                    ), 60)
-                    FROM ai_messages m
-                    WHERE m.conversation_id = ai_conversations.id AND m.role = 'user'
-                    ORDER BY m.created_at ASC, m.id ASC
-                    LIMIT 1
-                ))"#,
+                "CASE WHEN ai_chat.title IS NULL THEN substring(ai_conversations.history FROM 1 FOR 16384) END",
             ),
-            Alias::new("title"),
+            Alias::new("untitled_history_head"),
         )
         .from(AiConversationsIden::Table)
         .inner_join(
@@ -132,21 +115,9 @@ pub fn get_chats_needing_titles(limit: u64) -> DbQueryWithValues {
         )
         .and_where(Expr::col((UsersIden::Table, UsersIden::AiFeaturesEnabled)).eq(true))
         .and_where(Expr::col(AiChatIden::Title).is_null())
-        .and_where(Expr::exists(
-            Query::select()
-                .expr(Expr::val(1))
-                .from(AiMessagesIden::Table)
-                .and_where(
-                    Expr::col((AiMessagesIden::Table, AiMessagesIden::ConversationId))
-                        .equals((AiChatIden::Table, AiChatIden::ConversationId)),
-                )
-                .and_where(Expr::col((AiMessagesIden::Table, AiMessagesIden::Role)).eq("user"))
-                .to_owned(),
-        ))
+        .and_where(Expr::cust("octet_length(ai_conversations.history) > 0"))
         .and_where(Expr::cust(
-            "EXTRACT(EPOCH FROM (NOW() - \
-                 (SELECT MAX(m.created_at) FROM ai_messages m WHERE m.conversation_id = \
-                 ai_chat.conversation_id))) > 600",
+            "ai_conversations.updated_at < NOW() - INTERVAL '600 seconds'",
         ))
         .order_by(
             (AiConversationsIden::Table, AiConversationsIden::CreatedAt),
@@ -158,99 +129,36 @@ pub fn get_chats_needing_titles(limit: u64) -> DbQueryWithValues {
 }
 
 #[macros::named_query]
-pub fn insert_message(
-    conversation_id: Uuid,
-    role: String,
-    content: serde_json::Value,
-    file_ids: Vec<Uuid>,
-) -> DbQueryWithValues {
-    let file_ids_expr = Expr::cust_with_values(
-        "$1::uuid[]",
-        [sea_query::Value::Array(
-            sea_query::ArrayType::Uuid,
-            Some(Box::new(
-                file_ids
-                    .into_iter()
-                    .map(|id| sea_query::Value::Uuid(Some(id)))
-                    .collect(),
-            )),
-        )],
-    );
-    let content_expr = Expr::cust_with_values(
-        "$1::jsonb",
-        [sea_query::Value::String(Some(
-            serde_json::to_string(&content).unwrap_or_default(),
-        ))],
-    );
-
-    Query::insert()
-        .into_table(AiMessagesIden::Table)
-        .columns([
-            AiMessagesIden::ConversationId,
-            AiMessagesIden::Role,
-            AiMessagesIden::Content,
-            AiMessagesIden::FileIds,
-        ])
-        .values_panic([
-            conversation_id.into(),
-            role.into(),
-            content_expr,
-            file_ids_expr,
-        ])
-        .returning(Query::returning().column(AiMessagesIden::Id))
+pub fn get_conversation_history(conversation_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
+    Query::select()
+        .column(AiConversationsIden::History)
+        .from(AiConversationsIden::Table)
+        .and_where(Expr::col(AiConversationsIden::Id).eq(conversation_id))
+        .and_where(Expr::col(AiConversationsIden::UserId).eq(user_id))
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }
 
 #[macros::named_query]
-pub fn get_messages(params: GetMessagesParams) -> DbQueryWithValues {
-    let mut query = Query::select();
-    query
-        .column((AiMessagesIden::Table, AiMessagesIden::Id))
-        .column((AiMessagesIden::Table, AiMessagesIden::ConversationId))
-        .column((AiMessagesIden::Table, AiMessagesIden::Role))
-        .column((AiMessagesIden::Table, AiMessagesIden::Content))
-        .column((AiMessagesIden::Table, AiMessagesIden::FileIds))
-        .column((AiMessagesIden::Table, AiMessagesIden::CreatedAt))
-        .from(AiMessagesIden::Table)
-        .inner_join(
-            AiConversationsIden::Table,
-            Expr::col((AiConversationsIden::Table, AiConversationsIden::Id))
-                .equals((AiMessagesIden::Table, AiMessagesIden::ConversationId)),
+pub fn append_conversation_history(
+    conversation_id: Uuid,
+    user_id: Uuid,
+    expected_len: u64,
+    bytes: Vec<u8>,
+) -> DbQueryWithValues {
+    Query::update()
+        .table(AiConversationsIden::Table)
+        .value(
+            AiConversationsIden::History,
+            Expr::cust_with_values("history || $1", [bytes]),
         )
-        .and_where(
-            Expr::col((AiMessagesIden::Table, AiMessagesIden::ConversationId))
-                .eq(params.conversation_id),
-        )
-        .and_where(
-            Expr::col((AiConversationsIden::Table, AiConversationsIden::UserId)).eq(params.user_id),
-        )
-        .order_by((AiMessagesIden::Table, AiMessagesIden::Id), Order::Asc);
-
-    query.build_sqlx(PostgresQueryBuilder).into()
-}
-
-#[macros::named_query]
-pub fn get_last_message(conversation_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
-    Query::select()
-        .column((AiMessagesIden::Table, AiMessagesIden::Id))
-        .column((AiMessagesIden::Table, AiMessagesIden::ConversationId))
-        .column((AiMessagesIden::Table, AiMessagesIden::Role))
-        .column((AiMessagesIden::Table, AiMessagesIden::Content))
-        .column((AiMessagesIden::Table, AiMessagesIden::FileIds))
-        .column((AiMessagesIden::Table, AiMessagesIden::CreatedAt))
-        .from(AiMessagesIden::Table)
-        .inner_join(
-            AiConversationsIden::Table,
-            Expr::col((AiConversationsIden::Table, AiConversationsIden::Id))
-                .equals((AiMessagesIden::Table, AiMessagesIden::ConversationId)),
-        )
-        .and_where(
-            Expr::col((AiMessagesIden::Table, AiMessagesIden::ConversationId)).eq(conversation_id),
-        )
-        .and_where(Expr::col((AiConversationsIden::Table, AiConversationsIden::UserId)).eq(user_id))
-        .order_by((AiMessagesIden::Table, AiMessagesIden::Id), Order::Desc)
-        .limit(1)
+        .value(AiConversationsIden::UpdatedAt, Expr::cust("NOW()"))
+        .and_where(Expr::col(AiConversationsIden::Id).eq(conversation_id))
+        .and_where(Expr::col(AiConversationsIden::UserId).eq(user_id))
+        .and_where(Expr::cust_with_values(
+            "octet_length(history) = $1",
+            [expected_len as i64],
+        ))
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }
@@ -260,6 +168,16 @@ pub fn delete_conversation(conversation_id: Uuid, user_id: Uuid) -> DbQueryWithV
     Query::delete()
         .from_table(AiConversationsIden::Table)
         .and_where(Expr::col(AiConversationsIden::Id).eq(conversation_id))
+        .and_where(Expr::col(AiConversationsIden::UserId).eq(user_id))
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn delete_conversations(conversation_ids: Vec<Uuid>, user_id: Uuid) -> DbQueryWithValues {
+    Query::delete()
+        .from_table(AiConversationsIden::Table)
+        .and_where(Expr::col(AiConversationsIden::Id).is_in(conversation_ids))
         .and_where(Expr::col(AiConversationsIden::UserId).eq(user_id))
         .build_sqlx(PostgresQueryBuilder)
         .into()

@@ -10,16 +10,19 @@ use crate::config::AiConfig;
 use crate::conversation::Conversation;
 use crate::conversation_provider::ConversationProvider;
 use crate::data_provider::AiDataProvider;
-use crate::embedding::EMBEDDING_DIMS;
+use crate::models::agent::StructuredAgent;
 use crate::models::chat::{ChatTurn, Persistence};
 pub use crate::models::receipt::ReceiptProcessorOutput;
-use crate::provider::create_gemini_client;
+use crate::models::receipt::{
+    ProposalKind, ProposedTransaction, ProposedTransactionGroup, ReceiptAnswer,
+};
+use crate::provider::{completion_model, embedding_model};
 use crate::rate_limit_provider::RateLimitProvider;
 use crate::tools::list_accounts::ListAccountsTool;
 use crate::tools::search_assets::SearchAssetsTool;
 use crate::tools::search_categories::SearchCategoriesTool;
-use rig::agent::Agent;
-use rig::client::{CompletionClient, EmbeddingsClient};
+use rig::agent::AgentBuilder;
+use rig::completion::CacheRetention;
 use uuid::Uuid;
 
 const SYSTEM_PROMPT: &str = r#"You are a receipt processing assistant. Your job is to extract transaction details from receipt images.
@@ -36,20 +39,12 @@ Use the available tools to:
 - Search for the correct currency/asset
 - If the receipt shows a card ending, account number, or IBAN, match it to the account whose `identifiers` contains it (card_last4 = last 4 digits; account_number/iban = exact).
 
-After gathering information, produce your final output as a structured JSON object in your LAST message.
+After gathering information, give your answer.
 
 If the receipt has multiple distinct items with different categories, output a transaction_group.
 If it's a single purchase or all items share the same category, output a single transaction.
 
 Each transaction has exactly ONE entry — the account the money was spent from, the amount, and the asset (currency). The amount must be negative to represent cash going out (e.g. "-73.59" for a purchase). The system handles the accounting automatically.
-
-Your final message MUST be ONLY a valid JSON object (no markdown, no explanation) with this structure:
-
-For a single transaction:
-{"proposal_type":"transaction","proposal":{"description":"...","date":"YYYY-MM-DD","account_id":"uuid","amount":"-X.XX","asset_id":N,"category_id":N}}
-
-For a transaction group:
-{"proposal_type":"transaction_group","proposal":{"description":"...","date":"YYYY-MM-DD","category_id":N,"transactions":[{"description":"...","date":"YYYY-MM-DD","account_id":"uuid","amount":"-X.XX","asset_id":N,"category_id":N}]}}
 
 If you cannot determine a field, set it to null.
 "#;
@@ -116,10 +111,10 @@ where
     let agent = build_agent(&config, data);
     let conv = Conversation::new(conversation, rate_limit);
     let output = conv
-        .run(agent, ChatTurn::Continuation, Persistence::Persist)
+        .run_structured(agent, ChatTurn::Continuation, Persistence::Persist)
         .await?;
 
-    parse_proposal(&output.output)
+    proposal_output(output.value)
 }
 
 #[tracing::instrument(level = "debug", skip_all, fields(count = file_ids.len()))]
@@ -139,61 +134,78 @@ where
     let agent = build_agent(&config, data);
     let conv = Conversation::new(conversation, rate_limit);
     let output = conv
-        .run(
+        .run_structured(
             agent,
             ChatTurn::Message { message, file_ids },
             Persistence::Persist,
         )
         .await?;
 
-    parse_proposal(&output.output)
+    proposal_output(output.value)
 }
 
-fn build_agent<D>(
-    config: &AiConfig,
-    data: Arc<D>,
-) -> Agent<rig::providers::gemini::completion::CompletionModel>
+fn build_agent<D>(config: &AiConfig, data: Arc<D>) -> StructuredAgent<ReceiptAnswer>
 where
     D: AiDataProvider,
 {
-    let client = create_gemini_client(&config.api_key);
-    let embedding_model =
-        client.embedding_model_with_ndims(&config.embedding_model, EMBEDDING_DIMS);
+    let embedding_model = embedding_model(config);
 
-    client
-        .agent(&config.model)
+    let builder = AgentBuilder::new(completion_model(config))
         .preamble(SYSTEM_PROMPT)
-        .max_tokens(8192)
         .default_max_turns(5)
+        .cache(CacheRetention::Short)
         .tool(ListAccountsTool::new(data.clone()))
         .tool(SearchCategoriesTool::new(
             data.clone(),
             embedding_model.clone(),
         ))
-        .tool(SearchAssetsTool::new(data.clone(), embedding_model.clone()))
-        .build()
+        .tool(SearchAssetsTool::new(data.clone(), embedding_model.clone()));
+    StructuredAgent::new(builder, config.model.clone())
 }
 
-fn parse_proposal(output: &str) -> anyhow::Result<ReceiptProcessorOutput> {
-    let trimmed = output.trim();
-
-    let parsed: serde_json::Value = serde_json::from_str(trimmed).map_err(|e| {
-        anyhow::anyhow!("Failed to parse proposal JSON: {e}. Output was: {trimmed}")
-    })?;
-
-    let proposal_type = parsed
-        .get("proposal_type")
-        .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("Missing proposal_type in output"))?
-        .to_string();
-
-    let proposal = parsed
-        .get("proposal")
-        .cloned()
-        .ok_or_else(|| anyhow::anyhow!("Missing proposal in output"))?;
-
-    Ok(ReceiptProcessorOutput {
+fn proposal_output(answer: ReceiptAnswer) -> anyhow::Result<ReceiptProcessorOutput> {
+    let ReceiptAnswer {
         proposal_type,
         proposal,
+    } = answer;
+    let body = match proposal_type {
+        ProposalKind::Transaction => serde_json::to_value(ProposedTransaction {
+            description: proposal.description,
+            date: proposal.date,
+            account_id: proposal.account_id,
+            amount: proposal.amount,
+            asset_id: proposal.asset_id,
+            category_id: proposal.category_id,
+        })?,
+        ProposalKind::TransactionGroup => serde_json::to_value(ProposedTransactionGroup {
+            description: proposal.description,
+            date: proposal.date,
+            category_id: proposal.category_id,
+            transactions: proposal.transactions.unwrap_or_default(),
+        })?,
+    };
+    let proposal_type = serde_json::to_value(proposal_type)?
+        .as_str()
+        .map(str::to_string)
+        .ok_or_else(|| anyhow::anyhow!("A proposal type serializes as a string"))?;
+    Ok(ReceiptProcessorOutput {
+        proposal_type,
+        proposal: body,
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn the_answer_schema_is_plain_required_properties() {
+        let schema = serde_json::to_value(schemars::schema_for!(ReceiptAnswer)).unwrap();
+
+        assert_eq!(schema["type"], json!("object"));
+        assert_eq!(schema["required"], json!(["proposal_type", "proposal"]));
+        assert!(schema.get("oneOf").is_none());
+    }
 }

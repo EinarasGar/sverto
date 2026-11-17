@@ -19,6 +19,7 @@ use crate::{
         portfolio_overview::investment_transaction::asset_trade::AssetTrade,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             transaction::{Transaction, TransactionPortfolioAction},
         },
     },
@@ -86,6 +87,11 @@ impl TransactionProcessor for AssetTradeTransaction {
             TransactionTypeDto::AssetTrade(metadata) => metadata,
             _ => panic!("Invalid transaction type"),
         };
+
+        entry_rules::check([
+            entry_rules::negative(&metadata.outgoing_entry, "outgoing_entry"),
+            entry_rules::positive(&metadata.incoming_entry, "incoming_entry"),
+        ])?;
 
         let mut base = BaseTransaction::new(
             user_id,

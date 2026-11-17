@@ -1,4 +1,4 @@
-use anyhow::{ensure, Context, Result};
+use anyhow::{Context, Result};
 use dal::{
     enums::{
         transaction_type_categories::DatabaseTransactionTypeCategories,
@@ -19,6 +19,7 @@ use crate::{
         portfolio_overview::investment_transaction::cash_balance_transfer::CashBalanceTransfer,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             transaction::{Transaction, TransactionPortfolioAction},
         },
     },
@@ -87,18 +88,28 @@ impl TransactionProcessor for CashBalanceTransferTransaction {
             _ => panic!("Invalid transaction type"),
         };
 
-        ensure!(
-            metadata.outgoing_change.asset_id == metadata.incoming_change.asset_id,
-            "Cash balance transfer entries must use the same asset"
+        let outgoing = &metadata.outgoing_change;
+        let incoming = &metadata.incoming_change;
+        let [asset_a, asset_b] =
+            entry_rules::same_asset(outgoing, "outgoing_change", incoming, "incoming_change");
+        let [magnitude_a, magnitude_b] =
+            entry_rules::equal_magnitude(outgoing, "outgoing_change", incoming, "incoming_change");
+        let [account_a, account_b] = entry_rules::different_accounts(
+            outgoing,
+            "outgoing_change",
+            incoming,
+            "incoming_change",
         );
-        ensure!(
-            metadata.outgoing_change.quantity == -metadata.incoming_change.quantity,
-            "Cash balance transfer entries must have equal magnitude and opposite signs"
-        );
-        ensure!(
-            metadata.outgoing_change.account_id != metadata.incoming_change.account_id,
-            "Cash balance transfer entries must use distinct accounts"
-        );
+        entry_rules::check([
+            entry_rules::negative(outgoing, "outgoing_change"),
+            entry_rules::positive(incoming, "incoming_change"),
+            asset_a,
+            asset_b,
+            magnitude_a,
+            magnitude_b,
+            account_a,
+            account_b,
+        ])?;
 
         let mut base = BaseTransaction::new(
             user_id,
@@ -171,6 +182,16 @@ mod tests {
 
     use super::*;
 
+    fn error_fields(error: &anyhow::Error) -> Vec<String> {
+        error
+            .downcast_ref::<crate::dtos::validation_error_dto::BusinessValidationErrorDto>()
+            .expect("a validation error")
+            .errors
+            .iter()
+            .map(|error| error.field.clone())
+            .collect()
+    }
+
     fn transfer_dto(
         outgoing: EntryDto,
         incoming: EntryDto,
@@ -214,8 +235,8 @@ mod tests {
             .expect("mismatched assets should be rejected");
 
         assert_eq!(
-            error.to_string(),
-            "Cash balance transfer entries must use the same asset"
+            error_fields(&error),
+            vec!["outgoing_change.asset_id", "incoming_change.asset_id"]
         );
     }
 
@@ -233,8 +254,8 @@ mod tests {
             .expect("unequal magnitudes should be rejected");
 
         assert_eq!(
-            error.to_string(),
-            "Cash balance transfer entries must have equal magnitude and opposite signs"
+            error_fields(&error),
+            vec!["outgoing_change.amount", "incoming_change.amount"]
         );
     }
 
@@ -252,8 +273,12 @@ mod tests {
             .expect("same-sign legs should be rejected");
 
         assert_eq!(
-            error.to_string(),
-            "Cash balance transfer entries must have equal magnitude and opposite signs"
+            error_fields(&error),
+            vec![
+                "outgoing_change.amount",
+                "outgoing_change.amount",
+                "incoming_change.amount"
+            ]
         );
     }
 
@@ -272,8 +297,8 @@ mod tests {
             .expect("identical accounts should be rejected");
 
         assert_eq!(
-            error.to_string(),
-            "Cash balance transfer entries must use distinct accounts"
+            error_fields(&error),
+            vec!["outgoing_change.account_id", "incoming_change.account_id"]
         );
     }
 

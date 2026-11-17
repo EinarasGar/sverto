@@ -53,3 +53,17 @@ pub struct SyncConnectorBindingJob {
     pub binding_id: Uuid,
     pub user_id: Uuid,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportParseJob {
+    pub session_id: Uuid,
+    pub file_id: Uuid,
+    pub user_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ImportClassifyJob {
+    pub session_id: Uuid,
+    pub run_id: Uuid,
+    pub user_id: Uuid,
+}

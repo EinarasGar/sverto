@@ -147,6 +147,13 @@ impl FileService {
         Ok(file.into())
     }
 
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, count = file_ids.len()))]
+    pub async fn get_files(&self, user_id: Uuid, file_ids: Vec<Uuid>) -> Result<Vec<FileDto>> {
+        let query = file_queries::get_files(GetFilesParams::by_ids(user_id, file_ids));
+        let files: Vec<FileModel> = self.db.fetch_all(query).await?;
+        Ok(files.into_iter().map(Into::into).collect())
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, file_id = %file_id))]
     pub async fn confirm_file(&self, user_id: Uuid, file_id: Uuid) -> Result<FileDto> {
         let query = file_queries::update_file_status_conditional(
@@ -277,6 +284,19 @@ impl FileService {
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, file_id = %file_id))]
+    pub async fn download_file(&self, user_id: Uuid, file_id: Uuid) -> Result<Vec<u8>> {
+        let query = file_queries::get_files(GetFilesParams::by_id(user_id, file_id));
+        let file: Option<FileModel> = self.db.fetch_optional(query).await?;
+        let file = file.ok_or_else(|| BusinessNotFoundError {
+            message: "File not found".to_string(),
+        })?;
+        self.file_provider
+            .download(&file.storage_key)
+            .await
+            .map_err(convert_provider_error)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, file_id = %file_id))]
     pub async fn delete_file(&self, user_id: Uuid, file_id: Uuid) -> Result<()> {
         let query = file_queries::get_files(GetFilesParams::by_id(user_id, file_id));
         let file: Option<FileModel> = self.db.fetch_optional(query).await?;
@@ -284,19 +304,28 @@ impl FileService {
             message: "File not found".to_string(),
         })?;
 
-        self.file_provider
-            .delete(&file.storage_key)
-            .await
-            .map_err(convert_provider_error)?;
+        let delete_query = file_queries::delete_file(file_id, user_id);
+        if let Err(err) = self.db.execute(delete_query).await {
+            if err
+                .as_database_error()
+                .is_some_and(|db_err| db_err.is_foreign_key_violation())
+            {
+                return Err(BusinessConflictError {
+                    message: "File is in use and cannot be deleted.".to_string(),
+                }
+                .into());
+            }
+            return Err(err.into());
+        }
 
+        if let Err(e) = self.file_provider.delete(&file.storage_key).await {
+            tracing::warn!(file_id = %file_id, error = %e, "Failed to delete file from storage");
+        }
         if let Some(ref thumb_key) = file.thumbnail_key {
             if let Err(e) = self.file_provider.delete(thumb_key).await {
                 tracing::warn!(file_id = %file_id, error = %e, "Failed to delete thumbnail from storage");
             }
         }
-
-        let delete_query = file_queries::delete_file(file_id, user_id);
-        self.db.execute(delete_query).await?;
 
         Ok(())
     }

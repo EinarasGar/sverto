@@ -1,10 +1,11 @@
-use ai::models::chat::{ChatHistoryMessage, ChatStreamEvent};
-use serde::{Deserialize, Serialize};
+use ai::models::chat::ChatStreamEvent;
+use ai::models::history::TranscriptEntry;
+use serde::Serialize;
 use uuid::Uuid;
 
 use crate::dtos::ai_error_dto::AiErrorDto;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ChatHistoryMessageDto {
     User {
@@ -17,8 +18,6 @@ pub enum ChatHistoryMessageDto {
         tool_call_id: String,
         name: String,
         args: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        signature: Option<String>,
     },
     ToolResult {
         tool_call_id: String,
@@ -42,30 +41,28 @@ impl ChatHistoryMessageDto {
     }
 }
 
-impl From<ChatHistoryMessage> for ChatHistoryMessageDto {
-    fn from(msg: ChatHistoryMessage) -> Self {
-        match msg {
-            ChatHistoryMessage::User { content } => Self::User { content },
-            ChatHistoryMessage::Assistant { content } => Self::Assistant { content },
-            ChatHistoryMessage::AssistantToolCall {
+impl From<TranscriptEntry> for ChatHistoryMessageDto {
+    fn from(entry: TranscriptEntry) -> Self {
+        match entry {
+            TranscriptEntry::User { content } => Self::User { content },
+            TranscriptEntry::Assistant { content } => Self::Assistant { content },
+            TranscriptEntry::AssistantToolCall {
                 tool_call_id,
                 name,
                 args,
-                signature,
             } => Self::AssistantToolCall {
                 tool_call_id,
                 name,
                 args,
-                signature,
             },
-            ChatHistoryMessage::ToolResult {
+            TranscriptEntry::ToolResult {
                 tool_call_id,
                 content,
             } => Self::ToolResult {
                 tool_call_id,
                 content,
             },
-            ChatHistoryMessage::ToolApproval {
+            TranscriptEntry::ToolApproval {
                 tool_call_id,
                 approved,
             } => Self::ToolApproval {
@@ -76,54 +73,6 @@ impl From<ChatHistoryMessage> for ChatHistoryMessageDto {
     }
 }
 
-impl From<ChatHistoryMessageDto> for ChatHistoryMessage {
-    fn from(dto: ChatHistoryMessageDto) -> Self {
-        match dto {
-            ChatHistoryMessageDto::User { content } => ChatHistoryMessage::User { content },
-            ChatHistoryMessageDto::Assistant { content } => {
-                ChatHistoryMessage::Assistant { content }
-            }
-            ChatHistoryMessageDto::AssistantToolCall {
-                tool_call_id,
-                name,
-                args,
-                signature,
-            } => ChatHistoryMessage::AssistantToolCall {
-                tool_call_id,
-                name,
-                args,
-                signature,
-            },
-            ChatHistoryMessageDto::ToolResult {
-                tool_call_id,
-                content,
-            } => ChatHistoryMessage::ToolResult {
-                tool_call_id,
-                content,
-            },
-            ChatHistoryMessageDto::ToolApproval {
-                tool_call_id,
-                approved,
-            } => ChatHistoryMessage::ToolApproval {
-                tool_call_id,
-                approved,
-            },
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize)]
-pub struct Base64ImageDto {
-    pub media_type: String,
-    pub data: String,
-}
-
-impl From<(String, String)> for Base64ImageDto {
-    fn from((media_type, data): (String, String)) -> Self {
-        Self { media_type, data }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum ChatStreamEventDto {
     Text(String),
@@ -131,7 +80,6 @@ pub enum ChatStreamEventDto {
         call_id: String,
         name: String,
         input: serde_json::Value,
-        signature: Option<String>,
     },
     ToolResult {
         name: String,
@@ -159,12 +107,10 @@ impl From<ChatStreamEvent> for ChatStreamEventDto {
                 call_id,
                 name,
                 input,
-                signature,
             } => ChatStreamEventDto::ToolCall {
                 call_id,
                 name,
                 input,
-                signature,
             },
             ChatStreamEvent::ToolResult { name, output } => {
                 ChatStreamEventDto::ToolResult { name, output }

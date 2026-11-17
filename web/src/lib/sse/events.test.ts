@@ -16,18 +16,17 @@ describe("parseAiChatEvent", () => {
     })
   })
 
-  it("parses tool_call including the optional signature", () => {
+  it("parses tool_call", () => {
     expect(
       parseAiChatEvent({
         event: "tool_call",
-        data: '{"call_id":"c1","name":"search_transactions","input":{"q":"tesco"},"signature":"sig"}',
+        data: '{"call_id":"c1","name":"search_transactions","input":{"q":"tesco"}}',
       })
     ).toEqual({
       type: "tool_call",
       callId: "c1",
       name: "search_transactions",
       input: { q: "tesco" },
-      signature: "sig",
     })
   })
 

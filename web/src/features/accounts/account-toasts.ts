@@ -15,14 +15,16 @@ const TIMEOUT_MS = 6000
 
 export function accountCreatedToast(input: {
   name: string
-  onUndo: () => void
+  onUndo?: () => void
 }): void {
   toast.add({
     type: "success",
     timeout: TIMEOUT_MS,
     title: CREATED_TITLE,
     description: `${input.name} is on your accounts list.`,
-    actionProps: { children: UNDO, onClick: input.onUndo },
+    ...(input.onUndo === undefined
+      ? {}
+      : { actionProps: { children: UNDO, onClick: input.onUndo } }),
   })
 }
 

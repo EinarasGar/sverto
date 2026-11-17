@@ -5,6 +5,8 @@ import type { NormalizedError } from "@/lib/errors"
 import { normalizeHttpError, normalizeTransportError } from "@/lib/errors"
 import type { FileId, UserId } from "@/lib/query"
 
+import { declaredMimeType } from "../policy"
+
 export const UPLOAD_STAGES = {
   registering: "registering",
   uploading: "uploading",
@@ -124,7 +126,7 @@ export async function uploadFile(init: UploadFileInit): Promise<FileId> {
     init.userId,
     {
       original_name: init.file.name,
-      mime_type: init.file.type,
+      mime_type: declaredMimeType(init.file),
       size_bytes: init.file.size,
     },
     init.signal === undefined ? undefined : { signal: init.signal }

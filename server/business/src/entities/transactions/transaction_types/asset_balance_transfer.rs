@@ -19,6 +19,7 @@ use crate::{
         portfolio_overview::investment_transaction::asset_balance_transfer::AssetBalanceTransfer,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             transaction::{Transaction, TransactionPortfolioAction},
         },
     },
@@ -86,6 +87,11 @@ impl TransactionProcessor for AssetBalanceTransferTransaction {
             TransactionTypeDto::AssetBalanceTransfer(metadata) => metadata,
             _ => panic!("Invalid transaction type"),
         };
+
+        entry_rules::check([
+            entry_rules::negative(&metadata.outgoing_change, "outgoing_change"),
+            entry_rules::positive(&metadata.incoming_change, "incoming_change"),
+        ])?;
 
         let mut base = BaseTransaction::new(
             user_id,

@@ -20,6 +20,8 @@ import { Route as AuthShellSettingsRouteImport } from './routes/_auth/_shell/set
 import { Route as AuthShellTransactionsRouteImport } from './routes/_auth/_shell/transactions'
 import { Route as AuthShellAccountsIndexRouteImport } from './routes/_auth/_shell/accounts.index'
 import { Route as AuthShellAccountsAccountIdRouteImport } from './routes/_auth/_shell/accounts.$accountId'
+import { Route as AuthShellImportsIndexRouteImport } from './routes/_auth/_shell/imports.index'
+import { Route as AuthShellImportsSessionIdRouteImport } from './routes/_auth/_shell/imports.$sessionId'
 import { Route as AuthShellPortfolioIndexRouteImport } from './routes/_auth/_shell/portfolio.index'
 import { Route as AuthShellPortfolioAssetIdRouteImport } from './routes/_auth/_shell/portfolio.$assetId'
 
@@ -77,6 +79,17 @@ const AuthShellAccountsAccountIdRoute =
     path: '/accounts/$accountId',
     getParentRoute: () => AuthShellRoute,
   } as any)
+const AuthShellImportsIndexRoute = AuthShellImportsIndexRouteImport.update({
+  id: '/imports/',
+  path: '/imports/',
+  getParentRoute: () => AuthShellRoute,
+} as any)
+const AuthShellImportsSessionIdRoute =
+  AuthShellImportsSessionIdRouteImport.update({
+    id: '/imports/$sessionId',
+    path: '/imports/$sessionId',
+    getParentRoute: () => AuthShellRoute,
+  } as any)
 const AuthShellPortfolioIndexRoute = AuthShellPortfolioIndexRouteImport.update({
   id: '/portfolio/',
   path: '/portfolio/',
@@ -98,8 +111,10 @@ export interface FileRoutesByFullPath {
   '/settings': typeof AuthShellSettingsRoute
   '/transactions': typeof AuthShellTransactionsRoute
   '/accounts/$accountId': typeof AuthShellAccountsAccountIdRoute
+  '/imports/$sessionId': typeof AuthShellImportsSessionIdRoute
   '/portfolio/$assetId': typeof AuthShellPortfolioAssetIdRoute
   '/accounts/': typeof AuthShellAccountsIndexRoute
+  '/imports/': typeof AuthShellImportsIndexRoute
   '/portfolio/': typeof AuthShellPortfolioIndexRoute
 }
 export interface FileRoutesByTo {
@@ -111,8 +126,10 @@ export interface FileRoutesByTo {
   '/settings': typeof AuthShellSettingsRoute
   '/transactions': typeof AuthShellTransactionsRoute
   '/accounts/$accountId': typeof AuthShellAccountsAccountIdRoute
+  '/imports/$sessionId': typeof AuthShellImportsSessionIdRoute
   '/portfolio/$assetId': typeof AuthShellPortfolioAssetIdRoute
   '/accounts': typeof AuthShellAccountsIndexRoute
+  '/imports': typeof AuthShellImportsIndexRoute
   '/portfolio': typeof AuthShellPortfolioIndexRoute
 }
 export interface FileRoutesById {
@@ -127,8 +144,10 @@ export interface FileRoutesById {
   '/_auth/_shell/transactions': typeof AuthShellTransactionsRoute
   '/_auth/_shell/': typeof AuthShellIndexRoute
   '/_auth/_shell/accounts/$accountId': typeof AuthShellAccountsAccountIdRoute
+  '/_auth/_shell/imports/$sessionId': typeof AuthShellImportsSessionIdRoute
   '/_auth/_shell/portfolio/$assetId': typeof AuthShellPortfolioAssetIdRoute
   '/_auth/_shell/accounts/': typeof AuthShellAccountsIndexRoute
+  '/_auth/_shell/imports/': typeof AuthShellImportsIndexRoute
   '/_auth/_shell/portfolio/': typeof AuthShellPortfolioIndexRoute
 }
 export interface FileRouteTypes {
@@ -142,8 +161,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/transactions'
     | '/accounts/$accountId'
+    | '/imports/$sessionId'
     | '/portfolio/$assetId'
     | '/accounts/'
+    | '/imports/'
     | '/portfolio/'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -155,8 +176,10 @@ export interface FileRouteTypes {
     | '/settings'
     | '/transactions'
     | '/accounts/$accountId'
+    | '/imports/$sessionId'
     | '/portfolio/$assetId'
     | '/accounts'
+    | '/imports'
     | '/portfolio'
   id:
     | '__root__'
@@ -170,8 +193,10 @@ export interface FileRouteTypes {
     | '/_auth/_shell/transactions'
     | '/_auth/_shell/'
     | '/_auth/_shell/accounts/$accountId'
+    | '/_auth/_shell/imports/$sessionId'
     | '/_auth/_shell/portfolio/$assetId'
     | '/_auth/_shell/accounts/'
+    | '/_auth/_shell/imports/'
     | '/_auth/_shell/portfolio/'
   fileRoutesById: FileRoutesById
 }
@@ -260,6 +285,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthShellAccountsAccountIdRouteImport
       parentRoute: typeof AuthShellRoute
     }
+    '/_auth/_shell/imports/': {
+      id: '/_auth/_shell/imports/'
+      path: '/imports'
+      fullPath: '/imports/'
+      preLoaderRoute: typeof AuthShellImportsIndexRouteImport
+      parentRoute: typeof AuthShellRoute
+    }
+    '/_auth/_shell/imports/$sessionId': {
+      id: '/_auth/_shell/imports/$sessionId'
+      path: '/imports/$sessionId'
+      fullPath: '/imports/$sessionId'
+      preLoaderRoute: typeof AuthShellImportsSessionIdRouteImport
+      parentRoute: typeof AuthShellRoute
+    }
     '/_auth/_shell/portfolio/': {
       id: '/_auth/_shell/portfolio/'
       path: '/portfolio'
@@ -283,8 +322,10 @@ interface AuthShellRouteChildren {
   AuthShellTransactionsRoute: typeof AuthShellTransactionsRoute
   AuthShellIndexRoute: typeof AuthShellIndexRoute
   AuthShellAccountsAccountIdRoute: typeof AuthShellAccountsAccountIdRoute
+  AuthShellImportsSessionIdRoute: typeof AuthShellImportsSessionIdRoute
   AuthShellPortfolioAssetIdRoute: typeof AuthShellPortfolioAssetIdRoute
   AuthShellAccountsIndexRoute: typeof AuthShellAccountsIndexRoute
+  AuthShellImportsIndexRoute: typeof AuthShellImportsIndexRoute
   AuthShellPortfolioIndexRoute: typeof AuthShellPortfolioIndexRoute
 }
 
@@ -294,8 +335,10 @@ const AuthShellRouteChildren: AuthShellRouteChildren = {
   AuthShellTransactionsRoute: AuthShellTransactionsRoute,
   AuthShellIndexRoute: AuthShellIndexRoute,
   AuthShellAccountsAccountIdRoute: AuthShellAccountsAccountIdRoute,
+  AuthShellImportsSessionIdRoute: AuthShellImportsSessionIdRoute,
   AuthShellPortfolioAssetIdRoute: AuthShellPortfolioAssetIdRoute,
   AuthShellAccountsIndexRoute: AuthShellAccountsIndexRoute,
+  AuthShellImportsIndexRoute: AuthShellImportsIndexRoute,
   AuthShellPortfolioIndexRoute: AuthShellPortfolioIndexRoute,
 }
 

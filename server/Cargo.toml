@@ -12,6 +12,7 @@ members = [
   "app-core",
   "observability",
   "connectors",
+  "extraction",
   "worker",
   "vendor/uniffi_core",
 ]

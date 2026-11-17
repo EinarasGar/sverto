@@ -213,9 +213,13 @@ impl TransactionManagementService {
         self.db.start_transaction().await?;
         let result = self
             .add_individual_transaction_inner(user_id, transaction)
-            .await?;
-        self.db.commit_transaction().await?;
-        Ok(result)
+            .await;
+        if result.is_ok() {
+            self.db.commit_transaction().await?;
+        } else {
+            let _ = self.db.rollback_transaction().await;
+        }
+        result
     }
 
     pub async fn add_transactions(
@@ -501,10 +505,18 @@ impl TransactionManagementService {
         transaction_dto: TransactionDto,
     ) -> anyhow::Result<TransactionDto> {
         self.db.start_transaction().await?;
-        self.update_individual_transaction_inner(user_id, transaction_id, transaction_dto)
-            .await?;
-        let query = transaction_data_queries::clear_group_id_on_transaction(transaction_id);
-        self.db.execute(query).await?;
+        let result: anyhow::Result<()> = async {
+            self.update_individual_transaction_inner(user_id, transaction_id, transaction_dto)
+                .await?;
+            let query = transaction_data_queries::clear_group_id_on_transaction(transaction_id);
+            self.db.execute(query).await?;
+            Ok(())
+        }
+        .await;
+        if let Err(error) = result {
+            let _ = self.db.rollback_transaction().await;
+            return Err(error);
+        }
         self.db.commit_transaction().await?;
         self.get_individual_transaction(user_id, transaction_id)
             .await

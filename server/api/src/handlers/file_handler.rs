@@ -101,6 +101,7 @@ pub async fn get_file(
     tag = "Files",
     responses(
         (status = 204, description = "File deleted successfully."),
+        (status = 409, description = "File is in use and cannot be deleted.", body = crate::errors::ApiErrorResponse),
         DeleteResponses
     ),
     params(

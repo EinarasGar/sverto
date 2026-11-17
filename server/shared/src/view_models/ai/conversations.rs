@@ -1,8 +1,5 @@
 #[cfg(feature = "backend")]
-use business::dtos::{
-    ai_chat_dto::ChatHistoryMessageDto, ai_conversation_dto::ConversationDto,
-    ai_message_dto::MessageDto,
-};
+use business::dtos::{ai_conversation_dto::ConversationDto, ai_message_dto::MessageDto};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -55,19 +52,12 @@ pub struct IdentifiableConversationResponseViewModel {
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct IdentifiableMessageResponseViewModel {
-    pub id: Uuid,
+    pub id: String,
     pub role: String,
     pub content: serde_json::Value,
     pub file_ids: Vec<Uuid>,
     #[serde(with = "time::serde::rfc3339")]
     pub created_at: OffsetDateTime,
-}
-
-#[cfg(feature = "backend")]
-impl From<UserMessage> for ChatHistoryMessageDto {
-    fn from(msg: UserMessage) -> Self {
-        Self::User { content: msg.0 }
-    }
 }
 
 #[cfg(feature = "backend")]
@@ -99,8 +89,9 @@ impl From<MessageDto> for IdentifiableMessageResponseViewModel {
     fn from(dto: MessageDto) -> Self {
         Self {
             id: dto.id,
-            role: dto.role,
-            content: dto.content,
+            role: dto.message.role().to_string(),
+            content: serde_json::to_value(&dto.message)
+                .expect("a chat history message serializes to JSON"),
             file_ids: dto.file_ids,
             created_at: dto.created_at,
         }

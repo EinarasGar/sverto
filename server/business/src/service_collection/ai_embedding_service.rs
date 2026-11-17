@@ -21,18 +21,23 @@ impl AiEmbeddingService {
         }
     }
 
-    pub async fn enqueue_embed_transaction(
+    pub async fn enqueue_embed_transactions(
         &self,
         user_id: Uuid,
-        transaction_id: Uuid,
-        text: String,
+        transactions: Vec<(Uuid, String)>,
     ) -> anyhow::Result<()> {
-        self.queue
-            .push(EmbeddingJob::Transaction {
-                transaction_id,
-                user_id,
-                text,
-            })
+        self.db
+            .push(
+                &self.queue,
+                transactions
+                    .into_iter()
+                    .map(|(transaction_id, text)| EmbeddingJob::Transaction {
+                        transaction_id,
+                        user_id,
+                        text,
+                    })
+                    .collect(),
+            )
             .await
     }
 
@@ -42,12 +47,15 @@ impl AiEmbeddingService {
         group_id: Uuid,
         text: String,
     ) -> anyhow::Result<()> {
-        self.queue
-            .push(EmbeddingJob::Group {
-                group_id,
-                user_id,
-                text,
-            })
+        self.db
+            .push(
+                &self.queue,
+                vec![EmbeddingJob::Group {
+                    group_id,
+                    user_id,
+                    text,
+                }],
+            )
             .await
     }
 
@@ -57,12 +65,15 @@ impl AiEmbeddingService {
         asset_id: i32,
         text: String,
     ) -> anyhow::Result<()> {
-        self.queue
-            .push(EmbeddingJob::Asset {
-                asset_id,
-                user_id,
-                text,
-            })
+        self.db
+            .push(
+                &self.queue,
+                vec![EmbeddingJob::Asset {
+                    asset_id,
+                    user_id,
+                    text,
+                }],
+            )
             .await
     }
 
@@ -72,12 +83,15 @@ impl AiEmbeddingService {
         category_id: i32,
         text: String,
     ) -> anyhow::Result<()> {
-        self.queue
-            .push(EmbeddingJob::Category {
-                category_id,
-                user_id,
-                text,
-            })
+        self.db
+            .push(
+                &self.queue,
+                vec![EmbeddingJob::Category {
+                    category_id,
+                    user_id,
+                    text,
+                }],
+            )
             .await
     }
 

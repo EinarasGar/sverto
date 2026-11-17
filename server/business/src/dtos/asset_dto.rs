@@ -1,4 +1,4 @@
-use dal::models::asset_models::{Asset, PublicAsset};
+use dal::models::asset_models::{Asset, VisibleAsset};
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -23,14 +23,14 @@ impl From<Asset> for AssetDto {
     }
 }
 
-impl From<PublicAsset> for AssetDto {
-    fn from(p: PublicAsset) -> Self {
+impl From<VisibleAsset> for AssetDto {
+    fn from(p: VisibleAsset) -> Self {
         Self {
             ticker: p.ticker,
             name: p.asset_name,
             category: p.category,
             asset_id: p.id,
-            owner: None,
+            owner: p.user_id,
         }
     }
 }

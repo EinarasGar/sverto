@@ -78,6 +78,7 @@ pub fn acquire_concurrency(user_id: Uuid) -> RedisScript {
     RedisScript::new(&CONCURRENCY_SCRIPT)
         .key(format!("ai:rl:user:{}:inflight", user_id))
         .arg_int(INFLIGHT_TTL)
+        .arg_int(MAX_CONCURRENT_REQUESTS)
 }
 
 pub fn concurrency_key(user_id: Uuid) -> String {
@@ -285,6 +286,10 @@ return 'ok'
 
 const ACQUIRE_CONCURRENCY_LUA: &str = r#"
 local count = redis.call('INCR', KEYS[1])
+if count > tonumber(ARGV[2]) then
+    redis.call('DECR', KEYS[1])
+    return count
+end
 redis.call('EXPIRE', KEYS[1], tonumber(ARGV[1]))
 return count
 "#;

@@ -2,23 +2,23 @@ use std::sync::Arc;
 
 use super::{ToolError, ToolMode};
 use crate::data_provider::AiDataProvider;
-use crate::embedding::embed_query;
+use crate::embedding::{embed_query, EmbeddingModel};
 use crate::models::tool_output::SearchAssetsArgs;
-use rig::{completion::request::ToolDefinition, embeddings::EmbeddingModel, tool::Tool};
-use serde_json::json;
+use rig::tool::{Tool, ToolContext, ToolExecutionError};
+use serde_json::{json, Value};
 
-pub struct SearchAssetsTool<M: EmbeddingModel, D: AiDataProvider> {
+pub struct SearchAssetsTool<D: AiDataProvider> {
     data: Arc<D>,
-    embedding_model: M,
+    embedding_model: EmbeddingModel,
     mode: ToolMode,
 }
 
-impl<M: EmbeddingModel, D: AiDataProvider> SearchAssetsTool<M, D> {
-    pub fn new(data: Arc<D>, embedding_model: M) -> Self {
+impl<D: AiDataProvider> SearchAssetsTool<D> {
+    pub fn new(data: Arc<D>, embedding_model: EmbeddingModel) -> Self {
         Self::with_mode(data, embedding_model, ToolMode::Normal)
     }
 
-    pub fn with_mode(data: Arc<D>, embedding_model: M, mode: ToolMode) -> Self {
+    pub fn with_mode(data: Arc<D>, embedding_model: EmbeddingModel, mode: ToolMode) -> Self {
         Self {
             data,
             embedding_model,
@@ -27,32 +27,40 @@ impl<M: EmbeddingModel, D: AiDataProvider> SearchAssetsTool<M, D> {
     }
 }
 
-impl<M: EmbeddingModel + Send + Sync, D: AiDataProvider> Tool for SearchAssetsTool<M, D> {
+impl<D: AiDataProvider> Tool for SearchAssetsTool<D> {
     const NAME: &'static str = "search_assets";
 
     type Error = ToolError;
     type Args = SearchAssetsArgs;
-    type Output = String;
+    type Output = Value;
 
-    async fn definition(&self, _prompt: String) -> ToolDefinition {
-        ToolDefinition {
-            name: Self::NAME.to_string(),
-            description: "Search assets (currencies, stocks, commodities) by keyword or semantically. Use this to find valid asset IDs. Each row: {id, asset_name, ticker, asset_type}.".to_string(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "query": {
-                        "type": "string",
-                        "description": "Optional keyword or natural language query to find assets (e.g. 'US dollar', 'bitcoin', 'tech stocks')"
-                    }
-                },
-                "required": []
-            }),
-        }
+    fn description(&self) -> String {
+        "Search assets (currencies, stocks, commodities) by keyword or semantically. Use this to find valid asset IDs. Each row: {id, asset_name, ticker, asset_type}.".to_string()
+    }
+
+    fn parameters(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "query": {
+                    "type": "string",
+                    "description": "Optional keyword or natural language query to find assets (e.g. 'US dollar', 'bitcoin', 'tech stocks')"
+                }
+            },
+            "required": []
+        })
+    }
+
+    fn map_error(&self, error: Self::Error) -> ToolExecutionError {
+        error.into()
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(tool = Self::NAME))]
-    async fn call(&self, args: Self::Args) -> std::result::Result<Self::Output, Self::Error> {
+    async fn call(
+        &self,
+        _context: &mut ToolContext,
+        args: Self::Args,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         let query_vec = match self.mode {
             ToolMode::CodeMode => None,
             ToolMode::Normal => {
@@ -74,6 +82,6 @@ impl<M: EmbeddingModel + Send + Sync, D: AiDataProvider> Tool for SearchAssetsTo
             .await
             .map_err(|e| ToolError(e.to_string()))?;
 
-        serde_json::to_string(&assets).map_err(Into::into)
+        serde_json::to_value(&assets).map_err(Into::into)
     }
 }

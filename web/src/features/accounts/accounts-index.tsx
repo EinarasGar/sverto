@@ -127,7 +127,12 @@ export function AccountsIndex() {
         title="Accounts"
         meta={<AccountsMeta />}
         actions={
-          <Button size="lg" onClick={editor.openCreate}>
+          <Button
+            size="lg"
+            onClick={() => {
+              editor.openCreate()
+            }}
+          >
             <PlusIcon aria-hidden data-icon="inline-start" />
             {NEW_ACCOUNT}
           </Button>
@@ -138,7 +143,11 @@ export function AccountsIndex() {
           <AccountsSummaryPanel />
         </PanelBoundary>
         <PanelBoundary pending={<AccountGroupsSkeleton />}>
-          <AccountsGroups onAddAccount={editor.openCreate} />
+          <AccountsGroups
+            onAddAccount={() => {
+              editor.openCreate()
+            }}
+          />
         </PanelBoundary>
       </div>
       <AccountEditor

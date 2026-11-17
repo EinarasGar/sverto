@@ -1,6 +1,8 @@
 pub mod cron;
 pub mod embeddings;
 pub mod file_processing;
+pub mod import_classify;
+pub mod import_parse;
 pub mod quick_upload;
 pub mod sync_connector;
 
@@ -10,7 +12,7 @@ use std::str::FromStr;
 use ai::models::error::AiError;
 use apalis::prelude::*;
 use apalis_cron::CronStream;
-use apalis_postgres::{Config, PostgresStorage};
+use apalis_postgres::{Config, PgContext, PostgresStorage};
 use business::service_collection::{ServiceProviders, Services};
 use futures::FutureExt;
 use serde::{de::DeserializeOwned, Serialize};
@@ -57,6 +59,7 @@ pub async fn run_job<T: WorkerJob>(
     job: T,
     services: Data<Services>,
     attempt: Attempt,
+    context: PgContext,
 ) -> Result<(), BoxDynError> {
     let providers = services.create_providers();
     let attempts = attempt.current() as i32;
@@ -83,7 +86,7 @@ pub async fn run_job<T: WorkerJob>(
         Err(e) => e,
     };
 
-    let decision = T::decide(&error, attempts);
+    let decision = final_decision::<T>(&error, attempts, context.max_attempts());
     let ai_error = retry::extract_ai_error(&error);
     match &decision {
         RetryDecision::RetryAfter(delay) => {
@@ -111,6 +114,18 @@ async fn cron_handler<T: CronJob>(
         "cron job completed"
     );
     Ok(())
+}
+
+fn final_decision<T: WorkerJob>(
+    error: &anyhow::Error,
+    attempts: i32,
+    max_attempts: i32,
+) -> RetryDecision {
+    if attempts >= max_attempts {
+        RetryDecision::Abort
+    } else {
+        T::decide(error, attempts)
+    }
 }
 
 fn panic_to_anyhow(panic: Box<dyn std::any::Any + Send>) -> anyhow::Result<()> {
@@ -152,5 +167,24 @@ impl MonitorExt for Monitor {
                 .data(services.clone())
                 .build(cron_handler::<T>)
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use business::jobs::ImportParseJob;
+
+    use super::*;
+
+    fn busy_slot() -> anyhow::Error {
+        anyhow::Error::from(AiError::ConcurrencyLimited)
+    }
+
+    #[test]
+    fn the_last_attempt_the_queue_allows_is_final() {
+        assert_eq!(
+            final_decision::<ImportParseJob>(&busy_slot(), 60, 60),
+            RetryDecision::Abort
+        );
     }
 }

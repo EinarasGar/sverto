@@ -1,10 +1,11 @@
-use rig::client::CompletionClient;
+use rig::agent::AgentBuilder;
 
 use crate::config::AiConfig;
 use crate::conversation::Conversation;
 use crate::conversation_provider::ConversationProvider;
+use crate::models::agent::ModelAgent;
 use crate::models::chat::{ChatTurn, Persistence};
-use crate::provider::create_gemini_client;
+use crate::provider::completion_model;
 use crate::rate_limit_provider::RateLimitProvider;
 
 const TITLE_SYSTEM_PROMPT: &str = r#"You are a title generator for AI conversations. Given a set of messages from a chat, create a short, descriptive title (1-5 words) that captures the main topic of the conversation.
@@ -32,12 +33,12 @@ where
     C: ConversationProvider,
     R: RateLimitProvider,
 {
-    let client = create_gemini_client(&config.api_key);
-    let agent = client
-        .agent(&config.model)
-        .preamble(TITLE_SYSTEM_PROMPT)
-        .max_tokens(32)
-        .build();
+    let agent = ModelAgent {
+        agent: AgentBuilder::new(completion_model(config))
+            .preamble(TITLE_SYSTEM_PROMPT)
+            .build(),
+        model: config.model.clone(),
+    };
 
     let result = conv
         .run(

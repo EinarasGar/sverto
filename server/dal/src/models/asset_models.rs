@@ -28,12 +28,6 @@ pub struct Asset {
 }
 
 #[derive(sqlx::FromRow, Debug)]
-pub struct AssetTickerId {
-    pub id: i32,
-    pub ticker: String,
-}
-
-#[derive(sqlx::FromRow, Debug)]
 pub struct AssetRaw {
     pub ticker: String,
     pub asset_name: String,
@@ -44,11 +38,12 @@ pub struct AssetRaw {
 }
 
 #[derive(sqlx::FromRow, Debug)]
-pub struct PublicAsset {
+pub struct VisibleAsset {
     pub ticker: String,
     pub asset_name: String,
     pub category: String,
     pub id: i32,
+    pub user_id: Option<Uuid>,
 }
 
 pub struct InsertAsset {
@@ -154,4 +149,21 @@ pub struct HeldAssetPairDetailModel {
     pub base_ticker: String,
     pub asset_type: i32,
     pub base_asset_type: i32,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct AssetRefModel {
+    pub id: i32,
+    pub ticker: String,
+    pub asset_name: String,
+    pub isin: Option<String>,
+    pub asset_type: i32,
+    pub base_pair_id: Option<i32>,
+}
+
+#[derive(Debug, Clone, sqlx::FromRow)]
+pub struct ExchangeCurrencyModel {
+    pub exchange: String,
+    pub base_pair_id: i32,
+    pub listings: i64,
 }

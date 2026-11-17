@@ -4,8 +4,8 @@ use super::ToolError;
 use crate::action_provider::AiActionProvider;
 use crate::models::action::DeleteTransactionParams;
 use crate::models::tool_output::DeleteTransactionArgs;
-use rig::{completion::request::ToolDefinition, tool::Tool};
-use serde_json::json;
+use rig::tool::{Tool, ToolContext, ToolExecutionError};
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 pub struct DeleteTransactionTool<A: AiActionProvider> {
@@ -23,27 +23,35 @@ impl<A: AiActionProvider> Tool for DeleteTransactionTool<A> {
 
     type Error = ToolError;
     type Args = DeleteTransactionArgs;
-    type Output = String;
+    type Output = Value;
 
-    async fn definition(&self, _prompt: String) -> ToolDefinition {
-        ToolDefinition {
-            name: Self::NAME.to_string(),
-            description: "Permanently delete a transaction and all of its entries. Obtain the transaction_id from a prior query_transactions result. This is destructive and cannot be undone — the approval card lets the user confirm. Call this tool directly when the user asks to delete a transaction — the UI shows an Accept/Reject card for the user to confirm, so do NOT ask for confirmation in chat.".to_string(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "transaction_id": {
-                        "type": "string",
-                        "description": "UUID of the transaction to delete. Obtain it from a prior query_transactions result."
-                    }
-                },
-                "required": ["transaction_id"]
-            }),
-        }
+    fn description(&self) -> String {
+        "Permanently delete a transaction and all of its entries. Obtain the transaction_id from a prior query_transactions result. This is destructive and cannot be undone — the approval card lets the user confirm. Call this tool directly when the user asks to delete a transaction — the UI shows an Accept/Reject card for the user to confirm, so do NOT ask for confirmation in chat.".to_string()
+    }
+
+    fn parameters(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "transaction_id": {
+                    "type": "string",
+                    "description": "UUID of the transaction to delete. Obtain it from a prior query_transactions result."
+                }
+            },
+            "required": ["transaction_id"]
+        })
+    }
+
+    fn map_error(&self, error: Self::Error) -> ToolExecutionError {
+        error.into()
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(tool = Self::NAME))]
-    async fn call(&self, args: Self::Args) -> std::result::Result<Self::Output, Self::Error> {
+    async fn call(
+        &self,
+        _context: &mut ToolContext,
+        args: Self::Args,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         let transaction_id = args
             .transaction_id
             .parse::<Uuid>()
@@ -56,6 +64,6 @@ impl<A: AiActionProvider> Tool for DeleteTransactionTool<A> {
             .delete_transaction(params)
             .await
             .map_err(|e| ToolError(e.to_string()))?;
-        serde_json::to_string(&result).map_err(Into::into)
+        serde_json::to_value(&result).map_err(Into::into)
     }
 }

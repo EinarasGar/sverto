@@ -19,6 +19,7 @@ use crate::{
         portfolio_overview::investment_transaction::asset_sale::AssetSale,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             transaction::{Transaction, TransactionPortfolioAction},
         },
     },
@@ -86,6 +87,19 @@ impl TransactionProcessor for AssetSaleTransaction {
             TransactionTypeDto::AssetSale(metadata) => metadata,
             _ => panic!("Invalid transaction type"),
         };
+
+        let [account_a, account_b] = entry_rules::same_account(
+            &metadata.sale,
+            "sale_entry",
+            &metadata.proceeds,
+            "proceeds_entry",
+        );
+        entry_rules::check([
+            entry_rules::negative(&metadata.sale, "sale_entry"),
+            entry_rules::positive(&metadata.proceeds, "proceeds_entry"),
+            account_a,
+            account_b,
+        ])?;
 
         let mut base = BaseTransaction::new(
             user_id,

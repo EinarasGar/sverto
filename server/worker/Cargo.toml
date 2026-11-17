@@ -8,6 +8,7 @@ default-run = "worker"
 business = { path = "../business", default-features = false, features = ["noauth"] }
 dal = { path = "../dal" }
 ai = { path = "../ai" }
+extraction = { path = "../extraction" }
 observability = { path = "../observability" }
 apalis = { version = "=1.0.0-rc.9", features = ["tracing", "catch-panic"] }
 apalis-postgres = { git = "https://github.com/EinarasGar/apalis-postgres", rev = "b13a033efb4d720be702dce5e4f1b5f3493c4099", features = ["time"] }

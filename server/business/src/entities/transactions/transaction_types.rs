@@ -194,3 +194,174 @@ pub fn create_transactions_from_transaction_with_entries_models(
 
     Ok(transactions)
 }
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal::Decimal;
+    use time::macros::datetime;
+    use uuid::Uuid;
+
+    use super::create_transaction_from_dto;
+    use crate::dtos::entry_dto::EntryDto;
+    use crate::dtos::transaction_dto::*;
+    use crate::dtos::validation_error_dto::BusinessValidationErrorDto;
+    use crate::test_support::load_dynamic_enums;
+
+    const ACCOUNT: Uuid = Uuid::from_u128(1);
+    const OTHER_ACCOUNT: Uuid = Uuid::from_u128(2);
+    const GBP: i32 = 1;
+    const VUSA: i32 = 2;
+
+    fn entry(asset_id: i32, quantity: &str) -> EntryDto {
+        EntryDto::new(asset_id, ACCOUNT, quantity.parse::<Decimal>().unwrap())
+    }
+
+    fn dto(transaction_type: TransactionTypeDto) -> TransactionDto {
+        TransactionDto {
+            transaction_id: None,
+            date: datetime!(2026-01-02 0:00 UTC),
+            visibility: TransactionVisibilityDto::Default,
+            fee_entries: Vec::new(),
+            transaction_type,
+        }
+    }
+
+    fn rejected_fields(transaction_type: TransactionTypeDto) -> Vec<String> {
+        load_dynamic_enums();
+        let error = create_transaction_from_dto(dto(transaction_type), Uuid::nil())
+            .err()
+            .expect("the transaction is rejected");
+        error
+            .downcast_ref::<BusinessValidationErrorDto>()
+            .expect("a validation error")
+            .errors
+            .iter()
+            .map(|error| error.field.clone())
+            .collect()
+    }
+
+    fn assert_accepted(transaction_type: TransactionTypeDto) {
+        load_dynamic_enums();
+        if let Err(error) = create_transaction_from_dto(dto(transaction_type), Uuid::nil()) {
+            panic!(
+                "the transaction is accepted: {error:?} {:?}",
+                error.downcast_ref::<BusinessValidationErrorDto>()
+            );
+        }
+    }
+
+    #[test]
+    fn single_entry_types_check_the_sign_the_api_requires() {
+        assert_accepted(TransactionTypeDto::CashTransferIn(
+            CashTransferInMetadataDto {
+                entry: entry(GBP, "10"),
+            },
+        ));
+        assert_accepted(TransactionTypeDto::Regular(RegularTransactionMetadataDto {
+            description: None,
+            entry: entry(GBP, "25"),
+            category_id: 76,
+        }));
+
+        let rejected = [
+            TransactionTypeDto::CashTransferIn(CashTransferInMetadataDto {
+                entry: entry(GBP, "-10"),
+            }),
+            TransactionTypeDto::CashTransferOut(CashTransferOutMetadataDto {
+                entry: entry(GBP, "10"),
+            }),
+            TransactionTypeDto::CashDividend(CashDividendMetadataDto {
+                entry: entry(GBP, "0"),
+                origin_asset_id: VUSA,
+            }),
+            TransactionTypeDto::AssetDividend(AssetDividendMetadataDto {
+                entry: entry(VUSA, "-1"),
+            }),
+            TransactionTypeDto::AssetTransferIn(AssetTransferInMetadataDto {
+                entry: entry(VUSA, "-1"),
+            }),
+            TransactionTypeDto::AssetTransferOut(AssetTransferOutMetadataDto {
+                entry: entry(VUSA, "1"),
+            }),
+            TransactionTypeDto::AccountFees(AccountFeesMetadataDto {
+                entry: entry(GBP, "2"),
+            }),
+            TransactionTypeDto::Regular(RegularTransactionMetadataDto {
+                description: None,
+                entry: entry(GBP, "0"),
+                category_id: 76,
+            }),
+        ];
+        for transaction_type in rejected {
+            assert_eq!(rejected_fields(transaction_type), vec!["entry.amount"]);
+        }
+    }
+
+    #[test]
+    fn two_entry_types_check_signs_and_accounts() {
+        assert_accepted(TransactionTypeDto::AssetPurchase(
+            AssetPurchaseMetadataDto {
+                purchase: entry(VUSA, "3"),
+                sale: entry(GBP, "-300"),
+            },
+        ));
+        assert_eq!(
+            rejected_fields(TransactionTypeDto::AssetPurchase(
+                AssetPurchaseMetadataDto {
+                    purchase: entry(VUSA, "-3"),
+                    sale: EntryDto::new(GBP, OTHER_ACCOUNT, "-300".parse().unwrap()),
+                }
+            )),
+            vec![
+                "purchase_change.amount",
+                "purchase_change.account_id",
+                "cash_outgoings_change.account_id"
+            ]
+        );
+        assert_eq!(
+            rejected_fields(TransactionTypeDto::AssetSale(AssetSaleMetadataDto {
+                sale: entry(VUSA, "3"),
+                proceeds: entry(GBP, "300"),
+            })),
+            vec!["sale_entry.amount"]
+        );
+        assert_eq!(
+            rejected_fields(TransactionTypeDto::AssetTrade(AssetTradeMetadataDto {
+                outgoing_entry: entry(GBP, "100"),
+                incoming_entry: entry(VUSA, "1"),
+            })),
+            vec!["outgoing_entry.amount"]
+        );
+        assert_eq!(
+            rejected_fields(TransactionTypeDto::AssetBalanceTransfer(
+                AssetBalanceTransferMetadataDto {
+                    outgoing_change: entry(VUSA, "-1"),
+                    incoming_change: entry(VUSA, "-1"),
+                }
+            )),
+            vec!["incoming_change.amount"]
+        );
+        assert_eq!(
+            rejected_fields(TransactionTypeDto::CashBalanceTransfer(
+                CashBalanceTransferMetadataDto {
+                    outgoing_change: entry(GBP, "-100"),
+                    incoming_change: entry(VUSA, "90"),
+                }
+            )),
+            vec![
+                "outgoing_change.asset_id",
+                "incoming_change.asset_id",
+                "outgoing_change.amount",
+                "incoming_change.amount",
+                "outgoing_change.account_id",
+                "incoming_change.account_id"
+            ]
+        );
+        assert_accepted(TransactionTypeDto::CashBalanceTransfer(
+            CashBalanceTransferMetadataDto {
+                outgoing_change: entry(GBP, "-100"),
+                incoming_change: EntryDto::new(GBP, OTHER_ACCOUNT, "100".parse().unwrap()),
+            },
+        ));
+    }
+}

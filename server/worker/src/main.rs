@@ -1,5 +1,8 @@
 use apalis::prelude::{Monitor, WorkerError};
-use business::jobs::{EmbeddingJob, FileProcessingJob, QuickUploadJob, SyncConnectorBindingJob};
+use business::jobs::{
+    EmbeddingJob, FileProcessingJob, ImportClassifyJob, ImportParseJob, QuickUploadJob,
+    SyncConnectorBindingJob,
+};
 use business::loader::StartupLoader;
 use business::service_collection::Services;
 use worker::jobs::cron::{
@@ -26,6 +29,8 @@ async fn main() -> anyhow::Result<()> {
         .register_job::<EmbeddingJob>(&services)
         .register_job::<FileProcessingJob>(&services)
         .register_job::<QuickUploadJob>(&services)
+        .register_job::<ImportParseJob>(&services)
+        .register_job::<ImportClassifyJob>(&services)
         .register_job::<SyncConnectorBindingJob>(&services)
         .register_cron::<RefreshAssetsJob>(&services)
         .register_cron::<SeedAssetHistoryJob>(&services)

@@ -1,15 +1,14 @@
 //! Tool-call approval gate for the chat workflow. Builds a parallel toolset
 //! containing only the gated tools (used to replay them after the user has
-//! approved or declined), and a `PromptHook` that intercepts gated tool calls
 //! mid-stream so the UI can ask the user before they execute.
 
 use std::collections::HashSet;
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, MutexGuard, PoisonError};
 
-use rig::agent::{HookAction, PromptHook, ToolCallHookAction};
-use rig::completion::message::Message;
-use rig::providers::gemini;
+use rig::agent::{
+    AgentHook, CompletionCallAction, CompletionCallEvent, DispatchAction, DispatchEvent,
+    HookContext,
+};
 use rig::tool::Tool;
 
 use crate::action_provider::AiActionProvider;
@@ -75,53 +74,64 @@ pub(crate) fn build_gated_toolset<A: AiActionProvider>(actions: Arc<A>) -> Gated
 
 #[derive(Clone)]
 pub(crate) struct ApprovalHook {
-    sender: tokio::sync::mpsc::UnboundedSender<ToolRequestPayload>,
     gated_names: HashSet<String>,
-    captured: Arc<AtomicBool>,
+    pending: Arc<Mutex<Vec<ToolRequestPayload>>>,
 }
 
 impl ApprovalHook {
-    pub(crate) fn new(
-        sender: tokio::sync::mpsc::UnboundedSender<ToolRequestPayload>,
-        gated_names: HashSet<String>,
-    ) -> Self {
+    pub(crate) fn new(gated_names: HashSet<String>) -> Self {
         Self {
-            sender,
             gated_names,
-            captured: Arc::new(AtomicBool::new(false)),
+            pending: Arc::default(),
         }
+    }
+
+    pub(crate) fn has_pending(&self) -> bool {
+        !self.pending().is_empty()
+    }
+
+    pub(crate) fn is_pending(&self, tool_call_id: &str) -> bool {
+        self.pending()
+            .iter()
+            .any(|request| request.tool_call_id == tool_call_id)
+    }
+
+    pub(crate) fn take_pending(&self) -> Vec<ToolRequestPayload> {
+        std::mem::take(&mut *self.pending())
+    }
+
+    fn pending(&self) -> MutexGuard<'_, Vec<ToolRequestPayload>> {
+        self.pending.lock().unwrap_or_else(PoisonError::into_inner)
     }
 }
 
-impl PromptHook<gemini::completion::CompletionModel> for ApprovalHook {
+impl AgentHook for ApprovalHook {
     // Once a gated call has been captured, stop before the next model turn so
-    // the user can approve. Skipping (rather than terminating) on the call
     // itself lets every gated call in the same turn be captured first.
-    async fn on_completion_call(&self, _prompt: &Message, _history: &[Message]) -> HookAction {
-        if self.captured.load(Ordering::SeqCst) {
-            HookAction::terminate(PENDING_APPROVAL_RESULT)
+    async fn on_completion_call(
+        &self,
+        _ctx: &HookContext,
+        _event: CompletionCallEvent<'_>,
+    ) -> CompletionCallAction {
+        if self.has_pending() {
+            CompletionCallAction::stop(PENDING_APPROVAL_RESULT)
         } else {
-            HookAction::cont()
+            CompletionCallAction::continue_run()
         }
     }
 
-    async fn on_tool_call(
-        &self,
-        tool_name: &str,
-        tool_call_id: Option<String>,
-        internal_call_id: &str,
-        args: &str,
-    ) -> ToolCallHookAction {
-        if self.gated_names.contains(tool_name) {
-            let _ = self.sender.send(ToolRequestPayload {
-                tool_call_id: tool_call_id.unwrap_or_else(|| internal_call_id.to_string()),
-                name: tool_name.to_string(),
-                args: args.to_string(),
-            });
-            self.captured.store(true, Ordering::SeqCst);
-            ToolCallHookAction::skip(PENDING_APPROVAL_RESULT)
-        } else {
-            ToolCallHookAction::Continue
+    async fn on_dispatch(&self, _ctx: &HookContext, event: DispatchEvent<'_>) -> DispatchAction {
+        let Some(tool_name) = event.tool_name() else {
+            return DispatchAction::proceed();
+        };
+        if !self.gated_names.contains(tool_name) {
+            return DispatchAction::proceed();
         }
+        self.pending().push(ToolRequestPayload {
+            tool_call_id: event.call_id.map(ToString::to_string).unwrap_or_default(),
+            name: tool_name.to_string(),
+            args: event.tool_args().unwrap_or("{}").to_string(),
+        });
+        DispatchAction::skip(PENDING_APPROVAL_RESULT)
     }
 }

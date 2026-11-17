@@ -3,8 +3,8 @@ use std::sync::Arc;
 use super::{ToolError, ToolMode};
 use crate::data_provider::AiDataProvider;
 use crate::models::tool_output::GetPortfolioOverviewArgs;
-use rig::{completion::request::ToolDefinition, tool::Tool};
-use serde_json::json;
+use rig::tool::{Tool, ToolContext, ToolExecutionError};
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 pub struct GetPortfolioOverviewTool<D: AiDataProvider> {
@@ -26,39 +26,47 @@ impl<D: AiDataProvider> Tool for GetPortfolioOverviewTool<D> {
 
     type Error = ToolError;
     type Args = GetPortfolioOverviewArgs;
-    type Output = String;
+    type Output = Value;
 
-    async fn definition(&self, _prompt: String) -> ToolDefinition {
-        ToolDefinition {
-            name: Self::NAME.to_string(),
-            description: "Investment performance: cost basis, realized/unrealized/total gains, fees, dividends, and market value per asset, plus per-currency cash. Scope to the whole portfolio, one account, or one asset. Set include_positions=true to also return the FIFO purchase lots behind each asset (default false). Note: gains, dividends, and fees are lifetime-from-inception, not year-to-date. The reference currency is resolved server-side from the user's default; pass reference_asset_id only to override it. For units and balances without gains use get_holdings.".to_string(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "account_id": {
-                        "type": "string",
-                        "description": "Optional. UUID of an account to scope the overview to. Use list_accounts to discover account IDs. If omitted, covers all accounts."
-                    },
-                    "asset_id": {
-                        "type": "integer",
-                        "description": "Optional. ID of a single asset to scope the overview to. Use search_assets to resolve a ticker/name to an asset_id."
-                    },
-                    "include_positions": {
-                        "type": "boolean",
-                        "description": "Optional. When true, include the FIFO purchase lots behind each asset. Defaults to false."
-                    },
-                    "reference_asset_id": {
-                        "type": "integer",
-                        "description": "Optional override for the reference currency. Defaults to the user's default currency, resolved server-side. Use search_assets to resolve a currency ticker to an asset_id."
-                    }
+    fn description(&self) -> String {
+        "Investment performance: cost basis, realized/unrealized/total gains, fees, dividends, and market value per asset, plus per-currency cash. Scope to the whole portfolio, one account, or one asset. Set include_positions=true to also return the FIFO purchase lots behind each asset (default false). Note: gains, dividends, and fees are lifetime-from-inception, not year-to-date. The reference currency is resolved server-side from the user's default; pass reference_asset_id only to override it. For units and balances without gains use get_holdings.".to_string()
+    }
+
+    fn parameters(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "account_id": {
+                    "type": "string",
+                    "description": "Optional. UUID of an account to scope the overview to. Use list_accounts to discover account IDs. If omitted, covers all accounts."
                 },
-                "required": []
-            }),
-        }
+                "asset_id": {
+                    "type": "integer",
+                    "description": "Optional. ID of a single asset to scope the overview to. Use search_assets to resolve a ticker/name to an asset_id."
+                },
+                "include_positions": {
+                    "type": "boolean",
+                    "description": "Optional. When true, include the FIFO purchase lots behind each asset. Defaults to false."
+                },
+                "reference_asset_id": {
+                    "type": "integer",
+                    "description": "Optional override for the reference currency. Defaults to the user's default currency, resolved server-side. Use search_assets to resolve a currency ticker to an asset_id."
+                }
+            },
+            "required": []
+        })
+    }
+
+    fn map_error(&self, error: Self::Error) -> ToolExecutionError {
+        error.into()
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(tool = Self::NAME))]
-    async fn call(&self, args: Self::Args) -> std::result::Result<Self::Output, Self::Error> {
+    async fn call(
+        &self,
+        _context: &mut ToolContext,
+        args: Self::Args,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         let account_id = match args.account_id {
             Some(s) => Some(
                 s.parse::<Uuid>()
@@ -78,6 +86,6 @@ impl<D: AiDataProvider> Tool for GetPortfolioOverviewTool<D> {
             .await
             .map_err(|e| ToolError(e.to_string()))?;
 
-        serde_json::to_string(&result).map_err(Into::into)
+        serde_json::to_value(&result).map_err(Into::into)
     }
 }

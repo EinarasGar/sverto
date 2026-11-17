@@ -5,6 +5,7 @@ use thiserror::Error;
 
 use crate::loader::Loader;
 
+pub mod account_types;
 pub mod fee_categories;
 pub mod transaction_type_categories;
 
@@ -54,6 +55,7 @@ where
 
 pub fn get_all_dynamic_enum_loaders() -> Vec<Box<dyn Loader + Send + Sync>> {
     vec![
+        Box::new(account_types::AccountTypes),
         Box::new(fee_categories::FeeCategories),
         Box::new(transaction_type_categories::TransactionTypeCategories),
     ]

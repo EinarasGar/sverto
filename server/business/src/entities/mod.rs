@@ -2,6 +2,8 @@ pub mod categories;
 pub(crate) mod connectors;
 pub mod entries;
 pub mod export;
+pub mod imports;
+pub mod ledger_matching;
 pub mod market_data;
 pub mod net_worth;
 pub mod portfolio_overview;

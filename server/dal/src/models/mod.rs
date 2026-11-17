@@ -8,6 +8,8 @@ pub mod connector_models;
 pub mod entry_models;
 pub mod external_identity_models;
 pub mod file_models;
+pub mod import_models;
+pub mod ledger_matching_models;
 pub mod portfolio_models;
 pub mod rate_limit_models;
 pub mod transaction_models;

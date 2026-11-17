@@ -65,7 +65,6 @@ impl FileProvider for S3FileProvider {
             .await
             .map_err(|e| anyhow!("Failed to generate presigned upload URL: {}", e))?;
 
-        // Content-Length is signed into the presigned URL and enforced by S3/MinIO — the
         // client must send exactly this many bytes or the upload is rejected.
         // Content-Type is advisory only and not enforced. Actual MIME verification
         // happens in background processing via `infer::get`.

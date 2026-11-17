@@ -1,4 +1,5 @@
 use apalis::prelude::{Attempt, BoxDynError, Data};
+use apalis_postgres::PgContext;
 use business::jobs::{EmbeddingJob, FileProcessingJob};
 use business::service_collection::Services;
 use clap::{Parser, Subcommand};
@@ -86,6 +87,7 @@ async fn main() -> anyhow::Result<()> {
                 },
                 Data::new(services),
                 Attempt::new_with_value(1),
+                PgContext::default(),
             )
             .await
         }
@@ -102,6 +104,7 @@ async fn main() -> anyhow::Result<()> {
                 },
                 Data::new(services),
                 Attempt::new_with_value(1),
+                PgContext::default(),
             )
             .await
         }
@@ -118,6 +121,7 @@ async fn main() -> anyhow::Result<()> {
                 },
                 Data::new(services),
                 Attempt::new_with_value(1),
+                PgContext::default(),
             )
             .await
         }
@@ -134,6 +138,7 @@ async fn main() -> anyhow::Result<()> {
                 },
                 Data::new(services),
                 Attempt::new_with_value(1),
+                PgContext::default(),
             )
             .await
         }
@@ -142,6 +147,7 @@ async fn main() -> anyhow::Result<()> {
                 FileProcessingJob { file_id, user_id },
                 Data::new(services),
                 Attempt::new_with_value(1),
+                PgContext::default(),
             )
             .await
         }

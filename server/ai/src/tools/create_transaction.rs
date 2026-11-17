@@ -4,8 +4,8 @@ use super::ToolError;
 use crate::action_provider::AiActionProvider;
 use crate::models::action::CreateTransactionParams;
 use crate::models::tool_output::CreateTransactionArgs;
-use rig::{completion::request::ToolDefinition, tool::Tool};
-use serde_json::json;
+use rig::tool::{Tool, ToolContext, ToolExecutionError};
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 pub struct CreateTransactionTool<A: AiActionProvider> {
@@ -23,47 +23,55 @@ impl<A: AiActionProvider> Tool for CreateTransactionTool<A> {
 
     type Error = ToolError;
     type Args = CreateTransactionArgs;
-    type Output = String;
+    type Output = Value;
 
-    async fn definition(&self, _prompt: String) -> ToolDefinition {
-        ToolDefinition {
-            name: Self::NAME.to_string(),
-            description: "Create a new individual regular transaction for the user. Use this when the user asks to add, record, or create a transaction. Requires knowing the account_id (use list_accounts first), category_id, asset_id, date, description, and amount. Negative amount means expense/debit, positive means income/credit.".to_string(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "date": {
-                        "type": "string",
-                        "description": "Transaction date/time in ISO 8601 format (e.g. '2026-01-15' or '2026-01-15T14:30:00Z'). A date-only value is treated as midnight UTC."
-                    },
-                    "description": {
-                        "type": "string",
-                        "description": "Transaction description"
-                    },
-                    "amount": {
-                        "type": "number",
-                        "description": "Transaction amount. Negative for expenses/debits, positive for income/credits."
-                    },
-                    "account_id": {
-                        "type": "string",
-                        "description": "UUID of the account for this transaction (use list_accounts to discover account IDs)"
-                    },
-                    "category_id": {
-                        "type": "integer",
-                        "description": "Category ID for the transaction"
-                    },
-                    "asset_id": {
-                        "type": "integer",
-                        "description": "Asset ID of the currency or asset for this entry. Resolve the user's cash currency via search_assets; never assume an id."
-                    }
+    fn description(&self) -> String {
+        "Create a new individual regular transaction for the user. Use this when the user asks to add, record, or create a transaction. Requires knowing the account_id (use list_accounts first), category_id, asset_id, date, description, and amount. Negative amount means expense/debit, positive means income/credit.".to_string()
+    }
+
+    fn parameters(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "date": {
+                    "type": "string",
+                    "description": "Transaction date/time in ISO 8601 format (e.g. '2026-01-15' or '2026-01-15T14:30:00Z'). A date-only value is treated as midnight UTC."
                 },
-                "required": ["date", "description", "amount", "account_id", "category_id", "asset_id"]
-            }),
-        }
+                "description": {
+                    "type": "string",
+                    "description": "Transaction description"
+                },
+                "amount": {
+                    "type": "number",
+                    "description": "Transaction amount. Negative for expenses/debits, positive for income/credits."
+                },
+                "account_id": {
+                    "type": "string",
+                    "description": "UUID of the account for this transaction (use list_accounts to discover account IDs)"
+                },
+                "category_id": {
+                    "type": "integer",
+                    "description": "Category ID for the transaction"
+                },
+                "asset_id": {
+                    "type": "integer",
+                    "description": "Asset ID of the currency or asset for this entry. Resolve the user's cash currency via search_assets; never assume an id."
+                }
+            },
+            "required": ["date", "description", "amount", "account_id", "category_id", "asset_id"]
+        })
+    }
+
+    fn map_error(&self, error: Self::Error) -> ToolExecutionError {
+        error.into()
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(tool = Self::NAME, category_id = args.category_id, asset_id = args.asset_id))]
-    async fn call(&self, args: Self::Args) -> std::result::Result<Self::Output, Self::Error> {
+    async fn call(
+        &self,
+        _context: &mut ToolContext,
+        args: Self::Args,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         let account_id = args
             .account_id
             .parse::<Uuid>()
@@ -81,6 +89,6 @@ impl<A: AiActionProvider> Tool for CreateTransactionTool<A> {
             .create_transaction(params)
             .await
             .map_err(|e| ToolError(e.to_string()))?;
-        serde_json::to_string(&result).map_err(Into::into)
+        serde_json::to_value(&result).map_err(Into::into)
     }
 }

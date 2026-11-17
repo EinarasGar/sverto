@@ -55,7 +55,9 @@ function AccountsBlock() {
           variant="ghost"
           size="xs"
           className="text-brand hover:text-brand"
-          onClick={editor.openCreate}
+          onClick={() => {
+            editor.openCreate()
+          }}
         >
           <PlusIcon aria-hidden className="size-3" />
           {NEW_ACCOUNT}
@@ -70,7 +72,9 @@ function AccountsBlock() {
             {
               label: "Add your first account",
               kind: "primary",
-              onClick: editor.openCreate,
+              onClick: () => {
+                editor.openCreate()
+              },
             },
           ]}
           footnote={SETTINGS_ACCOUNTS_FOOTNOTE}

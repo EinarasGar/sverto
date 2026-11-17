@@ -1,4 +1,5 @@
 use mockall::mock;
+use serde::Serialize;
 use sqlx::postgres::PgPoolCopyExt;
 use sqlx::{postgres::PgRow, AssertSqlSafe, FromRow, PgPool, Postgres, Transaction};
 
@@ -8,6 +9,7 @@ use std::sync::Arc;
 use tokio::sync::Mutex as AsyncMutex;
 
 use crate::database_connection::MyraDbConnection;
+use crate::job_queue::JobQueueHandle;
 use crate::queries::{DbCopyCommand, DbQueryWithValues};
 
 #[derive(Clone)]
@@ -291,13 +293,31 @@ impl MyraDb {
         span.record("db.response.returned_rows", rows_affected);
         Ok(rows_affected)
     }
+
+    pub async fn push<T: Serialize + Send + Sync + 'static>(
+        &self,
+        queue: &JobQueueHandle,
+        jobs: Vec<T>,
+    ) -> Result<()> {
+        let mut tx_guard = self.transaction.lock().await;
+        let Some(mut tx) = tx_guard.take() else {
+            return queue.push_all(None, jobs).await;
+        };
+        match queue.push_all(Some(&mut *tx), jobs).await {
+            Ok(()) => {
+                *tx_guard = Some(tx);
+                Ok(())
+            }
+            Err(e) => Err(rollback_on_error(tx, e).await),
+        }
+    }
 }
 
 /// Rolls back a transaction whose statement just failed, then returns the
 /// original error. Postgres aborts the transaction on the first error, so the
 /// handle would otherwise stay poisoned ("current transaction is aborted")
 /// for every subsequent query sharing this `MyraDb` within the request.
-async fn rollback_on_error(tx: Transaction<'static, Postgres>, err: sqlx::Error) -> sqlx::Error {
+async fn rollback_on_error<E>(tx: Transaction<'static, Postgres>, err: E) -> E {
     if let Err(rollback_err) = tx.rollback().await {
         tracing::warn!(error = %rollback_err, "failed to roll back aborted transaction");
     }
@@ -325,6 +345,7 @@ mock! {
         pub async fn execute(&self, query: DbQueryWithValues) -> Result<(), sqlx::Error>;
         pub async fn execute_with_rows_affected(&self, query: DbQueryWithValues) -> Result<u64, sqlx::Error>;
         pub async fn copy_in(&self, command: DbCopyCommand) -> Result<u64, sqlx::Error>;
+        pub async fn push<T: Serialize + Send + Sync + 'static>(&self, queue: &JobQueueHandle, jobs: Vec<T>) -> Result<()>;
     }
 
     impl Clone for MyraDb {

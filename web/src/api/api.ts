@@ -32,12 +32,6 @@ import { BASE_PATH, COLLECTION_FORMATS, BaseAPI, RequiredError, operationServerM
 export interface AccountAccountAccountTypeIdWithId {
     /**
      * 
-     * @type {string}
-     * @memberof AccountAccountAccountTypeIdWithId
-     */
-    'account_id': string;
-    /**
-     * 
      * @type {number}
      * @memberof AccountAccountAccountTypeIdWithId
      */
@@ -46,6 +40,31 @@ export interface AccountAccountAccountTypeIdWithId {
      * Account name
      * @type {string}
      * @memberof AccountAccountAccountTypeIdWithId
+     */
+    'name': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountAccountAccountTypeIdWithId
+     */
+    'account_id': string;
+}
+/**
+ * 
+ * @export
+ * @interface AccountCandidate
+ */
+export interface AccountCandidate {
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountCandidate
+     */
+    'id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountCandidate
      */
     'name': string;
 }
@@ -62,12 +81,6 @@ export interface AccountFeesIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AccountFeesIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof AccountFeesIdentifiableTransaction
@@ -80,17 +93,23 @@ export interface AccountFeesIdentifiableTransaction {
      */
     'transaction_id': string | null;
     /**
-     * 
-     * @type {string}
-     * @memberof AccountFeesIdentifiableTransaction
-     */
-    'type': AccountFeesIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof AccountFeesIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AccountFeesIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountFeesIdentifiableTransaction
+     */
+    'type': AccountFeesIdentifiableTransactionTypeEnum;
 }
 
 export const AccountFeesIdentifiableTransactionTypeEnum = {
@@ -112,12 +131,6 @@ export interface AccountFeesRequiredIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AccountFeesRequiredIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof AccountFeesRequiredIdentifiableTransaction
@@ -130,17 +143,23 @@ export interface AccountFeesRequiredIdentifiableTransaction {
      */
     'transaction_id': string;
     /**
-     * 
-     * @type {string}
-     * @memberof AccountFeesRequiredIdentifiableTransaction
-     */
-    'type': AccountFeesRequiredIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof AccountFeesRequiredIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AccountFeesRequiredIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountFeesRequiredIdentifiableTransaction
+     */
+    'type': AccountFeesRequiredIdentifiableTransactionTypeEnum;
 }
 
 export const AccountFeesRequiredIdentifiableTransactionTypeEnum = {
@@ -162,17 +181,17 @@ export interface AccountFeesRequiredTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AccountFeesRequiredTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof AccountFeesRequiredTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AccountFeesRequiredTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * 
      * @type {string}
@@ -200,17 +219,17 @@ export interface AccountFeesTransactionInput {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntry}
-     * @memberof AccountFeesTransactionInput
-     */
-    'entry': TransactionEntry;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItem>}
      * @memberof AccountFeesTransactionInput
      */
     'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * 
+     * @type {TransactionEntry}
+     * @memberof AccountFeesTransactionInput
+     */
+    'entry': TransactionEntry;
     /**
      * 
      * @type {string}
@@ -238,17 +257,17 @@ export interface AccountFeesTransactionWithEntryIds {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AccountFeesTransactionWithEntryIds
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof AccountFeesTransactionWithEntryIds
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AccountFeesTransactionWithEntryIds
+     */
+    'entry': TransactionEntryWithEntryId;
     /**
      * 
      * @type {string}
@@ -298,6 +317,131 @@ export const AccountIdentifierKind = {
 
 export type AccountIdentifierKind = typeof AccountIdentifierKind[keyof typeof AccountIdentifierKind];
 
+
+/**
+ * 
+ * @export
+ * @interface AccountMappingAnswer
+ */
+export interface AccountMappingAnswer {
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAnswer
+     */
+    'account_id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAnswer
+     */
+    'choice': AccountMappingAnswerChoiceEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAnswer
+     */
+    'kind': AccountMappingAnswerKindEnum;
+}
+
+export const AccountMappingAnswerChoiceEnum = {
+    Exclude: 'exclude'
+} as const;
+
+export type AccountMappingAnswerChoiceEnum = typeof AccountMappingAnswerChoiceEnum[keyof typeof AccountMappingAnswerChoiceEnum];
+export const AccountMappingAnswerKindEnum = {
+    AccountMapping: 'account_mapping'
+} as const;
+
+export type AccountMappingAnswerKindEnum = typeof AccountMappingAnswerKindEnum[keyof typeof AccountMappingAnswerKindEnum];
+
+/**
+ * @type AccountMappingAnswerChoice
+ * @export
+ */
+export type AccountMappingAnswerChoice = AccountMappingAnswerChoiceOneOf | SharedObject;
+
+/**
+ * 
+ * @export
+ * @interface AccountMappingAnswerChoiceOneOf
+ */
+export interface AccountMappingAnswerChoiceOneOf {
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAnswerChoiceOneOf
+     */
+    'account_id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAnswerChoiceOneOf
+     */
+    'choice': AccountMappingAnswerChoiceOneOfChoiceEnum;
+}
+
+export const AccountMappingAnswerChoiceOneOfChoiceEnum = {
+    Map: 'map'
+} as const;
+
+export type AccountMappingAnswerChoiceOneOfChoiceEnum = typeof AccountMappingAnswerChoiceOneOfChoiceEnum[keyof typeof AccountMappingAnswerChoiceOneOfChoiceEnum];
+
+/**
+ * 
+ * @export
+ * @interface AccountMappingAsk
+ */
+export interface AccountMappingAsk {
+    /**
+     * 
+     * @type {boolean}
+     * @memberof AccountMappingAsk
+     */
+    'answer_covers_all_files': boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAsk
+     */
+    'ask_key': string;
+    /**
+     * 
+     * @type {Array<AccountCandidate>}
+     * @memberof AccountMappingAsk
+     */
+    'candidates': Array<AccountCandidate>;
+    /**
+     * 
+     * @type {Array<ImportAskChoice>}
+     * @memberof AccountMappingAsk
+     */
+    'choices': Array<ImportAskChoice>;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAsk
+     */
+    'file_id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAsk
+     */
+    'kind': AccountMappingAskKindEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAsk
+     */
+    'raw_account': string;
+}
+
+export const AccountMappingAskKindEnum = {
+    AccountMapping: 'account_mapping'
+} as const;
+
+export type AccountMappingAskKindEnum = typeof AccountMappingAskKindEnum[keyof typeof AccountMappingAskKindEnum];
 
 /**
  * 
@@ -376,16 +520,22 @@ export interface AccountType {
 export interface AddAccountResponse {
     /**
      * 
-     * @type {string}
-     * @memberof AddAccountResponse
-     */
-    'account_id': string;
-    /**
-     * 
      * @type {number}
      * @memberof AddAccountResponse
      */
     'account_type': number;
+    /**
+     * Account name
+     * @type {string}
+     * @memberof AddAccountResponse
+     */
+    'name': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof AddAccountResponse
+     */
+    'account_id': string;
     /**
      * 
      * @type {Array<AccountIdentifier>}
@@ -398,12 +548,6 @@ export interface AddAccountResponse {
      * @memberof AddAccountResponse
      */
     'liquidity_type': number;
-    /**
-     * Account name
-     * @type {string}
-     * @memberof AddAccountResponse
-     */
-    'name': string;
     /**
      * Ownership share. Must be > 0 and <= 1.
      * @type {number}
@@ -481,12 +625,6 @@ export interface AddAssetRequest {
      */
     'asset_type': number;
     /**
-     * The id of an asset to which this asset is usually exchanged to.
-     * @type {number}
-     * @memberof AddAssetRequest
-     */
-    'base_asset_id': number;
-    /**
      * Full name of the asset
      * @type {string}
      * @memberof AddAssetRequest
@@ -498,6 +636,12 @@ export interface AddAssetRequest {
      * @memberof AddAssetRequest
      */
     'ticker': string;
+    /**
+     * The id of an asset to which this asset is usually exchanged to.
+     * @type {number}
+     * @memberof AddAssetRequest
+     */
+    'base_asset_id': number;
 }
 /**
  * 
@@ -510,19 +654,7 @@ export interface AddAssetResponse {
      * @type {number}
      * @memberof AddAssetResponse
      */
-    'asset_id': number;
-    /**
-     * 
-     * @type {number}
-     * @memberof AddAssetResponse
-     */
     'asset_type': number;
-    /**
-     * The id of an asset to which this asset is usually exchanged to.
-     * @type {number}
-     * @memberof AddAssetResponse
-     */
-    'base_asset_id': number;
     /**
      * Full name of the asset
      * @type {string}
@@ -535,6 +667,18 @@ export interface AddAssetResponse {
      * @memberof AddAssetResponse
      */
     'ticker': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof AddAssetResponse
+     */
+    'asset_id': number;
+    /**
+     * The id of an asset to which this asset is usually exchanged to.
+     * @type {number}
+     * @memberof AddAssetResponse
+     */
+    'base_asset_id': number;
 }
 /**
  * 
@@ -754,6 +898,19 @@ export interface ApiErrorResponse {
 /**
  * 
  * @export
+ * @interface ApplyImportSessionRequest
+ */
+export interface ApplyImportSessionRequest {
+    /**
+     * The `fingerprint` of the items the user reviewed.
+     * @type {string}
+     * @memberof ApplyImportSessionRequest
+     */
+    'fingerprint': string;
+}
+/**
+ * 
+ * @export
  * @interface Aspsp
  */
 export interface Aspsp {
@@ -781,12 +938,6 @@ export interface AssetAssetRequiredAssetTypeIdWithId {
      * @type {number}
      * @memberof AssetAssetRequiredAssetTypeIdWithId
      */
-    'asset_id': number;
-    /**
-     * 
-     * @type {number}
-     * @memberof AssetAssetRequiredAssetTypeIdWithId
-     */
     'asset_type': number;
     /**
      * Full name of the asset
@@ -800,6 +951,12 @@ export interface AssetAssetRequiredAssetTypeIdWithId {
      * @memberof AssetAssetRequiredAssetTypeIdWithId
      */
     'ticker': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof AssetAssetRequiredAssetTypeIdWithId
+     */
+    'asset_id': number;
 }
 /**
  * 
@@ -821,6 +978,18 @@ export interface AssetBalanceTransferIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof AssetBalanceTransferIdentifiableTransaction
+     */
+    'transaction_id': string | null;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof AssetBalanceTransferIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
      * @type {TransactionEntryWithEntryId}
      * @memberof AssetBalanceTransferIdentifiableTransaction
      */
@@ -836,19 +1005,7 @@ export interface AssetBalanceTransferIdentifiableTransaction {
      * @type {string}
      * @memberof AssetBalanceTransferIdentifiableTransaction
      */
-    'transaction_id': string | null;
-    /**
-     * 
-     * @type {string}
-     * @memberof AssetBalanceTransferIdentifiableTransaction
-     */
     'type': AssetBalanceTransferIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof AssetBalanceTransferIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const AssetBalanceTransferIdentifiableTransactionTypeEnum = {
@@ -877,6 +1034,18 @@ export interface AssetBalanceTransferRequiredIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof AssetBalanceTransferRequiredIdentifiableTransaction
+     */
+    'transaction_id': string;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof AssetBalanceTransferRequiredIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
      * @type {TransactionEntryWithRequiredEntryId}
      * @memberof AssetBalanceTransferRequiredIdentifiableTransaction
      */
@@ -892,19 +1061,7 @@ export interface AssetBalanceTransferRequiredIdentifiableTransaction {
      * @type {string}
      * @memberof AssetBalanceTransferRequiredIdentifiableTransaction
      */
-    'transaction_id': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof AssetBalanceTransferRequiredIdentifiableTransaction
-     */
     'type': AssetBalanceTransferRequiredIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof AssetBalanceTransferRequiredIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const AssetBalanceTransferRequiredIdentifiableTransactionTypeEnum = {
@@ -1048,6 +1205,31 @@ export type AssetBalanceTransferTransactionWithEntryIdsTypeEnum = typeof AssetBa
 /**
  * 
  * @export
+ * @interface AssetCandidate
+ */
+export interface AssetCandidate {
+    /**
+     * 
+     * @type {number}
+     * @memberof AssetCandidate
+     */
+    'id': number;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetCandidate
+     */
+    'name': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetCandidate
+     */
+    'ticker': string;
+}
+/**
+ * 
+ * @export
  * @interface AssetDividendIdentifiableTransaction
  */
 export interface AssetDividendIdentifiableTransaction {
@@ -1057,12 +1239,6 @@ export interface AssetDividendIdentifiableTransaction {
      * @memberof AssetDividendIdentifiableTransaction
      */
     'date': number;
-    /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AssetDividendIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithEntryId;
     /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
@@ -1076,17 +1252,23 @@ export interface AssetDividendIdentifiableTransaction {
      */
     'transaction_id': string | null;
     /**
-     * 
-     * @type {string}
-     * @memberof AssetDividendIdentifiableTransaction
-     */
-    'type': AssetDividendIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof AssetDividendIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AssetDividendIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetDividendIdentifiableTransaction
+     */
+    'type': AssetDividendIdentifiableTransactionTypeEnum;
 }
 
 export const AssetDividendIdentifiableTransactionTypeEnum = {
@@ -1108,12 +1290,6 @@ export interface AssetDividendRequiredIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AssetDividendRequiredIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof AssetDividendRequiredIdentifiableTransaction
@@ -1126,17 +1302,23 @@ export interface AssetDividendRequiredIdentifiableTransaction {
      */
     'transaction_id': string;
     /**
-     * 
-     * @type {string}
-     * @memberof AssetDividendRequiredIdentifiableTransaction
-     */
-    'type': AssetDividendRequiredIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof AssetDividendRequiredIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AssetDividendRequiredIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetDividendRequiredIdentifiableTransaction
+     */
+    'type': AssetDividendRequiredIdentifiableTransactionTypeEnum;
 }
 
 export const AssetDividendRequiredIdentifiableTransactionTypeEnum = {
@@ -1158,17 +1340,17 @@ export interface AssetDividendRequiredTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AssetDividendRequiredTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof AssetDividendRequiredTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AssetDividendRequiredTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * 
      * @type {string}
@@ -1196,17 +1378,17 @@ export interface AssetDividendTransactionInput {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntry}
-     * @memberof AssetDividendTransactionInput
-     */
-    'entry': TransactionEntry;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItem>}
      * @memberof AssetDividendTransactionInput
      */
     'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * 
+     * @type {TransactionEntry}
+     * @memberof AssetDividendTransactionInput
+     */
+    'entry': TransactionEntry;
     /**
      * 
      * @type {string}
@@ -1234,17 +1416,17 @@ export interface AssetDividendTransactionWithEntryIds {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AssetDividendTransactionWithEntryIds
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof AssetDividendTransactionWithEntryIds
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AssetDividendTransactionWithEntryIds
+     */
+    'entry': TransactionEntryWithEntryId;
     /**
      * 
      * @type {string}
@@ -1297,6 +1479,119 @@ export interface AssetLookupTables {
      */
     'asset_types': Array<AssetType>;
 }
+/**
+ * 
+ * @export
+ * @interface AssetMappingAnswer
+ */
+export interface AssetMappingAnswer {
+    /**
+     * 
+     * @type {number}
+     * @memberof AssetMappingAnswer
+     */
+    'asset_id': number;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetMappingAnswer
+     */
+    'choice': AssetMappingAnswerChoiceEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetMappingAnswer
+     */
+    'kind': AssetMappingAnswerKindEnum;
+}
+
+export const AssetMappingAnswerChoiceEnum = {
+    Exclude: 'exclude'
+} as const;
+
+export type AssetMappingAnswerChoiceEnum = typeof AssetMappingAnswerChoiceEnum[keyof typeof AssetMappingAnswerChoiceEnum];
+export const AssetMappingAnswerKindEnum = {
+    AssetMapping: 'asset_mapping'
+} as const;
+
+export type AssetMappingAnswerKindEnum = typeof AssetMappingAnswerKindEnum[keyof typeof AssetMappingAnswerKindEnum];
+
+/**
+ * @type AssetMappingAnswerChoice
+ * @export
+ */
+export type AssetMappingAnswerChoice = AssetMappingAnswerChoiceOneOf | SharedObject;
+
+/**
+ * 
+ * @export
+ * @interface AssetMappingAnswerChoiceOneOf
+ */
+export interface AssetMappingAnswerChoiceOneOf {
+    /**
+     * 
+     * @type {number}
+     * @memberof AssetMappingAnswerChoiceOneOf
+     */
+    'asset_id': number;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetMappingAnswerChoiceOneOf
+     */
+    'choice': AssetMappingAnswerChoiceOneOfChoiceEnum;
+}
+
+export const AssetMappingAnswerChoiceOneOfChoiceEnum = {
+    Map: 'map'
+} as const;
+
+export type AssetMappingAnswerChoiceOneOfChoiceEnum = typeof AssetMappingAnswerChoiceOneOfChoiceEnum[keyof typeof AssetMappingAnswerChoiceOneOfChoiceEnum];
+
+/**
+ * 
+ * @export
+ * @interface AssetMappingAsk
+ */
+export interface AssetMappingAsk {
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetMappingAsk
+     */
+    'ask_key': string;
+    /**
+     * 
+     * @type {Array<AssetCandidate>}
+     * @memberof AssetMappingAsk
+     */
+    'candidates': Array<AssetCandidate>;
+    /**
+     * 
+     * @type {Array<ImportAskChoice>}
+     * @memberof AssetMappingAsk
+     */
+    'choices': Array<ImportAskChoice>;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetMappingAsk
+     */
+    'kind': AssetMappingAskKindEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetMappingAsk
+     */
+    'raw': string;
+}
+
+export const AssetMappingAskKindEnum = {
+    AssetMapping: 'asset_mapping'
+} as const;
+
+export type AssetMappingAskKindEnum = typeof AssetMappingAskKindEnum[keyof typeof AssetMappingAskKindEnum];
+
 /**
  * 
  * @export
@@ -1518,12 +1813,6 @@ export interface AssetPortfolioPosition {
  */
 export interface AssetPurchaseIdentifiableTransaction {
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AssetPurchaseIdentifiableTransaction
-     */
-    'cash_outgoings_change': TransactionEntryWithEntryId;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof AssetPurchaseIdentifiableTransaction
@@ -1537,6 +1826,24 @@ export interface AssetPurchaseIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof AssetPurchaseIdentifiableTransaction
+     */
+    'transaction_id': string | null;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof AssetPurchaseIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AssetPurchaseIdentifiableTransaction
+     */
+    'cash_outgoings_change': TransactionEntryWithEntryId;
+    /**
+     * 
      * @type {TransactionEntryWithEntryId}
      * @memberof AssetPurchaseIdentifiableTransaction
      */
@@ -1546,19 +1853,7 @@ export interface AssetPurchaseIdentifiableTransaction {
      * @type {string}
      * @memberof AssetPurchaseIdentifiableTransaction
      */
-    'transaction_id': string | null;
-    /**
-     * 
-     * @type {string}
-     * @memberof AssetPurchaseIdentifiableTransaction
-     */
     'type': AssetPurchaseIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof AssetPurchaseIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const AssetPurchaseIdentifiableTransactionTypeEnum = {
@@ -1574,12 +1869,6 @@ export type AssetPurchaseIdentifiableTransactionTypeEnum = typeof AssetPurchaseI
  */
 export interface AssetPurchaseRequiredIdentifiableTransaction {
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AssetPurchaseRequiredIdentifiableTransaction
-     */
-    'cash_outgoings_change': TransactionEntryWithRequiredEntryId;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof AssetPurchaseRequiredIdentifiableTransaction
@@ -1593,6 +1882,24 @@ export interface AssetPurchaseRequiredIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof AssetPurchaseRequiredIdentifiableTransaction
+     */
+    'transaction_id': string;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof AssetPurchaseRequiredIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AssetPurchaseRequiredIdentifiableTransaction
+     */
+    'cash_outgoings_change': TransactionEntryWithRequiredEntryId;
+    /**
+     * 
      * @type {TransactionEntryWithRequiredEntryId}
      * @memberof AssetPurchaseRequiredIdentifiableTransaction
      */
@@ -1602,19 +1909,7 @@ export interface AssetPurchaseRequiredIdentifiableTransaction {
      * @type {string}
      * @memberof AssetPurchaseRequiredIdentifiableTransaction
      */
-    'transaction_id': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof AssetPurchaseRequiredIdentifiableTransaction
-     */
     'type': AssetPurchaseRequiredIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof AssetPurchaseRequiredIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const AssetPurchaseRequiredIdentifiableTransactionTypeEnum = {
@@ -1630,12 +1925,6 @@ export type AssetPurchaseRequiredIdentifiableTransactionTypeEnum = typeof AssetP
  */
 export interface AssetPurchaseRequiredTransaction {
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AssetPurchaseRequiredTransaction
-     */
-    'cash_outgoings_change': TransactionEntryWithRequiredEntryId;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof AssetPurchaseRequiredTransaction
@@ -1647,6 +1936,12 @@ export interface AssetPurchaseRequiredTransaction {
      * @memberof AssetPurchaseRequiredTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AssetPurchaseRequiredTransaction
+     */
+    'cash_outgoings_change': TransactionEntryWithRequiredEntryId;
     /**
      * 
      * @type {TransactionEntryWithRequiredEntryId}
@@ -1674,12 +1969,6 @@ export type AssetPurchaseRequiredTransactionTypeEnum = typeof AssetPurchaseRequi
  */
 export interface AssetPurchaseTransactionInput {
     /**
-     * 
-     * @type {TransactionEntry}
-     * @memberof AssetPurchaseTransactionInput
-     */
-    'cash_outgoings_change': TransactionEntry;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof AssetPurchaseTransactionInput
@@ -1691,6 +1980,12 @@ export interface AssetPurchaseTransactionInput {
      * @memberof AssetPurchaseTransactionInput
      */
     'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * 
+     * @type {TransactionEntry}
+     * @memberof AssetPurchaseTransactionInput
+     */
+    'cash_outgoings_change': TransactionEntry;
     /**
      * 
      * @type {TransactionEntry}
@@ -1718,12 +2013,6 @@ export type AssetPurchaseTransactionInputTypeEnum = typeof AssetPurchaseTransact
  */
 export interface AssetPurchaseTransactionWithEntryIds {
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AssetPurchaseTransactionWithEntryIds
-     */
-    'cash_outgoings_change': TransactionEntryWithEntryId;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof AssetPurchaseTransactionWithEntryIds
@@ -1735,6 +2024,12 @@ export interface AssetPurchaseTransactionWithEntryIds {
      * @memberof AssetPurchaseTransactionWithEntryIds
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AssetPurchaseTransactionWithEntryIds
+     */
+    'cash_outgoings_change': TransactionEntryWithEntryId;
     /**
      * 
      * @type {TransactionEntryWithEntryId}
@@ -1794,6 +2089,18 @@ export interface AssetSaleIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof AssetSaleIdentifiableTransaction
+     */
+    'transaction_id': string | null;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof AssetSaleIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
      * @type {TransactionEntryWithEntryId}
      * @memberof AssetSaleIdentifiableTransaction
      */
@@ -1809,19 +2116,7 @@ export interface AssetSaleIdentifiableTransaction {
      * @type {string}
      * @memberof AssetSaleIdentifiableTransaction
      */
-    'transaction_id': string | null;
-    /**
-     * 
-     * @type {string}
-     * @memberof AssetSaleIdentifiableTransaction
-     */
     'type': AssetSaleIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof AssetSaleIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const AssetSaleIdentifiableTransactionTypeEnum = {
@@ -1850,6 +2145,18 @@ export interface AssetSaleRequiredIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof AssetSaleRequiredIdentifiableTransaction
+     */
+    'transaction_id': string;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof AssetSaleRequiredIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
      * @type {TransactionEntryWithRequiredEntryId}
      * @memberof AssetSaleRequiredIdentifiableTransaction
      */
@@ -1865,19 +2172,7 @@ export interface AssetSaleRequiredIdentifiableTransaction {
      * @type {string}
      * @memberof AssetSaleRequiredIdentifiableTransaction
      */
-    'transaction_id': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof AssetSaleRequiredIdentifiableTransaction
-     */
     'type': AssetSaleRequiredIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof AssetSaleRequiredIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const AssetSaleRequiredIdentifiableTransactionTypeEnum = {
@@ -2038,6 +2333,18 @@ export interface AssetTradeIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof AssetTradeIdentifiableTransaction
+     */
+    'transaction_id': string | null;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof AssetTradeIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
      * @type {TransactionEntryWithEntryId}
      * @memberof AssetTradeIdentifiableTransaction
      */
@@ -2053,19 +2360,7 @@ export interface AssetTradeIdentifiableTransaction {
      * @type {string}
      * @memberof AssetTradeIdentifiableTransaction
      */
-    'transaction_id': string | null;
-    /**
-     * 
-     * @type {string}
-     * @memberof AssetTradeIdentifiableTransaction
-     */
     'type': AssetTradeIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof AssetTradeIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const AssetTradeIdentifiableTransactionTypeEnum = {
@@ -2094,6 +2389,18 @@ export interface AssetTradeRequiredIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof AssetTradeRequiredIdentifiableTransaction
+     */
+    'transaction_id': string;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof AssetTradeRequiredIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
      * @type {TransactionEntryWithRequiredEntryId}
      * @memberof AssetTradeRequiredIdentifiableTransaction
      */
@@ -2109,19 +2416,7 @@ export interface AssetTradeRequiredIdentifiableTransaction {
      * @type {string}
      * @memberof AssetTradeRequiredIdentifiableTransaction
      */
-    'transaction_id': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof AssetTradeRequiredIdentifiableTransaction
-     */
     'type': AssetTradeRequiredIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof AssetTradeRequiredIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const AssetTradeRequiredIdentifiableTransactionTypeEnum = {
@@ -2275,12 +2570,6 @@ export interface AssetTransferInIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AssetTransferInIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof AssetTransferInIdentifiableTransaction
@@ -2293,17 +2582,23 @@ export interface AssetTransferInIdentifiableTransaction {
      */
     'transaction_id': string | null;
     /**
-     * 
-     * @type {string}
-     * @memberof AssetTransferInIdentifiableTransaction
-     */
-    'type': AssetTransferInIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof AssetTransferInIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AssetTransferInIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetTransferInIdentifiableTransaction
+     */
+    'type': AssetTransferInIdentifiableTransactionTypeEnum;
 }
 
 export const AssetTransferInIdentifiableTransactionTypeEnum = {
@@ -2325,12 +2620,6 @@ export interface AssetTransferInRequiredIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AssetTransferInRequiredIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof AssetTransferInRequiredIdentifiableTransaction
@@ -2343,17 +2632,23 @@ export interface AssetTransferInRequiredIdentifiableTransaction {
      */
     'transaction_id': string;
     /**
-     * 
-     * @type {string}
-     * @memberof AssetTransferInRequiredIdentifiableTransaction
-     */
-    'type': AssetTransferInRequiredIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof AssetTransferInRequiredIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AssetTransferInRequiredIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetTransferInRequiredIdentifiableTransaction
+     */
+    'type': AssetTransferInRequiredIdentifiableTransactionTypeEnum;
 }
 
 export const AssetTransferInRequiredIdentifiableTransactionTypeEnum = {
@@ -2375,17 +2670,17 @@ export interface AssetTransferInRequiredTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AssetTransferInRequiredTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof AssetTransferInRequiredTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AssetTransferInRequiredTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * 
      * @type {string}
@@ -2413,17 +2708,17 @@ export interface AssetTransferInTransactionInput {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntry}
-     * @memberof AssetTransferInTransactionInput
-     */
-    'entry': TransactionEntry;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItem>}
      * @memberof AssetTransferInTransactionInput
      */
     'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * 
+     * @type {TransactionEntry}
+     * @memberof AssetTransferInTransactionInput
+     */
+    'entry': TransactionEntry;
     /**
      * 
      * @type {string}
@@ -2451,17 +2746,17 @@ export interface AssetTransferInTransactionWithEntryIds {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AssetTransferInTransactionWithEntryIds
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof AssetTransferInTransactionWithEntryIds
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AssetTransferInTransactionWithEntryIds
+     */
+    'entry': TransactionEntryWithEntryId;
     /**
      * 
      * @type {string}
@@ -2489,12 +2784,6 @@ export interface AssetTransferOutIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AssetTransferOutIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof AssetTransferOutIdentifiableTransaction
@@ -2507,17 +2796,23 @@ export interface AssetTransferOutIdentifiableTransaction {
      */
     'transaction_id': string | null;
     /**
-     * 
-     * @type {string}
-     * @memberof AssetTransferOutIdentifiableTransaction
-     */
-    'type': AssetTransferOutIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof AssetTransferOutIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AssetTransferOutIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetTransferOutIdentifiableTransaction
+     */
+    'type': AssetTransferOutIdentifiableTransactionTypeEnum;
 }
 
 export const AssetTransferOutIdentifiableTransactionTypeEnum = {
@@ -2539,12 +2834,6 @@ export interface AssetTransferOutRequiredIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AssetTransferOutRequiredIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof AssetTransferOutRequiredIdentifiableTransaction
@@ -2557,17 +2846,23 @@ export interface AssetTransferOutRequiredIdentifiableTransaction {
      */
     'transaction_id': string;
     /**
-     * 
-     * @type {string}
-     * @memberof AssetTransferOutRequiredIdentifiableTransaction
-     */
-    'type': AssetTransferOutRequiredIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof AssetTransferOutRequiredIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AssetTransferOutRequiredIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof AssetTransferOutRequiredIdentifiableTransaction
+     */
+    'type': AssetTransferOutRequiredIdentifiableTransactionTypeEnum;
 }
 
 export const AssetTransferOutRequiredIdentifiableTransactionTypeEnum = {
@@ -2589,17 +2884,17 @@ export interface AssetTransferOutRequiredTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof AssetTransferOutRequiredTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof AssetTransferOutRequiredTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof AssetTransferOutRequiredTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * 
      * @type {string}
@@ -2627,17 +2922,17 @@ export interface AssetTransferOutTransactionInput {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntry}
-     * @memberof AssetTransferOutTransactionInput
-     */
-    'entry': TransactionEntry;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItem>}
      * @memberof AssetTransferOutTransactionInput
      */
     'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * 
+     * @type {TransactionEntry}
+     * @memberof AssetTransferOutTransactionInput
+     */
+    'entry': TransactionEntry;
     /**
      * 
      * @type {string}
@@ -2665,17 +2960,17 @@ export interface AssetTransferOutTransactionWithEntryIds {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof AssetTransferOutTransactionWithEntryIds
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof AssetTransferOutTransactionWithEntryIds
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof AssetTransferOutTransactionWithEntryIds
+     */
+    'entry': TransactionEntryWithEntryId;
     /**
      * 
      * @type {string}
@@ -2733,6 +3028,19 @@ export interface AssetsPage {
      * @memberof AssetsPage
      */
     'total_results': number;
+}
+/**
+ * 
+ * @export
+ * @interface AttachImportFilesRequest
+ */
+export interface AttachImportFilesRequest {
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof AttachImportFilesRequest
+     */
+    'file_ids': Array<string>;
 }
 /**
  * 
@@ -2844,6 +3152,18 @@ export interface CashBalanceTransferIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof CashBalanceTransferIdentifiableTransaction
+     */
+    'transaction_id': string | null;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof CashBalanceTransferIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
      * @type {TransactionEntryWithEntryId}
      * @memberof CashBalanceTransferIdentifiableTransaction
      */
@@ -2859,19 +3179,7 @@ export interface CashBalanceTransferIdentifiableTransaction {
      * @type {string}
      * @memberof CashBalanceTransferIdentifiableTransaction
      */
-    'transaction_id': string | null;
-    /**
-     * 
-     * @type {string}
-     * @memberof CashBalanceTransferIdentifiableTransaction
-     */
     'type': CashBalanceTransferIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof CashBalanceTransferIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const CashBalanceTransferIdentifiableTransactionTypeEnum = {
@@ -2900,6 +3208,18 @@ export interface CashBalanceTransferRequiredIdentifiableTransaction {
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
     /**
      * 
+     * @type {string}
+     * @memberof CashBalanceTransferRequiredIdentifiableTransaction
+     */
+    'transaction_id': string;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof CashBalanceTransferRequiredIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
      * @type {TransactionEntryWithRequiredEntryId}
      * @memberof CashBalanceTransferRequiredIdentifiableTransaction
      */
@@ -2915,19 +3235,7 @@ export interface CashBalanceTransferRequiredIdentifiableTransaction {
      * @type {string}
      * @memberof CashBalanceTransferRequiredIdentifiableTransaction
      */
-    'transaction_id': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof CashBalanceTransferRequiredIdentifiableTransaction
-     */
     'type': CashBalanceTransferRequiredIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof CashBalanceTransferRequiredIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const CashBalanceTransferRequiredIdentifiableTransactionTypeEnum = {
@@ -3081,17 +3389,29 @@ export interface CashDividendIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof CashDividendIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof CashDividendIdentifiableTransaction
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof CashDividendIdentifiableTransaction
+     */
+    'transaction_id': string | null;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof CashDividendIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof CashDividendIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithEntryId;
     /**
      * An id of a cash asset for which the dividends were paid for.
      * @type {number}
@@ -3103,19 +3423,7 @@ export interface CashDividendIdentifiableTransaction {
      * @type {string}
      * @memberof CashDividendIdentifiableTransaction
      */
-    'transaction_id': string | null;
-    /**
-     * 
-     * @type {string}
-     * @memberof CashDividendIdentifiableTransaction
-     */
     'type': CashDividendIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof CashDividendIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const CashDividendIdentifiableTransactionTypeEnum = {
@@ -3137,17 +3445,29 @@ export interface CashDividendRequiredIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof CashDividendRequiredIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof CashDividendRequiredIdentifiableTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof CashDividendRequiredIdentifiableTransaction
+     */
+    'transaction_id': string;
+    /**
+     * Whether the transaction is shown normally, pending review (ghost), or hidden.
+     * @type {TransactionVisibility}
+     * @memberof CashDividendRequiredIdentifiableTransaction
+     */
+    'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof CashDividendRequiredIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * An id of a cash asset for which the dividends were paid for.
      * @type {number}
@@ -3159,19 +3479,7 @@ export interface CashDividendRequiredIdentifiableTransaction {
      * @type {string}
      * @memberof CashDividendRequiredIdentifiableTransaction
      */
-    'transaction_id': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof CashDividendRequiredIdentifiableTransaction
-     */
     'type': CashDividendRequiredIdentifiableTransactionTypeEnum;
-    /**
-     * Whether the transaction is shown normally, pending review (ghost), or hidden.
-     * @type {TransactionVisibility}
-     * @memberof CashDividendRequiredIdentifiableTransaction
-     */
-    'visibility'?: TransactionVisibility;
 }
 
 export const CashDividendRequiredIdentifiableTransactionTypeEnum = {
@@ -3193,17 +3501,17 @@ export interface CashDividendRequiredTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof CashDividendRequiredTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof CashDividendRequiredTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof CashDividendRequiredTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * An id of a cash asset for which the dividends were paid for.
      * @type {number}
@@ -3237,17 +3545,17 @@ export interface CashDividendTransactionInput {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntry}
-     * @memberof CashDividendTransactionInput
-     */
-    'entry': TransactionEntry;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItem>}
      * @memberof CashDividendTransactionInput
      */
     'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * 
+     * @type {TransactionEntry}
+     * @memberof CashDividendTransactionInput
+     */
+    'entry': TransactionEntry;
     /**
      * An id of a cash asset for which the dividends were paid for.
      * @type {number}
@@ -3281,17 +3589,17 @@ export interface CashDividendTransactionWithEntryIds {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof CashDividendTransactionWithEntryIds
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof CashDividendTransactionWithEntryIds
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof CashDividendTransactionWithEntryIds
+     */
+    'entry': TransactionEntryWithEntryId;
     /**
      * An id of a cash asset for which the dividends were paid for.
      * @type {number}
@@ -3362,12 +3670,6 @@ export interface CashTransferInIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof CashTransferInIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof CashTransferInIdentifiableTransaction
@@ -3380,17 +3682,23 @@ export interface CashTransferInIdentifiableTransaction {
      */
     'transaction_id': string | null;
     /**
-     * 
-     * @type {string}
-     * @memberof CashTransferInIdentifiableTransaction
-     */
-    'type': CashTransferInIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof CashTransferInIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof CashTransferInIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof CashTransferInIdentifiableTransaction
+     */
+    'type': CashTransferInIdentifiableTransactionTypeEnum;
 }
 
 export const CashTransferInIdentifiableTransactionTypeEnum = {
@@ -3412,12 +3720,6 @@ export interface CashTransferInRequiredIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof CashTransferInRequiredIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof CashTransferInRequiredIdentifiableTransaction
@@ -3430,17 +3732,23 @@ export interface CashTransferInRequiredIdentifiableTransaction {
      */
     'transaction_id': string;
     /**
-     * 
-     * @type {string}
-     * @memberof CashTransferInRequiredIdentifiableTransaction
-     */
-    'type': CashTransferInRequiredIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof CashTransferInRequiredIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof CashTransferInRequiredIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof CashTransferInRequiredIdentifiableTransaction
+     */
+    'type': CashTransferInRequiredIdentifiableTransactionTypeEnum;
 }
 
 export const CashTransferInRequiredIdentifiableTransactionTypeEnum = {
@@ -3462,17 +3770,17 @@ export interface CashTransferInRequiredTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof CashTransferInRequiredTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof CashTransferInRequiredTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof CashTransferInRequiredTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * 
      * @type {string}
@@ -3500,17 +3808,17 @@ export interface CashTransferInTransactionInput {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntry}
-     * @memberof CashTransferInTransactionInput
-     */
-    'entry': TransactionEntry;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItem>}
      * @memberof CashTransferInTransactionInput
      */
     'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * 
+     * @type {TransactionEntry}
+     * @memberof CashTransferInTransactionInput
+     */
+    'entry': TransactionEntry;
     /**
      * 
      * @type {string}
@@ -3538,17 +3846,17 @@ export interface CashTransferInTransactionWithEntryIds {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof CashTransferInTransactionWithEntryIds
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof CashTransferInTransactionWithEntryIds
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof CashTransferInTransactionWithEntryIds
+     */
+    'entry': TransactionEntryWithEntryId;
     /**
      * 
      * @type {string}
@@ -3576,12 +3884,6 @@ export interface CashTransferOutIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof CashTransferOutIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof CashTransferOutIdentifiableTransaction
@@ -3594,17 +3896,23 @@ export interface CashTransferOutIdentifiableTransaction {
      */
     'transaction_id': string | null;
     /**
-     * 
-     * @type {string}
-     * @memberof CashTransferOutIdentifiableTransaction
-     */
-    'type': CashTransferOutIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof CashTransferOutIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof CashTransferOutIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof CashTransferOutIdentifiableTransaction
+     */
+    'type': CashTransferOutIdentifiableTransactionTypeEnum;
 }
 
 export const CashTransferOutIdentifiableTransactionTypeEnum = {
@@ -3626,12 +3934,6 @@ export interface CashTransferOutRequiredIdentifiableTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof CashTransferOutRequiredIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof CashTransferOutRequiredIdentifiableTransaction
@@ -3644,17 +3946,23 @@ export interface CashTransferOutRequiredIdentifiableTransaction {
      */
     'transaction_id': string;
     /**
-     * 
-     * @type {string}
-     * @memberof CashTransferOutRequiredIdentifiableTransaction
-     */
-    'type': CashTransferOutRequiredIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof CashTransferOutRequiredIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof CashTransferOutRequiredIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof CashTransferOutRequiredIdentifiableTransaction
+     */
+    'type': CashTransferOutRequiredIdentifiableTransactionTypeEnum;
 }
 
 export const CashTransferOutRequiredIdentifiableTransactionTypeEnum = {
@@ -3676,17 +3984,17 @@ export interface CashTransferOutRequiredTransaction {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof CashTransferOutRequiredTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
      * @memberof CashTransferOutRequiredTransaction
      */
     'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof CashTransferOutRequiredTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * 
      * @type {string}
@@ -3714,17 +4022,17 @@ export interface CashTransferOutTransactionInput {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntry}
-     * @memberof CashTransferOutTransactionInput
-     */
-    'entry': TransactionEntry;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItem>}
      * @memberof CashTransferOutTransactionInput
      */
     'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * 
+     * @type {TransactionEntry}
+     * @memberof CashTransferOutTransactionInput
+     */
+    'entry': TransactionEntry;
     /**
      * 
      * @type {string}
@@ -3752,17 +4060,17 @@ export interface CashTransferOutTransactionWithEntryIds {
      */
     'date': number;
     /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof CashTransferOutTransactionWithEntryIds
-     */
-    'entry': TransactionEntryWithEntryId;
-    /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
      * @memberof CashTransferOutTransactionWithEntryIds
      */
     'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof CashTransferOutTransactionWithEntryIds
+     */
+    'entry': TransactionEntryWithEntryId;
     /**
      * 
      * @type {string}
@@ -3852,12 +4160,6 @@ export interface CategoryRequiredCategoryTypeIdWithId {
      */
     'icon': string;
     /**
-     * Unique identifier for the category
-     * @type {number}
-     * @memberof CategoryRequiredCategoryTypeIdWithId
-     */
-    'id': number;
-    /**
      * Whether this is a global category available to all users
      * @type {boolean}
      * @memberof CategoryRequiredCategoryTypeIdWithId
@@ -3869,6 +4171,12 @@ export interface CategoryRequiredCategoryTypeIdWithId {
      * @memberof CategoryRequiredCategoryTypeIdWithId
      */
     'is_system': boolean;
+    /**
+     * Unique identifier for the category
+     * @type {number}
+     * @memberof CategoryRequiredCategoryTypeIdWithId
+     */
+    'id': number;
 }
 /**
  * 
@@ -3876,12 +4184,6 @@ export interface CategoryRequiredCategoryTypeIdWithId {
  * @interface CategoryType
  */
 export interface CategoryType {
-    /**
-     * The ID of the category type
-     * @type {number}
-     * @memberof CategoryType
-     */
-    'id': number;
     /**
      * Whether this is a global type
      * @type {boolean}
@@ -3894,6 +4196,12 @@ export interface CategoryType {
      * @memberof CategoryType
      */
     'name': string;
+    /**
+     * The ID of the category type
+     * @type {number}
+     * @memberof CategoryType
+     */
+    'id': number;
 }
 /**
  * 
@@ -4653,6 +4961,12 @@ export interface GetAccountResponse {
      */
     'account_type': AccountType;
     /**
+     * Account name
+     * @type {string}
+     * @memberof GetAccountResponse
+     */
+    'name': string;
+    /**
      * 
      * @type {Array<AccountIdentifier>}
      * @memberof GetAccountResponse
@@ -4664,12 +4978,6 @@ export interface GetAccountResponse {
      * @memberof GetAccountResponse
      */
     'liquidity_type': AccountType;
-    /**
-     * Account name
-     * @type {string}
-     * @memberof GetAccountResponse
-     */
-    'name': string;
     /**
      * Ownership share. Must be > 0 and <= 1.
      * @type {number}
@@ -4717,6 +5025,18 @@ export interface GetAccountsResponse {
 export interface GetAccountsResponseViewModelRow {
     /**
      * 
+     * @type {number}
+     * @memberof GetAccountsResponseViewModelRow
+     */
+    'account_type': number;
+    /**
+     * Account name
+     * @type {string}
+     * @memberof GetAccountsResponseViewModelRow
+     */
+    'name': string;
+    /**
+     * 
      * @type {string}
      * @memberof GetAccountsResponseViewModelRow
      */
@@ -4726,19 +5046,7 @@ export interface GetAccountsResponseViewModelRow {
      * @type {number}
      * @memberof GetAccountsResponseViewModelRow
      */
-    'account_type': number;
-    /**
-     * 
-     * @type {number}
-     * @memberof GetAccountsResponseViewModelRow
-     */
     'liquidity_type': number;
-    /**
-     * Account name
-     * @type {string}
-     * @memberof GetAccountsResponseViewModelRow
-     */
-    'name': string;
     /**
      * Ownership share. Must be > 0 and <= 1.
      * @type {number}
@@ -4809,29 +5117,29 @@ export interface GetAssetResponse {
      */
     'asset_type': AssetType;
     /**
-     * The asset paired to this asset by default, with resolved ticker and name. Absent for assets that have no designated base pair (e.g. currencies).
-     * @type {AssetPairInfo}
-     * @memberof GetAssetResponse
-     */
-    'base_asset'?: AssetPairInfo | null;
-    /**
      * Full name of the asset
      * @type {string}
      * @memberof GetAssetResponse
      */
     'name': string;
     /**
-     * Available pairs with resolved ticker and name info.
-     * @type {Array<AssetPairInfo>}
-     * @memberof GetAssetResponse
-     */
-    'pairs': Array<AssetPairInfo>;
-    /**
      * Short letter abbreviation of the asset
      * @type {string}
      * @memberof GetAssetResponse
      */
     'ticker': string;
+    /**
+     * The asset paired to this asset by default, with resolved ticker and name. Absent for assets that have no designated base pair (e.g. currencies).
+     * @type {AssetPairInfo}
+     * @memberof GetAssetResponse
+     */
+    'base_asset'?: AssetPairInfo | null;
+    /**
+     * Available pairs with resolved ticker and name info.
+     * @type {Array<AssetPairInfo>}
+     * @memberof GetAssetResponse
+     */
+    'pairs': Array<AssetPairInfo>;
 }
 /**
  * 
@@ -5147,6 +5455,12 @@ export interface GroupTransactionItem {
      */
     'description': string;
     /**
+     * All subtractions grouped into this group
+     * @type {Array<RequiredIdentifiableTransaction>}
+     * @memberof GroupTransactionItem
+     */
+    'transactions': Array<RequiredIdentifiableTransaction>;
+    /**
      * 
      * @type {string}
      * @memberof GroupTransactionItem
@@ -5158,12 +5472,6 @@ export interface GroupTransactionItem {
      * @memberof GroupTransactionItem
      */
     'item_type': GroupTransactionItemItemTypeEnum;
-    /**
-     * All subtractions grouped into this group
-     * @type {Array<RequiredIdentifiableTransaction>}
-     * @memberof GroupTransactionItem
-     */
-    'transactions': Array<RequiredIdentifiableTransaction>;
 }
 
 export const GroupTransactionItemItemTypeEnum = {
@@ -5216,12 +5524,6 @@ export interface IdentifiableCategoryIdentifiableCategoryType {
      */
     'icon': string;
     /**
-     * Unique identifier for the category
-     * @type {number}
-     * @memberof IdentifiableCategoryIdentifiableCategoryType
-     */
-    'id': number;
-    /**
      * Whether this is a global category available to all users
      * @type {boolean}
      * @memberof IdentifiableCategoryIdentifiableCategoryType
@@ -5233,6 +5535,12 @@ export interface IdentifiableCategoryIdentifiableCategoryType {
      * @memberof IdentifiableCategoryIdentifiableCategoryType
      */
     'is_system': boolean;
+    /**
+     * Unique identifier for the category
+     * @type {number}
+     * @memberof IdentifiableCategoryIdentifiableCategoryType
+     */
+    'id': number;
 }
 /**
  * 
@@ -5295,6 +5603,158 @@ export interface IdentifiableExport {
      * @memberof IdentifiableExport
      */
     'size_bytes': number;
+}
+
+
+/**
+ * @type IdentifiableImportAsk
+ * An ambiguity the engine could not resolve on its own. Tagged by `kind`; each kind carries its own evidence and choice menu.
+ * @export
+ */
+export type IdentifiableImportAsk = { kind: 'account_mapping' } & AccountMappingAsk | { kind: 'asset_mapping' } & AssetMappingAsk | { kind: 'no_checkpoint' } & NoCheckpointAsk;
+
+/**
+ * 
+ * @export
+ * @interface IdentifiableImportFile
+ */
+export interface IdentifiableImportFile {
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportFile
+     */
+    'created_at': string;
+    /**
+     * Set when every date of the file reads both day-first and month-first and nothing in it settles which: the order they are read in. The file can be read again in the other one.
+     * @type {string}
+     * @memberof IdentifiableImportFile
+     */
+    'date_order'?: IdentifiableImportFileDateOrderEnum | null;
+    /**
+     * Set when the file failed to parse.
+     * @type {string}
+     * @memberof IdentifiableImportFile
+     */
+    'error_message'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportFile
+     */
+    'file_id': string;
+    /**
+     * Set when the file paused on AI budget exhaustion rather than a real failure.
+     * @type {string}
+     * @memberof IdentifiableImportFile
+     */
+    'paused_until'?: string | null;
+    /**
+     * How many ledger transactions this file is recorded on; zero until the import is applied.
+     * @type {number}
+     * @memberof IdentifiableImportFile
+     */
+    'recorded_transactions': number;
+    /**
+     * 
+     * @type {ImportFileStatus}
+     * @memberof IdentifiableImportFile
+     */
+    'status': ImportFileStatus;
+}
+
+export const IdentifiableImportFileDateOrderEnum = {
+    DayFirst: 'day_first',
+    MonthFirst: 'month_first'
+} as const;
+
+export type IdentifiableImportFileDateOrderEnum = typeof IdentifiableImportFileDateOrderEnum[keyof typeof IdentifiableImportFileDateOrderEnum];
+
+/**
+ * A parsed row that cannot be staged yet — an asset, account, or interpretation it depends on is unresolved. Read-only: it is unblocked by answering the asks in `blocked_by`, after which it moves to the staged items list.
+ * @export
+ * @interface IdentifiableImportPendingTransaction
+ */
+export interface IdentifiableImportPendingTransaction {
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportPendingTransaction
+     */
+    'account_ref': string;
+    /**
+     * Ask keys that must be answered before this row can be staged.
+     * @type {Array<string>}
+     * @memberof IdentifiableImportPendingTransaction
+     */
+    'blocked_by': Array<string>;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportPendingTransaction
+     */
+    'date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportPendingTransaction
+     */
+    'description'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportPendingTransaction
+     */
+    'file_id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportPendingTransaction
+     */
+    'id': string;
+    /**
+     * 
+     * @type {Array<PendingLeg>}
+     * @memberof IdentifiableImportPendingTransaction
+     */
+    'legs': Array<PendingLeg>;
+}
+/**
+ * 
+ * @export
+ * @interface IdentifiableImportSessionResponse
+ */
+export interface IdentifiableImportSessionResponse {
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof IdentifiableImportSessionResponse
+     */
+    'accounts': Array<string>;
+    /**
+     * 
+     * @type {ImportClassification}
+     * @memberof IdentifiableImportSessionResponse
+     */
+    'classification': ImportClassification;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportSessionResponse
+     */
+    'created_at': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportSessionResponse
+     */
+    'id': string;
+    /**
+     * 
+     * @type {ImportSessionStatus}
+     * @memberof IdentifiableImportSessionResponse
+     */
+    'status': ImportSessionStatus;
 }
 
 
@@ -5385,11 +5845,785 @@ export interface IdentifiableQuickUploadResponse {
     'updated_at': string;
 }
 /**
+ * 
+ * @export
+ * @interface IdentifiableStagedTransaction
+ */
+export interface IdentifiableStagedTransaction {
+    /**
+     * Set on an `amend` row that can\'t be written. Apply refuses the import until the row\'s pin is released.
+     * @type {string}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'amend_refusal'?: IdentifiableStagedTransactionAmendRefusalEnum | null;
+    /**
+     * On a `delete` row, the `not_on_statement` answer that made it; answering `keep` on this key removes the row.
+     * @type {string}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'ask_key'?: string | null;
+    /**
+     * Files the row\'s evidence came from. Several when lines from different files compose one transaction; empty for rows created by answering an ask.
+     * @type {Array<string>}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'file_ids': Array<string>;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'id': string;
+    /**
+     * 
+     * @type {ImportItemKind}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'kind': ImportItemKind;
+    /**
+     * Transactions this row may duplicate, best first. Empty unless the match was too uncertain to decide alone.
+     * @type {Array<ImportNearMissCandidate>}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'near_miss_candidates': Array<ImportNearMissCandidate>;
+    /**
+     * Ledger transactions typed one by one that the user said are this row\'s payment. Apply groups them; `auto` takes the answer back.
+     * @type {Array<string>}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'parts': Array<string>;
+    /**
+     * The typed transaction this row will write to the ledger; for `delete` rows, the ledger transaction being removed. Its `transaction_id` is the target for `amend`/`delete`, the matched transaction for `skip`, and empty for `add` until apply writes it.
+     * @type {IdentifiableTransaction}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'transaction': IdentifiableTransaction;
+    /**
+     * 
+     * @type {ImportItemVerb}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'verb': ImportItemVerb;
+    /**
+     * 
+     * @type {boolean}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'verb_locked': boolean;
+}
+
+export const IdentifiableStagedTransactionAmendRefusalEnum = {
+    TargetGone: 'target_gone',
+    NotOneEntry: 'not_one_entry',
+    Unreadable: 'unreadable'
+} as const;
+
+export type IdentifiableStagedTransactionAmendRefusalEnum = typeof IdentifiableStagedTransactionAmendRefusalEnum[keyof typeof IdentifiableStagedTransactionAmendRefusalEnum];
+
+/**
  * @type IdentifiableTransaction
  * @export
  */
 export type IdentifiableTransaction = { type: 'account_fees' } & AccountFeesIdentifiableTransaction | { type: 'asset_balance_transfer' } & AssetBalanceTransferIdentifiableTransaction | { type: 'asset_dividend' } & AssetDividendIdentifiableTransaction | { type: 'asset_purchase' } & AssetPurchaseIdentifiableTransaction | { type: 'asset_sale' } & AssetSaleIdentifiableTransaction | { type: 'asset_trade' } & AssetTradeIdentifiableTransaction | { type: 'asset_transfer_in' } & AssetTransferInIdentifiableTransaction | { type: 'asset_transfer_out' } & AssetTransferOutIdentifiableTransaction | { type: 'cash_balance_transfer' } & CashBalanceTransferIdentifiableTransaction | { type: 'cash_dividend' } & CashDividendIdentifiableTransaction | { type: 'cash_transfer_in' } & CashTransferInIdentifiableTransaction | { type: 'cash_transfer_out' } & CashTransferOutIdentifiableTransaction | { type: 'regular' } & RegularIdentifiableTransaction;
 
+/**
+ * @type ImportAnswer
+ * One answer per ask kind; the flattened `choice` enum carries any data the chosen decision needs, so no field is ever optional. The kind must match the `ask_key` prefix of the ask being answered.
+ * @export
+ */
+export type ImportAnswer = { kind: 'account_mapping' } & AccountMappingAnswer | { kind: 'asset_mapping' } & AssetMappingAnswer | { kind: 'no_checkpoint' } & NoCheckpointAnswer | { kind: 'not_on_statement' } & NotOnStatementAnswer;
+
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const ImportAskChoice = {
+    Map: 'map',
+    Exclude: 'exclude',
+    EnterBalance: 'enter_balance'
+} as const;
+
+export type ImportAskChoice = typeof ImportAskChoice[keyof typeof ImportAskChoice];
+
+
+/**
+ * A period in which the difference from the statement moved.
+ * @export
+ * @interface ImportBalanceChange
+ */
+export interface ImportBalanceChange {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBalanceChange
+     */
+    'after': string;
+    /**
+     * A possible duplicate dated in the period is still open. Answering it may settle the difference, so no adjustment is offered until then.
+     * @type {boolean}
+     * @memberof ImportBalanceChange
+     */
+    'awaits_answer': boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBalanceChange
+     */
+    'change': string;
+    /**
+     * A ledger transaction in `unlisted` explains it. When none does, the items hold an `adjustment` row that would close it, unless `after` and `through` are the same moment: then two statements disagree about one balance, and no row can close that.
+     * @type {boolean}
+     * @memberof ImportBalanceChange
+     */
+    'explained': boolean;
+    /**
+     * The difference from the statement at the end of the period.
+     * @type {string}
+     * @memberof ImportBalanceChange
+     */
+    'off_by': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBalanceChange
+     */
+    'through': string;
+}
+/**
+ * 
+ * @export
+ * @interface ImportBalanceCheck
+ */
+export interface ImportBalanceCheck {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBalanceCheck
+     */
+    'account_id': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportBalanceCheck
+     */
+    'asset_id': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportBalanceCheck
+     */
+    'balances_checked': number;
+    /**
+     * 
+     * @type {Array<ImportBalanceChange>}
+     * @memberof ImportBalanceCheck
+     */
+    'changes': Array<ImportBalanceChange>;
+    /**
+     * The difference at the last balance, with this proposal applied.
+     * @type {string}
+     * @memberof ImportBalanceCheck
+     */
+    'final_off_by': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBalanceCheck
+     */
+    'first_date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBalanceCheck
+     */
+    'last_date': string;
+    /**
+     * The difference at the first balance: what the ledger holds by then that the statement\'s rows and its starting balance don\'t account for.
+     * @type {string}
+     * @memberof ImportBalanceCheck
+     */
+    'starting_off_by': string;
+    /**
+     * In the ledger but not on the statement: the usual reason a balance is off.
+     * @type {Array<ImportUnlistedMovement>}
+     * @memberof ImportBalanceCheck
+     */
+    'unlisted': Array<ImportUnlistedMovement>;
+}
+/**
+ * 
+ * @export
+ * @interface ImportBalanceChecks
+ */
+export interface ImportBalanceChecks {
+    /**
+     * 
+     * @type {Array<ImportBalanceCheck>}
+     * @memberof ImportBalanceChecks
+     */
+    'checks': Array<ImportBalanceCheck>;
+    /**
+     * 
+     * @type {Array<ImportEnteredBalance>}
+     * @memberof ImportBalanceChecks
+     */
+    'entered': Array<ImportEnteredBalance>;
+    /**
+     * Accounts and assets that were compared with nothing: rows without a stated balance, or a stated figure that can\'t be compared, such as a market value.
+     * @type {number}
+     * @memberof ImportBalanceChecks
+     */
+    'unchecked': number;
+}
+/**
+ * 
+ * @export
+ * @interface ImportClassification
+ */
+export interface ImportClassification {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportClassification
+     */
+    'error_message'?: string | null;
+    /**
+     * 
+     * @type {ImportClassificationStatus}
+     * @memberof ImportClassification
+     */
+    'status': ImportClassificationStatus;
+}
+
+
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const ImportClassificationStatus = {
+    NotStarted: 'not_started',
+    Waiting: 'waiting',
+    Running: 'running',
+    Classified: 'classified',
+    Failed: 'failed'
+} as const;
+
+export type ImportClassificationStatus = typeof ImportClassificationStatus[keyof typeof ImportClassificationStatus];
+
+
+/**
+ * How dates written in digits are read: `03/11` is 3 November day-first, 11 March month-first.
+ * @export
+ * @enum {string}
+ */
+
+export const ImportDateOrder = {
+    DayFirst: 'day_first',
+    MonthFirst: 'month_first'
+} as const;
+
+export type ImportDateOrder = typeof ImportDateOrder[keyof typeof ImportDateOrder];
+
+
+/**
+ * A balance the user entered for a position no file states one for. It is checked like a printed closing balance; answering its `no_checkpoint` ask again replaces it.
+ * @export
+ * @interface ImportEnteredBalance
+ */
+export interface ImportEnteredBalance {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportEnteredBalance
+     */
+    'account_id': string;
+    /**
+     * The day a new answer is for: the position\'s last row now.
+     * @type {string}
+     * @memberof ImportEnteredBalance
+     */
+    'as_of_date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportEnteredBalance
+     */
+    'ask_key': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportEnteredBalance
+     */
+    'asset_id': number;
+    /**
+     * The day the balance was entered for.
+     * @type {string}
+     * @memberof ImportEnteredBalance
+     */
+    'date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportEnteredBalance
+     */
+    'quantity': string;
+}
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const ImportFileStatus = {
+    Pending: 'pending',
+    Processing: 'processing',
+    Parsed: 'parsed',
+    Failed: 'failed'
+} as const;
+
+export type ImportFileStatus = typeof ImportFileStatus[keyof typeof ImportFileStatus];
+
+
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const ImportItemKind = {
+    Movement: 'movement',
+    StartingBalance: 'starting_balance',
+    JoinedTransfer: 'joined_transfer',
+    Adjustment: 'adjustment'
+} as const;
+
+export type ImportItemKind = typeof ImportItemKind[keyof typeof ImportItemKind];
+
+
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const ImportItemVerb = {
+    Add: 'add',
+    Amend: 'amend',
+    Delete: 'delete',
+    Skip: 'skip'
+} as const;
+
+export type ImportItemVerb = typeof ImportItemVerb[keyof typeof ImportItemVerb];
+
+
+/**
+ * The user\'s pin for staged rows. `auto` releases the rows back to the engine\'s own derivation. Amend and delete are not pinnable — their targets are chosen by matching and confirmed through asks.
+ * @export
+ * @enum {string}
+ */
+
+export const ImportItemVerbOverride = {
+    Auto: 'auto',
+    Skip: 'skip',
+    Add: 'add',
+    Apart: 'apart'
+} as const;
+
+export type ImportItemVerbOverride = typeof ImportItemVerbOverride[keyof typeof ImportItemVerbOverride];
+
+
+/**
+ * 
+ * @export
+ * @interface ImportItemsResponse
+ */
+export interface ImportItemsResponse {
+    /**
+     * Absent while questions are open, because the lines they hold back would read as missing.
+     * @type {ImportBalanceChecks}
+     * @memberof ImportItemsResponse
+     */
+    'balance_checks'?: ImportBalanceChecks | null;
+    /**
+     * Identifies this exact proposal; apply sends it back and is refused if the proposal changed.
+     * @type {string}
+     * @memberof ImportItemsResponse
+     */
+    'fingerprint'?: string | null;
+    /**
+     * 
+     * @type {Array<IdentifiableStagedTransaction>}
+     * @memberof ImportItemsResponse
+     */
+    'items': Array<IdentifiableStagedTransaction>;
+    /**
+     * 
+     * @type {MetadataLookupTables}
+     * @memberof ImportItemsResponse
+     */
+    'lookup_tables': MetadataLookupTables;
+    /**
+     * Credit card, mortgage and loan accounts with a statement that printed what is owed as a positive amount: its amounts and balances are read the other way round.
+     * @type {Array<string>}
+     * @memberof ImportItemsResponse
+     */
+    'read_as_owed': Array<string>;
+    /**
+     * False until the session\'s lines are classified, including after a failed classification; the list is then empty.
+     * @type {boolean}
+     * @memberof ImportItemsResponse
+     */
+    'ready': boolean;
+    /**
+     * 
+     * @type {Array<ImportUnstageableGroup>}
+     * @memberof ImportItemsResponse
+     */
+    'unstageable': Array<ImportUnstageableGroup>;
+}
+/**
+ * 
+ * @export
+ * @interface ImportNearMissCandidate
+ */
+export interface ImportNearMissCandidate {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissCandidate
+     */
+    'account_id'?: string | null;
+    /**
+     * True when picking this one replaces its amount with the statement\'s.
+     * @type {boolean}
+     * @memberof ImportNearMissCandidate
+     */
+    'amend': boolean;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportNearMissCandidate
+     */
+    'asset_id': number;
+    /**
+     * True when a bank feed or statement has already reported this transaction.
+     * @type {boolean}
+     * @memberof ImportNearMissCandidate
+     */
+    'confirmed': boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissCandidate
+     */
+    'date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissCandidate
+     */
+    'description'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissCandidate
+     */
+    'id': string;
+    /**
+     * False when the match is another row of this import rather than a recorded transaction.
+     * @type {boolean}
+     * @memberof ImportNearMissCandidate
+     */
+    'in_ledger': boolean;
+    /**
+     * True when the transaction has no entry for another movement of this row, so picking it leaves that movement unrecorded.
+     * @type {boolean}
+     * @memberof ImportNearMissCandidate
+     */
+    'leaves_movement_unrecorded': boolean;
+    /**
+     * Transactions typed one by one that together are this row\'s payment. Picking the candidate groups them when the import is applied.
+     * @type {Array<ImportNearMissPart>}
+     * @memberof ImportNearMissCandidate
+     */
+    'parts': Array<ImportNearMissPart>;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissCandidate
+     */
+    'quantity': string;
+}
+/**
+ * One of the transactions a `parts` candidate stands for.
+ * @export
+ * @interface ImportNearMissPart
+ */
+export interface ImportNearMissPart {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissPart
+     */
+    'date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissPart
+     */
+    'description'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissPart
+     */
+    'id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportNearMissPart
+     */
+    'quantity': string;
+}
+/**
+ * What apply would do, summarized. `pending` rows are parsed but not yet staged — they are unblocked by answering asks.
+ * @export
+ * @interface ImportSessionCounts
+ */
+export interface ImportSessionCounts {
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportSessionCounts
+     */
+    'add': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportSessionCounts
+     */
+    'amend': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportSessionCounts
+     */
+    'delete': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportSessionCounts
+     */
+    'pending': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportSessionCounts
+     */
+    'skip': number;
+    /**
+     * False when the proposal could not be built; the staged counts are then zero.
+     * @type {boolean}
+     * @memberof ImportSessionCounts
+     */
+    'staged_available': boolean;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportSessionCounts
+     */
+    'unstageable': number;
+}
+/**
+ * 
+ * @export
+ * @interface ImportSessionDetailResponse
+ */
+export interface ImportSessionDetailResponse {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportSessionDetailResponse
+     */
+    'conversation_id': string;
+    /**
+     * 
+     * @type {ImportSessionCounts}
+     * @memberof ImportSessionDetailResponse
+     */
+    'counts': ImportSessionCounts;
+    /**
+     * 
+     * @type {Array<IdentifiableImportFile>}
+     * @memberof ImportSessionDetailResponse
+     */
+    'files': Array<IdentifiableImportFile>;
+    /**
+     * 
+     * @type {Array<IdentifiableImportAsk>}
+     * @memberof ImportSessionDetailResponse
+     */
+    'open_asks': Array<IdentifiableImportAsk>;
+    /**
+     * 
+     * @type {ImportSessionResponse}
+     * @memberof ImportSessionDetailResponse
+     */
+    'session': ImportSessionResponse;
+}
+/**
+ * 
+ * @export
+ * @interface ImportSessionResponse
+ */
+export interface ImportSessionResponse {
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof ImportSessionResponse
+     */
+    'accounts': Array<string>;
+    /**
+     * 
+     * @type {ImportClassification}
+     * @memberof ImportSessionResponse
+     */
+    'classification': ImportClassification;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportSessionResponse
+     */
+    'created_at': string;
+    /**
+     * 
+     * @type {ImportSessionStatus}
+     * @memberof ImportSessionResponse
+     */
+    'status': ImportSessionStatus;
+}
+
+
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const ImportSessionStatus = {
+    Collecting: 'collecting',
+    Parsing: 'parsing',
+    Reconciling: 'reconciling',
+    NeedsInput: 'needs_input',
+    ProposalReady: 'proposal_ready',
+    Completed: 'completed'
+} as const;
+
+export type ImportSessionStatus = typeof ImportSessionStatus[keyof typeof ImportSessionStatus];
+
+
+/**
+ * A ledger transaction no bank feed or statement confirms, dated inside the statement\'s period and matched by none of its rows.
+ * @export
+ * @interface ImportUnlistedMovement
+ */
+export interface ImportUnlistedMovement {
+    /**
+     * Answer `not_on_statement` with this key to delete its transaction when the import is applied. The parts of one split payment share a key. Absent while something vouches for the transaction on another account, or while it may still book on the next statement.
+     * @type {string}
+     * @memberof ImportUnlistedMovement
+     */
+    'ask_key'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportUnlistedMovement
+     */
+    'date': string;
+    /**
+     * Will be deleted on apply, and no longer counts here.
+     * @type {boolean}
+     * @memberof ImportUnlistedMovement
+     */
+    'deleting': boolean;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportUnlistedMovement
+     */
+    'description'?: string | null;
+    /**
+     * Its amount, or the amounts of all of them between the same two balances, is how much the difference moved there.
+     * @type {boolean}
+     * @memberof ImportUnlistedMovement
+     */
+    'explains_difference': boolean;
+    /**
+     * Dated in the statement\'s last days: the bank may book it on the next statement, so it is not part of the difference yet.
+     * @type {boolean}
+     * @memberof ImportUnlistedMovement
+     */
+    'may_book_later': boolean;
+    /**
+     * Other accounts its transaction moves money on; deleting it removes those too.
+     * @type {Array<string>}
+     * @memberof ImportUnlistedMovement
+     */
+    'other_account_ids': Array<string>;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportUnlistedMovement
+     */
+    'quantity': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportUnlistedMovement
+     */
+    'transaction_id': string;
+}
+/**
+ * 
+ * @export
+ * @interface ImportUnstageableGroup
+ */
+export interface ImportUnstageableGroup {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportUnstageableGroup
+     */
+    'date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportUnstageableGroup
+     */
+    'description'?: string | null;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof ImportUnstageableGroup
+     */
+    'file_ids': Array<string>;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportUnstageableGroup
+     */
+    'id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportUnstageableGroup
+     */
+    'reason': string;
+}
 /**
  * 
  * @export
@@ -5615,6 +6849,170 @@ export interface NetWorthPoint {
 /**
  * 
  * @export
+ * @interface NoCheckpointAnswer
+ */
+export interface NoCheckpointAnswer {
+    /**
+     * 
+     * @type {string}
+     * @memberof NoCheckpointAnswer
+     */
+    'choice': NoCheckpointAnswerChoiceEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof NoCheckpointAnswer
+     */
+    'quantity': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof NoCheckpointAnswer
+     */
+    'kind': NoCheckpointAnswerKindEnum;
+}
+
+export const NoCheckpointAnswerChoiceEnum = {
+    EnterBalance: 'enter_balance'
+} as const;
+
+export type NoCheckpointAnswerChoiceEnum = typeof NoCheckpointAnswerChoiceEnum[keyof typeof NoCheckpointAnswerChoiceEnum];
+export const NoCheckpointAnswerKindEnum = {
+    NoCheckpoint: 'no_checkpoint'
+} as const;
+
+export type NoCheckpointAnswerKindEnum = typeof NoCheckpointAnswerKindEnum[keyof typeof NoCheckpointAnswerKindEnum];
+
+/**
+ * 
+ * @export
+ * @interface NoCheckpointAsk
+ */
+export interface NoCheckpointAsk {
+    /**
+     * 
+     * @type {string}
+     * @memberof NoCheckpointAsk
+     */
+    'account_id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof NoCheckpointAsk
+     */
+    'as_of_date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof NoCheckpointAsk
+     */
+    'ask_key': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof NoCheckpointAsk
+     */
+    'asset_id': number;
+    /**
+     * 
+     * @type {Array<ImportAskChoice>}
+     * @memberof NoCheckpointAsk
+     */
+    'choices': Array<ImportAskChoice>;
+    /**
+     * 
+     * @type {string}
+     * @memberof NoCheckpointAsk
+     */
+    'kind': NoCheckpointAskKindEnum;
+}
+
+export const NoCheckpointAskKindEnum = {
+    NoCheckpoint: 'no_checkpoint'
+} as const;
+
+export type NoCheckpointAskKindEnum = typeof NoCheckpointAskKindEnum[keyof typeof NoCheckpointAskKindEnum];
+
+/**
+ * For a ledger transaction a statement doesn\'t list (the balance checks\' `unlisted`, by its `ask_key`). `delete` removes it when the import is applied; `keep` takes that back.
+ * @export
+ * @interface NotOnStatementAnswer
+ */
+export interface NotOnStatementAnswer {
+    /**
+     * 
+     * @type {string}
+     * @memberof NotOnStatementAnswer
+     */
+    'choice': NotOnStatementAnswerChoiceEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof NotOnStatementAnswer
+     */
+    'kind': NotOnStatementAnswerKindEnum;
+}
+
+export const NotOnStatementAnswerChoiceEnum = {
+    Keep: 'keep'
+} as const;
+
+export type NotOnStatementAnswerChoiceEnum = typeof NotOnStatementAnswerChoiceEnum[keyof typeof NotOnStatementAnswerChoiceEnum];
+export const NotOnStatementAnswerKindEnum = {
+    NotOnStatement: 'not_on_statement'
+} as const;
+
+export type NotOnStatementAnswerKindEnum = typeof NotOnStatementAnswerKindEnum[keyof typeof NotOnStatementAnswerKindEnum];
+
+/**
+ * @type NotOnStatementAnswerChoice
+ * @export
+ */
+export type NotOnStatementAnswerChoice = NotOnStatementAnswerChoiceOneOf | NotOnStatementAnswerChoiceOneOf1;
+
+/**
+ * 
+ * @export
+ * @interface NotOnStatementAnswerChoiceOneOf
+ */
+export interface NotOnStatementAnswerChoiceOneOf {
+    /**
+     * 
+     * @type {string}
+     * @memberof NotOnStatementAnswerChoiceOneOf
+     */
+    'choice': NotOnStatementAnswerChoiceOneOfChoiceEnum;
+}
+
+export const NotOnStatementAnswerChoiceOneOfChoiceEnum = {
+    Delete: 'delete'
+} as const;
+
+export type NotOnStatementAnswerChoiceOneOfChoiceEnum = typeof NotOnStatementAnswerChoiceOneOfChoiceEnum[keyof typeof NotOnStatementAnswerChoiceOneOfChoiceEnum];
+
+/**
+ * 
+ * @export
+ * @interface NotOnStatementAnswerChoiceOneOf1
+ */
+export interface NotOnStatementAnswerChoiceOneOf1 {
+    /**
+     * 
+     * @type {string}
+     * @memberof NotOnStatementAnswerChoiceOneOf1
+     */
+    'choice': NotOnStatementAnswerChoiceOneOf1ChoiceEnum;
+}
+
+export const NotOnStatementAnswerChoiceOneOf1ChoiceEnum = {
+    Keep: 'keep'
+} as const;
+
+export type NotOnStatementAnswerChoiceOneOf1ChoiceEnum = typeof NotOnStatementAnswerChoiceOneOf1ChoiceEnum[keyof typeof NotOnStatementAnswerChoiceOneOf1ChoiceEnum];
+
+/**
+ * 
+ * @export
  * @enum {string}
  */
 
@@ -5625,6 +7023,40 @@ export const OAuthSessionStatus = {
 
 export type OAuthSessionStatus = typeof OAuthSessionStatus[keyof typeof OAuthSessionStatus];
 
+
+/**
+ * A parsed leg awaiting asset resolution. Raw reference on purpose — the row is not a typed transaction until every reference resolves.
+ * @export
+ * @interface PendingLeg
+ */
+export interface PendingLeg {
+    /**
+     * 
+     * @type {string}
+     * @memberof PendingLeg
+     */
+    'asset_ref': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof PendingLeg
+     */
+    'fee_type'?: PendingLegFeeTypeEnum | null;
+    /**
+     * Signed: negative leaves the account.
+     * @type {string}
+     * @memberof PendingLeg
+     */
+    'quantity': string;
+}
+
+export const PendingLegFeeTypeEnum = {
+    Transaction: 'transaction',
+    Exchange: 'exchange',
+    WithholdingTax: 'withholding_tax'
+} as const;
+
+export type PendingLegFeeTypeEnum = typeof PendingLegFeeTypeEnum[keyof typeof PendingLegFeeTypeEnum];
 
 /**
  * 
@@ -5822,6 +7254,21 @@ export interface QuickUploadResponse {
 /**
  * 
  * @export
+ * @interface ReadImportFileDatesRequest
+ */
+export interface ReadImportFileDatesRequest {
+    /**
+     * 
+     * @type {ImportDateOrder}
+     * @memberof ReadImportFileDatesRequest
+     */
+    'date_order': ImportDateOrder;
+}
+
+
+/**
+ * 
+ * @export
  * @interface RefreshTokenRequest
  */
 export interface RefreshTokenRequest {
@@ -5858,29 +7305,11 @@ export interface RegisteredUser {
  */
 export interface RegularIdentifiableTransaction {
     /**
-     * Specific bespoke category id.
-     * @type {number}
-     * @memberof RegularIdentifiableTransaction
-     */
-    'category_id': number;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof RegularIdentifiableTransaction
      */
     'date': number;
-    /**
-     * Description of the transaction.
-     * @type {string}
-     * @memberof RegularIdentifiableTransaction
-     */
-    'description'?: string | null;
-    /**
-     * 
-     * @type {TransactionEntryWithEntryId}
-     * @memberof RegularIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithEntryId;
     /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithEntryId>}
@@ -5894,17 +7323,35 @@ export interface RegularIdentifiableTransaction {
      */
     'transaction_id': string | null;
     /**
-     * 
-     * @type {string}
-     * @memberof RegularIdentifiableTransaction
-     */
-    'type': RegularIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof RegularIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * Specific bespoke category id.
+     * @type {number}
+     * @memberof RegularIdentifiableTransaction
+     */
+    'category_id': number;
+    /**
+     * Description of the transaction.
+     * @type {string}
+     * @memberof RegularIdentifiableTransaction
+     */
+    'description'?: string | null;
+    /**
+     * 
+     * @type {TransactionEntryWithEntryId}
+     * @memberof RegularIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof RegularIdentifiableTransaction
+     */
+    'type': RegularIdentifiableTransactionTypeEnum;
 }
 
 export const RegularIdentifiableTransactionTypeEnum = {
@@ -5920,29 +7367,11 @@ export type RegularIdentifiableTransactionTypeEnum = typeof RegularIdentifiableT
  */
 export interface RegularRequiredIdentifiableTransaction {
     /**
-     * Specific bespoke category id.
-     * @type {number}
-     * @memberof RegularRequiredIdentifiableTransaction
-     */
-    'category_id': number;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof RegularRequiredIdentifiableTransaction
      */
     'date': number;
-    /**
-     * Description of the transaction.
-     * @type {string}
-     * @memberof RegularRequiredIdentifiableTransaction
-     */
-    'description'?: string | null;
-    /**
-     * 
-     * @type {TransactionEntryWithRequiredEntryId}
-     * @memberof RegularRequiredIdentifiableTransaction
-     */
-    'entry': TransactionEntryWithRequiredEntryId;
     /**
      * Any other fees related to the transaction, such as transfer or conversion fees.
      * @type {Array<TransactionFeeItemWithRequiredEntryId>}
@@ -5956,17 +7385,35 @@ export interface RegularRequiredIdentifiableTransaction {
      */
     'transaction_id': string;
     /**
-     * 
-     * @type {string}
-     * @memberof RegularRequiredIdentifiableTransaction
-     */
-    'type': RegularRequiredIdentifiableTransactionTypeEnum;
-    /**
      * Whether the transaction is shown normally, pending review (ghost), or hidden.
      * @type {TransactionVisibility}
      * @memberof RegularRequiredIdentifiableTransaction
      */
     'visibility'?: TransactionVisibility;
+    /**
+     * Specific bespoke category id.
+     * @type {number}
+     * @memberof RegularRequiredIdentifiableTransaction
+     */
+    'category_id': number;
+    /**
+     * Description of the transaction.
+     * @type {string}
+     * @memberof RegularRequiredIdentifiableTransaction
+     */
+    'description'?: string | null;
+    /**
+     * 
+     * @type {TransactionEntryWithRequiredEntryId}
+     * @memberof RegularRequiredIdentifiableTransaction
+     */
+    'entry': TransactionEntryWithRequiredEntryId;
+    /**
+     * 
+     * @type {string}
+     * @memberof RegularRequiredIdentifiableTransaction
+     */
+    'type': RegularRequiredIdentifiableTransactionTypeEnum;
 }
 
 export const RegularRequiredIdentifiableTransactionTypeEnum = {
@@ -5982,17 +7429,23 @@ export type RegularRequiredIdentifiableTransactionTypeEnum = typeof RegularRequi
  */
 export interface RegularRequiredTransaction {
     /**
-     * Specific bespoke category id.
-     * @type {number}
-     * @memberof RegularRequiredTransaction
-     */
-    'category_id': number;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof RegularRequiredTransaction
      */
     'date': number;
+    /**
+     * Any other fees related to the transaction, such as transfer or conversion fees.
+     * @type {Array<TransactionFeeItemWithRequiredEntryId>}
+     * @memberof RegularRequiredTransaction
+     */
+    'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
+    /**
+     * Specific bespoke category id.
+     * @type {number}
+     * @memberof RegularRequiredTransaction
+     */
+    'category_id': number;
     /**
      * Description of the transaction.
      * @type {string}
@@ -6005,12 +7458,6 @@ export interface RegularRequiredTransaction {
      * @memberof RegularRequiredTransaction
      */
     'entry': TransactionEntryWithRequiredEntryId;
-    /**
-     * Any other fees related to the transaction, such as transfer or conversion fees.
-     * @type {Array<TransactionFeeItemWithRequiredEntryId>}
-     * @memberof RegularRequiredTransaction
-     */
-    'fees'?: Array<TransactionFeeItemWithRequiredEntryId> | null;
     /**
      * 
      * @type {string}
@@ -6032,17 +7479,23 @@ export type RegularRequiredTransactionTypeEnum = typeof RegularRequiredTransacti
  */
 export interface RegularTransactionInput {
     /**
-     * Specific bespoke category id.
-     * @type {number}
-     * @memberof RegularTransactionInput
-     */
-    'category_id': number;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof RegularTransactionInput
      */
     'date': number;
+    /**
+     * Any other fees related to the transaction, such as transfer or conversion fees.
+     * @type {Array<TransactionFeeItem>}
+     * @memberof RegularTransactionInput
+     */
+    'fees'?: Array<TransactionFeeItem> | null;
+    /**
+     * Specific bespoke category id.
+     * @type {number}
+     * @memberof RegularTransactionInput
+     */
+    'category_id': number;
     /**
      * Description of the transaction.
      * @type {string}
@@ -6055,12 +7508,6 @@ export interface RegularTransactionInput {
      * @memberof RegularTransactionInput
      */
     'entry': TransactionEntry;
-    /**
-     * Any other fees related to the transaction, such as transfer or conversion fees.
-     * @type {Array<TransactionFeeItem>}
-     * @memberof RegularTransactionInput
-     */
-    'fees'?: Array<TransactionFeeItem> | null;
     /**
      * 
      * @type {string}
@@ -6082,17 +7529,23 @@ export type RegularTransactionInputTypeEnum = typeof RegularTransactionInputType
  */
 export interface RegularTransactionWithEntryIds {
     /**
-     * Specific bespoke category id.
-     * @type {number}
-     * @memberof RegularTransactionWithEntryIds
-     */
-    'category_id': number;
-    /**
      * Date when the transaction occured.
      * @type {number}
      * @memberof RegularTransactionWithEntryIds
      */
     'date': number;
+    /**
+     * Any other fees related to the transaction, such as transfer or conversion fees.
+     * @type {Array<TransactionFeeItemWithEntryId>}
+     * @memberof RegularTransactionWithEntryIds
+     */
+    'fees'?: Array<TransactionFeeItemWithEntryId> | null;
+    /**
+     * Specific bespoke category id.
+     * @type {number}
+     * @memberof RegularTransactionWithEntryIds
+     */
+    'category_id': number;
     /**
      * Description of the transaction.
      * @type {string}
@@ -6105,12 +7558,6 @@ export interface RegularTransactionWithEntryIds {
      * @memberof RegularTransactionWithEntryIds
      */
     'entry': TransactionEntryWithEntryId;
-    /**
-     * Any other fees related to the transaction, such as transfer or conversion fees.
-     * @type {Array<TransactionFeeItemWithEntryId>}
-     * @memberof RegularTransactionWithEntryIds
-     */
-    'fees'?: Array<TransactionFeeItemWithEntryId> | null;
     /**
      * 
      * @type {string}
@@ -6227,6 +7674,33 @@ export interface SetBaseAssetRequest {
 /**
  * 
  * @export
+ * @interface SetImportItemsVerbRequest
+ */
+export interface SetImportItemsVerbRequest {
+    /**
+     * With `skip` and a single row: the suggested transaction that row is the same as.
+     * @type {string}
+     * @memberof SetImportItemsVerbRequest
+     */
+    'candidate_id'?: string | null;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof SetImportItemsVerbRequest
+     */
+    'item_ids': Array<string>;
+    /**
+     * 
+     * @type {ImportItemVerbOverride}
+     * @memberof SetImportItemsVerbRequest
+     */
+    'verb': ImportItemVerbOverride;
+}
+
+
+/**
+ * 
+ * @export
  * @interface SetOnboardingVersionRequest
  */
 export interface SetOnboardingVersionRequest {
@@ -6298,6 +7772,26 @@ export interface SharedAssetPairMetadata {
      */
     'volume'?: number | null;
 }
+/**
+ * 
+ * @export
+ * @interface SharedObject
+ */
+export interface SharedObject {
+    /**
+     * 
+     * @type {string}
+     * @memberof SharedObject
+     */
+    'choice': SharedObjectChoiceEnum;
+}
+
+export const SharedObjectChoiceEnum = {
+    Exclude: 'exclude'
+} as const;
+
+export type SharedObjectChoiceEnum = typeof SharedObjectChoiceEnum[keyof typeof SharedObjectChoiceEnum];
+
 /**
  * 
  * @export
@@ -6691,17 +8185,17 @@ export interface TransactionGroupTransactionGroupIdTransactionGroupRequiredIdent
      */
     'description': string;
     /**
-     * 
-     * @type {string}
-     * @memberof TransactionGroupTransactionGroupIdTransactionGroupRequiredIdentifiableTransactionWithIdentifiableEntriesAndId
-     */
-    'group_id': string;
-    /**
      * All subtractions grouped into this group
      * @type {Array<RequiredIdentifiableTransaction>}
      * @memberof TransactionGroupTransactionGroupIdTransactionGroupRequiredIdentifiableTransactionWithIdentifiableEntriesAndId
      */
     'transactions': Array<RequiredIdentifiableTransaction>;
+    /**
+     * 
+     * @type {string}
+     * @memberof TransactionGroupTransactionGroupIdTransactionGroupRequiredIdentifiableTransactionWithIdentifiableEntriesAndId
+     */
+    'group_id': string;
 }
 /**
  * 
@@ -6811,6 +8305,12 @@ export interface UpdateAccount {
      */
     'account_type': number;
     /**
+     * Account name
+     * @type {string}
+     * @memberof UpdateAccount
+     */
+    'name': string;
+    /**
      * 
      * @type {Array<AccountIdentifier>}
      * @memberof UpdateAccount
@@ -6822,12 +8322,6 @@ export interface UpdateAccount {
      * @memberof UpdateAccount
      */
     'liquidity_type': number;
-    /**
-     * Account name
-     * @type {string}
-     * @memberof UpdateAccount
-     */
-    'name': string;
     /**
      * Ownership share. Must be > 0 and <= 1.
      * @type {number}
@@ -13009,6 +14503,1484 @@ export class FilesApi extends BaseAPI implements FilesApiInterface {
      */
     public getFileUrl(userId: string, fileId: string, options?: RawAxiosRequestConfig) {
         return FilesApiFp(this.configuration).getFileUrl(userId, fileId, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * ImportsApi - axios parameter creator
+ * @export
+ */
+export const ImportsApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Records the user\'s answer to an open ask. Asks are worked out from the session on every read, so the next read reflects the answer. The answer is tagged by the ask\'s `kind`, which must match the ask. An ask can be answered once, except two that belong to the balance checks: `no_checkpoint`, where entering a balance again replaces the one entered before (its key is in the checks\' `entered`), and `not_on_statement`, where `delete` marks a ledger transaction the statement doesn\'t list for deletion on apply and `keep` takes that back (its key is on the checks\' `unlisted`).
+         * @summary Answer Ask
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} askKey Deterministic key of the ask being answered.
+         * @param {ImportAnswer} importAnswer 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        answerAsk: async (userId: string, importSessionId: string, askKey: string, importAnswer: ImportAnswer, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('answerAsk', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('answerAsk', 'importSessionId', importSessionId)
+            // verify required parameter 'askKey' is not null or undefined
+            assertParamExists('answerAsk', 'askKey', askKey)
+            // verify required parameter 'importAnswer' is not null or undefined
+            assertParamExists('answerAsk', 'importAnswer', importAnswer)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/asks/{ask_key}/answer`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)))
+                .replace(`{${"ask_key"}}`, encodeURIComponent(String(askKey)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(importAnswer, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Writes the reviewed proposal to the ledger in one transaction: new transactions, corrections, deletions, and a source record for every statement movement. The request carries the `fingerprint` from the items the user reviewed; a proposal that changed since is refused. Afterwards the session is completed and read-only.
+         * @summary Apply Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {ApplyImportSessionRequest} applyImportSessionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        applyImportSession: async (userId: string, importSessionId: string, applyImportSessionRequest: ApplyImportSessionRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('applyImportSession', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('applyImportSession', 'importSessionId', importSessionId)
+            // verify required parameter 'applyImportSessionRequest' is not null or undefined
+            assertParamExists('applyImportSession', 'applyImportSessionRequest', applyImportSessionRequest)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/apply`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(applyImportSessionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Attaches previously uploaded files to the import session and starts parsing them. Returns the attached files with their initial parse state. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Attach Files
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {AttachImportFilesRequest} attachImportFilesRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        attachFiles: async (userId: string, importSessionId: string, attachImportFilesRequest: AttachImportFilesRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('attachFiles', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('attachFiles', 'importSessionId', importSessionId)
+            // verify required parameter 'attachImportFilesRequest' is not null or undefined
+            assertParamExists('attachFiles', 'attachImportFilesRequest', attachImportFilesRequest)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/files`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(attachImportFilesRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Creates a new, empty import session. Accounts are bound later, as the attached material is interpreted. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Create Import Session
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createImportSession: async (userId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('createImportSession', 'userId', userId)
+            const localVarPath = `/api/users/{user_id}/import-sessions`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Deletes an import session together with its attached import state.
+         * @summary Delete Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteImportSession: async (userId: string, importSessionId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('deleteImportSession', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('deleteImportSession', 'importSessionId', importSessionId)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Removes a file from the import session along with everything extracted from it. Safe during parsing: a parse that finishes later finds the file detached and drops its result.
+         * @summary Detach File
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        detachFile: async (userId: string, importSessionId: string, fileId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('detachFile', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('detachFile', 'importSessionId', importSessionId)
+            // verify required parameter 'fileId' is not null or undefined
+            assertParamExists('detachFile', 'fileId', fileId)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/files/{file_id}`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)))
+                .replace(`{${"file_id"}}`, encodeURIComponent(String(fileId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Gets a single import session with its files, open asks and verb counts.
+         * @summary Get Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getImportSession: async (userId: string, importSessionId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('getImportSession', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('getImportSession', 'importSessionId', importSessionId)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Lists the files attached to the import session with their parse state.
+         * @summary List Import Session Files
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listFiles: async (userId: string, importSessionId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('listFiles', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('listFiles', 'importSessionId', importSessionId)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/files`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Lists all import sessions of the user.
+         * @summary List Import Sessions
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listImportSessions: async (userId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('listImportSessions', 'userId', userId)
+            const localVarPath = `/api/users/{user_id}/import-sessions`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Lists the session\'s import proposal: the ledger transactions derived from its parsed lines, merged with the stored decisions (verbs, pins, targets), and the line groups that could not become a transaction, in date and document order. `ready` is false until the session\'s lines are classified, including after a failed classification; the list is then empty. Rows blocked on unresolved references are in the pending list instead.
+         * @summary List Staged Items
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listItems: async (userId: string, importSessionId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('listItems', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('listItems', 'importSessionId', importSessionId)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/items`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Lists parsed rows that cannot be staged yet because an asset, account, or interpretation they depend on is unresolved. Each row names the asks blocking it; answering those moves the rows to the staged list.
+         * @summary List Pending Items
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listPending: async (userId: string, importSessionId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('listPending', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('listPending', 'importSessionId', importSessionId)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/pending`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Reads a file again with its dates in the given order. Only for a file whose dates all read both day-first and month-first with nothing in it settling which (its `date_order` is set): the file is parsed again, so its rows get new ids and pins on them are dropped. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Read Import File Dates
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {ReadImportFileDatesRequest} readImportFileDatesRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        readFileDates: async (userId: string, importSessionId: string, fileId: string, readImportFileDatesRequest: ReadImportFileDatesRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('readFileDates', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('readFileDates', 'importSessionId', importSessionId)
+            // verify required parameter 'fileId' is not null or undefined
+            assertParamExists('readFileDates', 'fileId', fileId)
+            // verify required parameter 'readImportFileDatesRequest' is not null or undefined
+            assertParamExists('readFileDates', 'readImportFileDatesRequest', readImportFileDatesRequest)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/files/{file_id}/date-order`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)))
+                .replace(`{${"file_id"}}`, encodeURIComponent(String(fileId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(readImportFileDatesRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Retry Import Classification
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        retryClassification: async (userId: string, importSessionId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('retryClassification', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('retryClassification', 'importSessionId', importSessionId)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/classification/retry`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Re-enqueues a failed file for parsing. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Retry Import File
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        retryFile: async (userId: string, importSessionId: string, fileId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('retryFile', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('retryFile', 'importSessionId', importSessionId)
+            // verify required parameter 'fileId' is not null or undefined
+            assertParamExists('retryFile', 'fileId', fileId)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/files/{file_id}/retry`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)))
+                .replace(`{${"file_id"}}`, encodeURIComponent(String(fileId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Pins the given staged rows to `skip` or `add`, or releases them back to the engine\'s derivation with `auto`. Pinned rows are excluded from re-derivation. `apart` takes `joined_transfer` rows and pins each of the two rows it was joined from to `add`. `skip` with the id of a candidate that has `parts` says those ledger transactions together are the row\'s payment: apply groups them, and `auto` takes the answer back.
+         * @summary Set Items Verb
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {SetImportItemsVerbRequest} setImportItemsVerbRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        setItemsVerb: async (userId: string, importSessionId: string, setImportItemsVerbRequest: SetImportItemsVerbRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('setItemsVerb', 'userId', userId)
+            // verify required parameter 'importSessionId' is not null or undefined
+            assertParamExists('setItemsVerb', 'importSessionId', importSessionId)
+            // verify required parameter 'setImportItemsVerbRequest' is not null or undefined
+            assertParamExists('setItemsVerb', 'setImportItemsVerbRequest', setImportItemsVerbRequest)
+            const localVarPath = `/api/users/{user_id}/import-sessions/{import_session_id}/items/verb`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"import_session_id"}}`, encodeURIComponent(String(importSessionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(setImportItemsVerbRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * ImportsApi - functional programming interface
+ * @export
+ */
+export const ImportsApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = ImportsApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Records the user\'s answer to an open ask. Asks are worked out from the session on every read, so the next read reflects the answer. The answer is tagged by the ask\'s `kind`, which must match the ask. An ask can be answered once, except two that belong to the balance checks: `no_checkpoint`, where entering a balance again replaces the one entered before (its key is in the checks\' `entered`), and `not_on_statement`, where `delete` marks a ledger transaction the statement doesn\'t list for deletion on apply and `keep` takes that back (its key is on the checks\' `unlisted`).
+         * @summary Answer Ask
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} askKey Deterministic key of the ask being answered.
+         * @param {ImportAnswer} importAnswer 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async answerAsk(userId: string, importSessionId: string, askKey: string, importAnswer: ImportAnswer, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.answerAsk(userId, importSessionId, askKey, importAnswer, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.answerAsk']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Writes the reviewed proposal to the ledger in one transaction: new transactions, corrections, deletions, and a source record for every statement movement. The request carries the `fingerprint` from the items the user reviewed; a proposal that changed since is refused. Afterwards the session is completed and read-only.
+         * @summary Apply Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {ApplyImportSessionRequest} applyImportSessionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async applyImportSession(userId: string, importSessionId: string, applyImportSessionRequest: ApplyImportSessionRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.applyImportSession(userId, importSessionId, applyImportSessionRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.applyImportSession']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Attaches previously uploaded files to the import session and starts parsing them. Returns the attached files with their initial parse state. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Attach Files
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {AttachImportFilesRequest} attachImportFilesRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async attachFiles(userId: string, importSessionId: string, attachImportFilesRequest: AttachImportFilesRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<IdentifiableImportFile>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.attachFiles(userId, importSessionId, attachImportFilesRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.attachFiles']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Creates a new, empty import session. Accounts are bound later, as the attached material is interpreted. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Create Import Session
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createImportSession(userId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<IdentifiableImportSessionResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createImportSession(userId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.createImportSession']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Deletes an import session together with its attached import state.
+         * @summary Delete Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async deleteImportSession(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.deleteImportSession(userId, importSessionId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.deleteImportSession']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Removes a file from the import session along with everything extracted from it. Safe during parsing: a parse that finishes later finds the file detached and drops its result.
+         * @summary Detach File
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async detachFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.detachFile(userId, importSessionId, fileId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.detachFile']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Gets a single import session with its files, open asks and verb counts.
+         * @summary Get Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getImportSession(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ImportSessionDetailResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getImportSession(userId, importSessionId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.getImportSession']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Lists the files attached to the import session with their parse state.
+         * @summary List Import Session Files
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listFiles(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<IdentifiableImportFile>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listFiles(userId, importSessionId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.listFiles']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Lists all import sessions of the user.
+         * @summary List Import Sessions
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listImportSessions(userId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<IdentifiableImportSessionResponse>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listImportSessions(userId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.listImportSessions']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Lists the session\'s import proposal: the ledger transactions derived from its parsed lines, merged with the stored decisions (verbs, pins, targets), and the line groups that could not become a transaction, in date and document order. `ready` is false until the session\'s lines are classified, including after a failed classification; the list is then empty. Rows blocked on unresolved references are in the pending list instead.
+         * @summary List Staged Items
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listItems(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<ImportItemsResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listItems(userId, importSessionId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.listItems']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Lists parsed rows that cannot be staged yet because an asset, account, or interpretation they depend on is unresolved. Each row names the asks blocking it; answering those moves the rows to the staged list.
+         * @summary List Pending Items
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listPending(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<Array<IdentifiableImportPendingTransaction>>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listPending(userId, importSessionId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.listPending']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Reads a file again with its dates in the given order. Only for a file whose dates all read both day-first and month-first with nothing in it settling which (its `date_order` is set): the file is parsed again, so its rows get new ids and pins on them are dropped. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Read Import File Dates
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {ReadImportFileDatesRequest} readImportFileDatesRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async readFileDates(userId: string, importSessionId: string, fileId: string, readImportFileDatesRequest: ReadImportFileDatesRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.readFileDates(userId, importSessionId, fileId, readImportFileDatesRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.readFileDates']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Retry Import Classification
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async retryClassification(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.retryClassification(userId, importSessionId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.retryClassification']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Re-enqueues a failed file for parsing. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Retry Import File
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async retryFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.retryFile(userId, importSessionId, fileId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.retryFile']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Pins the given staged rows to `skip` or `add`, or releases them back to the engine\'s derivation with `auto`. Pinned rows are excluded from re-derivation. `apart` takes `joined_transfer` rows and pins each of the two rows it was joined from to `add`. `skip` with the id of a candidate that has `parts` says those ledger transactions together are the row\'s payment: apply groups them, and `auto` takes the answer back.
+         * @summary Set Items Verb
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {SetImportItemsVerbRequest} setImportItemsVerbRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async setItemsVerb(userId: string, importSessionId: string, setImportItemsVerbRequest: SetImportItemsVerbRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.setItemsVerb(userId, importSessionId, setImportItemsVerbRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ImportsApi.setItemsVerb']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * ImportsApi - factory interface
+ * @export
+ */
+export const ImportsApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = ImportsApiFp(configuration)
+    return {
+        /**
+         * Records the user\'s answer to an open ask. Asks are worked out from the session on every read, so the next read reflects the answer. The answer is tagged by the ask\'s `kind`, which must match the ask. An ask can be answered once, except two that belong to the balance checks: `no_checkpoint`, where entering a balance again replaces the one entered before (its key is in the checks\' `entered`), and `not_on_statement`, where `delete` marks a ledger transaction the statement doesn\'t list for deletion on apply and `keep` takes that back (its key is on the checks\' `unlisted`).
+         * @summary Answer Ask
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} askKey Deterministic key of the ask being answered.
+         * @param {ImportAnswer} importAnswer 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        answerAsk(userId: string, importSessionId: string, askKey: string, importAnswer: ImportAnswer, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.answerAsk(userId, importSessionId, askKey, importAnswer, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Writes the reviewed proposal to the ledger in one transaction: new transactions, corrections, deletions, and a source record for every statement movement. The request carries the `fingerprint` from the items the user reviewed; a proposal that changed since is refused. Afterwards the session is completed and read-only.
+         * @summary Apply Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {ApplyImportSessionRequest} applyImportSessionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        applyImportSession(userId: string, importSessionId: string, applyImportSessionRequest: ApplyImportSessionRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.applyImportSession(userId, importSessionId, applyImportSessionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Attaches previously uploaded files to the import session and starts parsing them. Returns the attached files with their initial parse state. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Attach Files
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {AttachImportFilesRequest} attachImportFilesRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        attachFiles(userId: string, importSessionId: string, attachImportFilesRequest: AttachImportFilesRequest, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableImportFile>> {
+            return localVarFp.attachFiles(userId, importSessionId, attachImportFilesRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Creates a new, empty import session. Accounts are bound later, as the attached material is interpreted. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Create Import Session
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createImportSession(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<IdentifiableImportSessionResponse> {
+            return localVarFp.createImportSession(userId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Deletes an import session together with its attached import state.
+         * @summary Delete Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        deleteImportSession(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.deleteImportSession(userId, importSessionId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Removes a file from the import session along with everything extracted from it. Safe during parsing: a parse that finishes later finds the file detached and drops its result.
+         * @summary Detach File
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        detachFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.detachFile(userId, importSessionId, fileId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Gets a single import session with its files, open asks and verb counts.
+         * @summary Get Import Session
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getImportSession(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<ImportSessionDetailResponse> {
+            return localVarFp.getImportSession(userId, importSessionId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Lists the files attached to the import session with their parse state.
+         * @summary List Import Session Files
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listFiles(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableImportFile>> {
+            return localVarFp.listFiles(userId, importSessionId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Lists all import sessions of the user.
+         * @summary List Import Sessions
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listImportSessions(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableImportSessionResponse>> {
+            return localVarFp.listImportSessions(userId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Lists the session\'s import proposal: the ledger transactions derived from its parsed lines, merged with the stored decisions (verbs, pins, targets), and the line groups that could not become a transaction, in date and document order. `ready` is false until the session\'s lines are classified, including after a failed classification; the list is then empty. Rows blocked on unresolved references are in the pending list instead.
+         * @summary List Staged Items
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listItems(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<ImportItemsResponse> {
+            return localVarFp.listItems(userId, importSessionId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Lists parsed rows that cannot be staged yet because an asset, account, or interpretation they depend on is unresolved. Each row names the asks blocking it; answering those moves the rows to the staged list.
+         * @summary List Pending Items
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listPending(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableImportPendingTransaction>> {
+            return localVarFp.listPending(userId, importSessionId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Reads a file again with its dates in the given order. Only for a file whose dates all read both day-first and month-first with nothing in it settling which (its `date_order` is set): the file is parsed again, so its rows get new ids and pins on them are dropped. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Read Import File Dates
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {ReadImportFileDatesRequest} readImportFileDatesRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        readFileDates(userId: string, importSessionId: string, fileId: string, readImportFileDatesRequest: ReadImportFileDatesRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.readFileDates(userId, importSessionId, fileId, readImportFileDatesRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Retry Import Classification
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        retryClassification(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.retryClassification(userId, importSessionId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Re-enqueues a failed file for parsing. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * @summary Retry Import File
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {string} fileId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        retryFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.retryFile(userId, importSessionId, fileId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Pins the given staged rows to `skip` or `add`, or releases them back to the engine\'s derivation with `auto`. Pinned rows are excluded from re-derivation. `apart` takes `joined_transfer` rows and pins each of the two rows it was joined from to `add`. `skip` with the id of a candidate that has `parts` says those ledger transactions together are the row\'s payment: apply groups them, and `auto` takes the answer back.
+         * @summary Set Items Verb
+         * @param {string} userId 
+         * @param {string} importSessionId 
+         * @param {SetImportItemsVerbRequest} setImportItemsVerbRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        setItemsVerb(userId: string, importSessionId: string, setImportItemsVerbRequest: SetImportItemsVerbRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.setItemsVerb(userId, importSessionId, setImportItemsVerbRequest, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * ImportsApi - interface
+ * @export
+ * @interface ImportsApi
+ */
+export interface ImportsApiInterface {
+    /**
+     * Records the user\'s answer to an open ask. Asks are worked out from the session on every read, so the next read reflects the answer. The answer is tagged by the ask\'s `kind`, which must match the ask. An ask can be answered once, except two that belong to the balance checks: `no_checkpoint`, where entering a balance again replaces the one entered before (its key is in the checks\' `entered`), and `not_on_statement`, where `delete` marks a ledger transaction the statement doesn\'t list for deletion on apply and `keep` takes that back (its key is on the checks\' `unlisted`).
+     * @summary Answer Ask
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {string} askKey Deterministic key of the ask being answered.
+     * @param {ImportAnswer} importAnswer 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    answerAsk(userId: string, importSessionId: string, askKey: string, importAnswer: ImportAnswer, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Writes the reviewed proposal to the ledger in one transaction: new transactions, corrections, deletions, and a source record for every statement movement. The request carries the `fingerprint` from the items the user reviewed; a proposal that changed since is refused. Afterwards the session is completed and read-only.
+     * @summary Apply Import Session
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {ApplyImportSessionRequest} applyImportSessionRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    applyImportSession(userId: string, importSessionId: string, applyImportSessionRequest: ApplyImportSessionRequest, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Attaches previously uploaded files to the import session and starts parsing them. Returns the attached files with their initial parse state. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Attach Files
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {AttachImportFilesRequest} attachImportFilesRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    attachFiles(userId: string, importSessionId: string, attachImportFilesRequest: AttachImportFilesRequest, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableImportFile>>;
+
+    /**
+     * Creates a new, empty import session. Accounts are bound later, as the attached material is interpreted. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Create Import Session
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    createImportSession(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<IdentifiableImportSessionResponse>;
+
+    /**
+     * Deletes an import session together with its attached import state.
+     * @summary Delete Import Session
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    deleteImportSession(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Removes a file from the import session along with everything extracted from it. Safe during parsing: a parse that finishes later finds the file detached and drops its result.
+     * @summary Detach File
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {string} fileId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    detachFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Gets a single import session with its files, open asks and verb counts.
+     * @summary Get Import Session
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    getImportSession(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<ImportSessionDetailResponse>;
+
+    /**
+     * Lists the files attached to the import session with their parse state.
+     * @summary List Import Session Files
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    listFiles(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableImportFile>>;
+
+    /**
+     * Lists all import sessions of the user.
+     * @summary List Import Sessions
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    listImportSessions(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableImportSessionResponse>>;
+
+    /**
+     * Lists the session\'s import proposal: the ledger transactions derived from its parsed lines, merged with the stored decisions (verbs, pins, targets), and the line groups that could not become a transaction, in date and document order. `ready` is false until the session\'s lines are classified, including after a failed classification; the list is then empty. Rows blocked on unresolved references are in the pending list instead.
+     * @summary List Staged Items
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    listItems(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<ImportItemsResponse>;
+
+    /**
+     * Lists parsed rows that cannot be staged yet because an asset, account, or interpretation they depend on is unresolved. Each row names the asks blocking it; answering those moves the rows to the staged list.
+     * @summary List Pending Items
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    listPending(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableImportPendingTransaction>>;
+
+    /**
+     * Reads a file again with its dates in the given order. Only for a file whose dates all read both day-first and month-first with nothing in it settling which (its `date_order` is set): the file is parsed again, so its rows get new ids and pins on them are dropped. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Read Import File Dates
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {string} fileId 
+     * @param {ReadImportFileDatesRequest} readImportFileDatesRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    readFileDates(userId: string, importSessionId: string, fileId: string, readImportFileDatesRequest: ReadImportFileDatesRequest, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Retry Import Classification
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    retryClassification(userId: string, importSessionId: string, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Re-enqueues a failed file for parsing. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Retry Import File
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {string} fileId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    retryFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Pins the given staged rows to `skip` or `add`, or releases them back to the engine\'s derivation with `auto`. Pinned rows are excluded from re-derivation. `apart` takes `joined_transfer` rows and pins each of the two rows it was joined from to `add`. `skip` with the id of a candidate that has `parts` says those ledger transactions together are the row\'s payment: apply groups them, and `auto` takes the answer back.
+     * @summary Set Items Verb
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {SetImportItemsVerbRequest} setImportItemsVerbRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApiInterface
+     */
+    setItemsVerb(userId: string, importSessionId: string, setImportItemsVerbRequest: SetImportItemsVerbRequest, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+}
+
+/**
+ * ImportsApi - object-oriented interface
+ * @export
+ * @class ImportsApi
+ * @extends {BaseAPI}
+ */
+export class ImportsApi extends BaseAPI implements ImportsApiInterface {
+    /**
+     * Records the user\'s answer to an open ask. Asks are worked out from the session on every read, so the next read reflects the answer. The answer is tagged by the ask\'s `kind`, which must match the ask. An ask can be answered once, except two that belong to the balance checks: `no_checkpoint`, where entering a balance again replaces the one entered before (its key is in the checks\' `entered`), and `not_on_statement`, where `delete` marks a ledger transaction the statement doesn\'t list for deletion on apply and `keep` takes that back (its key is on the checks\' `unlisted`).
+     * @summary Answer Ask
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {string} askKey Deterministic key of the ask being answered.
+     * @param {ImportAnswer} importAnswer 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public answerAsk(userId: string, importSessionId: string, askKey: string, importAnswer: ImportAnswer, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).answerAsk(userId, importSessionId, askKey, importAnswer, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Writes the reviewed proposal to the ledger in one transaction: new transactions, corrections, deletions, and a source record for every statement movement. The request carries the `fingerprint` from the items the user reviewed; a proposal that changed since is refused. Afterwards the session is completed and read-only.
+     * @summary Apply Import Session
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {ApplyImportSessionRequest} applyImportSessionRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public applyImportSession(userId: string, importSessionId: string, applyImportSessionRequest: ApplyImportSessionRequest, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).applyImportSession(userId, importSessionId, applyImportSessionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Attaches previously uploaded files to the import session and starts parsing them. Returns the attached files with their initial parse state. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Attach Files
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {AttachImportFilesRequest} attachImportFilesRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public attachFiles(userId: string, importSessionId: string, attachImportFilesRequest: AttachImportFilesRequest, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).attachFiles(userId, importSessionId, attachImportFilesRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Creates a new, empty import session. Accounts are bound later, as the attached material is interpreted. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Create Import Session
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public createImportSession(userId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).createImportSession(userId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Deletes an import session together with its attached import state.
+     * @summary Delete Import Session
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public deleteImportSession(userId: string, importSessionId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).deleteImportSession(userId, importSessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Removes a file from the import session along with everything extracted from it. Safe during parsing: a parse that finishes later finds the file detached and drops its result.
+     * @summary Detach File
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {string} fileId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public detachFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).detachFile(userId, importSessionId, fileId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Gets a single import session with its files, open asks and verb counts.
+     * @summary Get Import Session
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public getImportSession(userId: string, importSessionId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).getImportSession(userId, importSessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Lists the files attached to the import session with their parse state.
+     * @summary List Import Session Files
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public listFiles(userId: string, importSessionId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).listFiles(userId, importSessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Lists all import sessions of the user.
+     * @summary List Import Sessions
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public listImportSessions(userId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).listImportSessions(userId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Lists the session\'s import proposal: the ledger transactions derived from its parsed lines, merged with the stored decisions (verbs, pins, targets), and the line groups that could not become a transaction, in date and document order. `ready` is false until the session\'s lines are classified, including after a failed classification; the list is then empty. Rows blocked on unresolved references are in the pending list instead.
+     * @summary List Staged Items
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public listItems(userId: string, importSessionId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).listItems(userId, importSessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Lists parsed rows that cannot be staged yet because an asset, account, or interpretation they depend on is unresolved. Each row names the asks blocking it; answering those moves the rows to the staged list.
+     * @summary List Pending Items
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public listPending(userId: string, importSessionId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).listPending(userId, importSessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Reads a file again with its dates in the given order. Only for a file whose dates all read both day-first and month-first with nothing in it settling which (its `date_order` is set): the file is parsed again, so its rows get new ids and pins on them are dropped. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Read Import File Dates
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {string} fileId 
+     * @param {ReadImportFileDatesRequest} readImportFileDatesRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public readFileDates(userId: string, importSessionId: string, fileId: string, readImportFileDatesRequest: ReadImportFileDatesRequest, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).readFileDates(userId, importSessionId, fileId, readImportFileDatesRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Retry Import Classification
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public retryClassification(userId: string, importSessionId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).retryClassification(userId, importSessionId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Re-enqueues a failed file for parsing. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * @summary Retry Import File
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {string} fileId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public retryFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).retryFile(userId, importSessionId, fileId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Pins the given staged rows to `skip` or `add`, or releases them back to the engine\'s derivation with `auto`. Pinned rows are excluded from re-derivation. `apart` takes `joined_transfer` rows and pins each of the two rows it was joined from to `add`. `skip` with the id of a candidate that has `parts` says those ledger transactions together are the row\'s payment: apply groups them, and `auto` takes the answer back.
+     * @summary Set Items Verb
+     * @param {string} userId 
+     * @param {string} importSessionId 
+     * @param {SetImportItemsVerbRequest} setImportItemsVerbRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ImportsApi
+     */
+    public setItemsVerb(userId: string, importSessionId: string, setImportItemsVerbRequest: SetImportItemsVerbRequest, options?: RawAxiosRequestConfig) {
+        return ImportsApiFp(this.configuration).setItemsVerb(userId, importSessionId, setImportItemsVerbRequest, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

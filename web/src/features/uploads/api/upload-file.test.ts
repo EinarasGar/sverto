@@ -211,6 +211,33 @@ describe("uploadFile", () => {
     expect(stages).toEqual(["registering", "uploading", "confirming"])
   })
 
+  it("registers a file the browser could not type as a plain byte stream", async () => {
+    createFile.mockResolvedValue({
+      data: { id: "file-11", upload_metadata: METADATA },
+    })
+    confirmFile.mockResolvedValue({ data: { id: "file-11" } })
+
+    const pending = uploadFile({
+      userId: TEST_USER_ID,
+      file: new File(["OFXHEADER:100"], "statement.ofx", { type: "" }),
+    })
+    await vi.waitFor(() => {
+      expect(requests).toHaveLength(1)
+    })
+    requests[0]?.finish()
+
+    await expect(pending).resolves.toBe("file-11")
+    expect(createFile).toHaveBeenCalledWith(
+      TEST_USER_ID,
+      {
+        original_name: "statement.ofx",
+        mime_type: "application/octet-stream",
+        size_bytes: 13,
+      },
+      undefined
+    )
+  })
+
   it("never confirms a file whose upload failed", async () => {
     createFile.mockResolvedValue({
       data: { id: "file-10", upload_metadata: METADATA },

@@ -19,6 +19,7 @@ use crate::{
         portfolio_overview::investment_transaction::account_fees::AccountFees,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             transaction::{Transaction, TransactionPortfolioAction},
         },
     },
@@ -84,6 +85,8 @@ impl TransactionProcessor for AccountFeesTransaction {
             TransactionTypeDto::AccountFees(metadata) => metadata,
             _ => panic!("Invalid transaction type"),
         };
+
+        entry_rules::check([entry_rules::negative(&metadata.entry, "entry")])?;
 
         let mut base = BaseTransaction::new(
             user_id,

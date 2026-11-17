@@ -1,28 +1,25 @@
+use ai::models::history::TranscriptItem;
 use serde::Serialize;
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use dal::models::ai_conversation_models::MessageModel;
+use crate::dtos::ai_chat_dto::ChatHistoryMessageDto;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct MessageDto {
-    pub id: Uuid,
-    pub conversation_id: Uuid,
-    pub role: String,
-    pub content: serde_json::Value,
+    pub id: String,
+    pub message: ChatHistoryMessageDto,
     pub file_ids: Vec<Uuid>,
     pub created_at: OffsetDateTime,
 }
 
-impl From<MessageModel> for MessageDto {
-    fn from(m: MessageModel) -> Self {
+impl From<TranscriptItem> for MessageDto {
+    fn from(item: TranscriptItem) -> Self {
         Self {
-            id: m.id,
-            conversation_id: m.conversation_id,
-            role: m.role,
-            content: m.content,
-            file_ids: m.file_ids,
-            created_at: m.created_at,
+            id: item.id,
+            message: item.entry.into(),
+            file_ids: item.file_ids,
+            created_at: item.created_at,
         }
     }
 }

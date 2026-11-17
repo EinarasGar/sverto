@@ -1,10 +1,16 @@
 pub mod account;
 pub mod action;
+pub mod agent;
 pub mod aggregate;
 pub mod chat;
+pub mod classification;
 pub mod error;
+pub mod extraction;
+pub mod history;
+pub mod provider;
 pub mod receipt;
 pub mod reference;
+pub mod sandbox;
 pub mod search;
 pub mod tool_output;
 pub mod transactions;

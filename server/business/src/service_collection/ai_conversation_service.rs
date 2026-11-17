@@ -1,14 +1,13 @@
 #[mockall_double::double]
 use dal::database_context::MyraDb;
-use dal::models::ai_conversation_models::{ChatNeedingTitleModel, ConversationModel, MessageModel};
+use dal::models::ai_conversation_models::{ChatNeedingTitleModel, ConversationModel};
 use dal::queries::ai_conversation_queries;
 use dal::query_params::ai_conversation_params::{
-    GetConversationsParams, GetMessagesParams, UpdateConversationErrorParams,
+    GetConversationsParams, UpdateConversationErrorParams,
 };
 use itertools::Itertools;
 use uuid::Uuid;
 
-use crate::dtos::ai_chat_dto::ChatHistoryMessageDto;
 use crate::dtos::ai_conversation_dto::{ChatNeedingTitleDto, ConversationDto};
 use crate::dtos::ai_error_dto::AiErrorDto;
 use crate::dtos::ai_message_dto::MessageDto;
@@ -24,12 +23,18 @@ impl AiConversationService {
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
-    pub async fn create_chat(&self, user_id: Uuid) -> anyhow::Result<ConversationDto> {
-        self.db.start_transaction().await?;
+    pub async fn create_conversation(&self, user_id: Uuid) -> anyhow::Result<Uuid> {
         let id: Uuid = self
             .db
             .fetch_one_scalar(ai_conversation_queries::create_conversation(user_id))
             .await?;
+        Ok(id)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn create_chat(&self, user_id: Uuid) -> anyhow::Result<ConversationDto> {
+        self.db.start_transaction().await?;
+        let id = self.create_conversation(user_id).await?;
         self.db
             .execute(ai_conversation_queries::create_chat(id))
             .await?;
@@ -57,12 +62,10 @@ impl AiConversationService {
             user_id,
         ));
         let model: ConversationModel = self.db.fetch_one(query).await?;
-        Ok(model.into())
+        Ok(with_preview(model))
     }
 
     /// Verifies the conversation exists and belongs to the user.
-    /// Callers that subsequently mutate the conversation (e.g. insert_message)
-    /// rely on this check to avoid per-write authorization round trips.
     #[tracing::instrument(level = "debug", skip_all, fields(conversation_id = %conversation_id, user_id = %user_id))]
     pub async fn ensure_owns_conversation(
         &self,
@@ -85,7 +88,7 @@ impl AiConversationService {
             user_id, offset, limit,
         ));
         let models: Vec<ConversationModel> = self.db.fetch_all(query).await?;
-        Ok(models.into_iter().map_into().collect())
+        Ok(models.into_iter().map(with_preview).collect())
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(conversation_id = %conversation_id, user_id = %user_id))]
@@ -94,43 +97,38 @@ impl AiConversationService {
         conversation_id: Uuid,
         user_id: Uuid,
     ) -> anyhow::Result<Vec<MessageDto>> {
-        let query = ai_conversation_queries::get_messages(GetMessagesParams {
-            conversation_id,
-            user_id,
-        });
-        let models: Vec<MessageModel> = self.db.fetch_all(query).await?;
-        Ok(models.into_iter().map_into().collect())
+        let history = self.get_history(conversation_id, user_id).await?;
+        Ok(ai::history::transcript(&history)?
+            .into_iter()
+            .map_into()
+            .collect())
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(conversation_id = %conversation_id, user_id = %user_id))]
-    pub async fn get_last_message(
+    pub async fn get_history(
         &self,
         conversation_id: Uuid,
         user_id: Uuid,
-    ) -> anyhow::Result<Option<MessageDto>> {
-        let query = ai_conversation_queries::get_last_message(conversation_id, user_id);
-        let model: Option<MessageModel> = self.db.fetch_optional(query).await?;
-        Ok(model.map(Into::into))
+    ) -> anyhow::Result<Vec<u8>> {
+        let query = ai_conversation_queries::get_conversation_history(conversation_id, user_id);
+        Ok(self.db.fetch_one_scalar(query).await?)
     }
 
-    #[tracing::instrument(level = "debug", skip_all, fields(conversation_id = %conversation_id, file_count = file_ids.len()))]
-    pub async fn insert_message(
+    #[tracing::instrument(level = "debug", skip_all, fields(conversation_id = %conversation_id, expected_len, len = bytes.len()))]
+    pub async fn append_history(
         &self,
         conversation_id: Uuid,
-        message: impl Into<ChatHistoryMessageDto>,
-        file_ids: &[Uuid],
-    ) -> anyhow::Result<Uuid> {
-        let dto: ChatHistoryMessageDto = message.into();
-        let role = dto.role().to_string();
-        let content = serde_json::to_value(&dto).expect("ChatHistoryMessageDto serializes to JSON");
-        let query = ai_conversation_queries::insert_message(
+        user_id: Uuid,
+        expected_len: u64,
+        bytes: &[u8],
+    ) -> anyhow::Result<bool> {
+        let query = ai_conversation_queries::append_conversation_history(
             conversation_id,
-            role,
-            content,
-            file_ids.to_vec(),
+            user_id,
+            expected_len,
+            bytes.to_vec(),
         );
-        let id: Uuid = self.db.fetch_one_scalar(query).await?;
-        Ok(id)
+        Ok(self.db.execute_with_rows_affected(query).await? == 1)
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(conversation_id = %conversation_id, user_id = %user_id))]
@@ -140,6 +138,17 @@ impl AiConversationService {
         user_id: Uuid,
     ) -> anyhow::Result<()> {
         let query = ai_conversation_queries::delete_conversation(conversation_id, user_id);
+        self.db.execute(query).await?;
+        Ok(())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn delete_conversations(
+        &self,
+        conversation_ids: Vec<Uuid>,
+        user_id: Uuid,
+    ) -> anyhow::Result<()> {
+        let query = ai_conversation_queries::delete_conversations(conversation_ids, user_id);
         self.db.execute(query).await?;
         Ok(())
     }
@@ -184,5 +193,25 @@ impl AiConversationService {
         );
         self.db.execute(query).await?;
         Ok(())
+    }
+}
+
+fn with_preview(model: ConversationModel) -> ConversationDto {
+    let preview = model.untitled_history_head.as_deref().and_then(|head| {
+        ai::history::preview(head)
+            .inspect_err(|error| {
+                tracing::warn!(
+                    error = %error,
+                    error.type = "conversation_preview",
+                    "failed to read the conversation history for its preview"
+                );
+            })
+            .ok()
+            .flatten()
+    });
+    let dto = ConversationDto::from(model);
+    ConversationDto {
+        title: dto.title.or(preview),
+        ..dto
     }
 }

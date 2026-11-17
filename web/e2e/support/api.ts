@@ -173,3 +173,9 @@ export async function deleteFixtureTransactions(): Promise<number> {
   }
   return removed
 }
+
+export async function deleteImportSession(sessionId: string): Promise<void> {
+  await callOk(`/api/users/${DEFAULT_USER_ID}/import-sessions/${sessionId}`, {
+    method: "DELETE",
+  })
+}

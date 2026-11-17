@@ -72,6 +72,26 @@ service_state!(AiChatService);
 use business::service_collection::file_service::FileService;
 service_state!(FileService);
 
+use business::service_collection::import_session_service::ImportSessionService;
+service_state!(ImportSessionService);
+
+use business::service_collection::import_classify_service::ImportClassifyService;
+service_state!(ImportClassifyService);
+
+use business::service_collection::import_file_service::ImportFileService;
+service_state!(ImportFileService);
+
+use business::service_collection::import_link_service::ImportLinkService;
+service_state!(ImportLinkService);
+
+use business::service_collection::import_staging_service::ImportStagingService;
+service_state!(ImportStagingService);
+use business::service_collection::import_apply_service::ImportApplyService;
+service_state!(ImportApplyService);
+
+use business::service_collection::import_balance_service::ImportBalanceService;
+service_state!(ImportBalanceService);
+
 use business::service_collection::ledger_export_service::LedgerExportService;
 service_state!(LedgerExportService);
 

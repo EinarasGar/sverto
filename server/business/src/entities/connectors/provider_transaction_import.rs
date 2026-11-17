@@ -6,11 +6,12 @@ use crate::dtos::transaction_dto::{
     AssetPurchaseMetadataDto, AssetSaleMetadataDto, CashDividendMetadataDto,
     RegularTransactionMetadataDto, TransactionDto, TransactionTypeDto, TransactionVisibilityDto,
 };
+use crate::dtos::validation_error_dto::BusinessValidationErrorDto;
 use crate::entities::transactions::metadata::ConnectorLinkMeta;
 use crate::entities::transactions::transaction::Transaction;
 use crate::entities::transactions::transaction_types::create_transaction_from_dto;
 
-const IMPORT_CATEGORY_ID: i32 = 76;
+pub(crate) const IMPORT_CATEGORY_ID: i32 = 76;
 
 const TICKER_ALIASES: &[(&str, &str)] = &[("FB_US_EQ", "META.NASDAQ"), ("JAYl_EQ", "S5WA.F")];
 
@@ -93,7 +94,15 @@ impl ProviderTransactionImport {
     ) -> anyhow::Result<TransactionImportOutcome> {
         match self.build_dto(cash_asset_id, instrument_asset_id) {
             Ok(dto) => {
-                let mut entity = create_transaction_from_dto(dto, user_id)?;
+                let mut entity = match create_transaction_from_dto(dto, user_id) {
+                    Ok(entity) => entity,
+                    Err(error) if error.is::<BusinessValidationErrorDto>() => {
+                        return Ok(TransactionImportOutcome::Unresolvable(
+                            "fails ledger validation",
+                        ));
+                    }
+                    Err(error) => return Err(error),
+                };
                 entity.set_connector_link(Some(ConnectorLinkMeta {
                     binding_id: self.binding_id,
                     external_id: self.transaction.external_id.clone(),
@@ -159,5 +168,42 @@ impl ProviderTransactionImport {
             fee_entries: vec![],
             transaction_type,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use rust_decimal_macros::dec;
+    use time::macros::datetime;
+
+    use super::*;
+    use crate::test_support::load_dynamic_enums;
+
+    #[test]
+    fn a_row_that_fails_ledger_validation_is_unresolvable() {
+        load_dynamic_enums();
+        let import = ProviderTransactionImport::new(
+            ProviderTransaction {
+                external_id: "tx-1".to_string(),
+                amount: dec!(0),
+                currency: "GBP".to_string(),
+                date: datetime!(2026-01-02 0:00 UTC),
+                description: "Zero".to_string(),
+                asset_identifier: None,
+                quantity: None,
+            },
+            Uuid::nil(),
+            TransactionVisibilityDto::Default,
+            Uuid::nil(),
+        );
+
+        let outcome = import
+            .try_into_transaction(Uuid::nil(), Some(1), None)
+            .expect("a validation failure is not an error");
+
+        assert!(matches!(
+            outcome,
+            TransactionImportOutcome::Unresolvable("fails ledger validation")
+        ));
     }
 }

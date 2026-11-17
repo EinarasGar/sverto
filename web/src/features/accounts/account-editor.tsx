@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { useQuery } from "@tanstack/react-query"
 
-import type { UpdateAccount } from "@/api"
+import type { AccountIdentifierKind, UpdateAccount } from "@/api"
 import { ACCOUNT_CLASS_LABELS, accountClassRank } from "@/lib/domain/accounts"
 import type { AccountId, UserId } from "@/lib/query"
 import { AdaptiveSheet } from "@/components/layout/adaptive-sheet"
@@ -24,6 +24,7 @@ import {
   accountServerErrors,
   emptyAccountForm,
   formatSharePercent,
+  identifierKey,
   mergeFieldErrors,
   parseSharePercent,
   validateAccountForm,
@@ -71,9 +72,23 @@ import {
 } from "./copy"
 import { IdentifiersEditor } from "./identifiers-editor"
 
+export interface AccountPrefill {
+  readonly name: string
+  readonly identifier?: {
+    readonly kind: AccountIdentifierKind
+    readonly value: string
+  }
+}
+
 export type AccountEditorMode =
-  | { readonly kind: "create" }
+  | { readonly kind: "create"; readonly prefill?: AccountPrefill }
   | { readonly kind: "edit"; readonly accountId: AccountId }
+
+export interface CreatedAccount {
+  readonly accountId: AccountId
+  readonly name: string
+  readonly accountTypeId: number
+}
 
 const FORM_ID = "account-editor-form"
 const HINT_CLASS = "text-[11.5px] leading-[1.5] text-pretty text-ink-3"
@@ -301,12 +316,14 @@ export function AccountEditor({
   open,
   onOpenChange,
   onDeleted,
+  onCreated,
 }: {
   userId: UserId
   mode: AccountEditorMode
   open: boolean
   onOpenChange: (open: boolean) => void
   onDeleted?: (accountId: AccountId) => void
+  onCreated?: (account: CreatedAccount) => void
 }) {
   const isEdit = mode.kind === "edit"
   const accountId = mode.kind === "edit" ? mode.accountId : null
@@ -361,6 +378,15 @@ export function AccountEditor({
       : emptyAccountForm({
           accountTypeId: types.data[0]?.id ?? null,
           liquidityTypeId: liquidityTypes.data[0]?.id ?? null,
+          ...(mode.kind === "create" && mode.prefill !== undefined
+            ? {
+                name: mode.prefill.name,
+                identifiers:
+                  mode.prefill.identifier === undefined
+                    ? []
+                    : [{ key: identifierKey(), ...mode.prefill.identifier }],
+              }
+            : {}),
         })
 
   const referenceFailed =
@@ -420,12 +446,21 @@ export function AccountEditor({
         onSuccess: (createdId) => {
           accountCreatedToast({
             name: body.name,
-            onUndo: () => {
-              remove.mutate(
-                { accountId: createdId },
-                { onSuccess: accountCreateUndoneToast }
-              )
-            },
+            ...(onCreated === undefined
+              ? {
+                  onUndo: () => {
+                    remove.mutate(
+                      { accountId: createdId },
+                      { onSuccess: accountCreateUndoneToast }
+                    )
+                  },
+                }
+              : {}),
+          })
+          onCreated?.({
+            accountId: createdId,
+            name: body.name,
+            accountTypeId: body.account_type,
           })
           close()
         },

@@ -1,8 +1,3 @@
-use rig::completion::message::{
-    AssistantContent, Message, ToolCall, ToolFunction, ToolResultContent, UserContent,
-};
-use rig::OneOrMany;
-use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
 use crate::models::error::AiError;
@@ -13,13 +8,33 @@ pub struct Base64Attachment {
     pub data: String,
 }
 
-pub struct HistoryEntry {
-    pub message: ChatHistoryMessage,
-    pub file_ids: Vec<Uuid>,
-}
-
 pub struct PromptOutput {
     pub output: String,
+    pub usage: TokenUsage,
+}
+
+pub struct StructuredOutput<T> {
+    pub value: T,
+    pub usage: TokenUsage,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct TokenUsage {
+    pub input: u64,
+    pub output: u64,
+    pub cached_input: u64,
+    pub reasoning: u64,
+}
+
+impl From<rig::completion::Usage> for TokenUsage {
+    fn from(usage: rig::completion::Usage) -> Self {
+        Self {
+            input: usage.input_tokens.unwrap_or(0),
+            output: usage.output_tokens.unwrap_or(0),
+            cached_input: usage.cached_input_tokens.unwrap_or(0),
+            reasoning: usage.reasoning_tokens.unwrap_or(0),
+        }
+    }
 }
 
 /// Whether a prompt turn writes to conversation history. Rate limiting (the
@@ -44,74 +59,6 @@ pub enum ChatTurn {
     Continuation,
 }
 
-#[derive(Clone, Serialize, Deserialize)]
-#[serde(tag = "type", rename_all = "snake_case")]
-pub enum ChatHistoryMessage {
-    User {
-        content: String,
-    },
-    Assistant {
-        content: String,
-    },
-    AssistantToolCall {
-        tool_call_id: String,
-        name: String,
-        args: String,
-        #[serde(default, skip_serializing_if = "Option::is_none")]
-        signature: Option<String>,
-    },
-    ToolResult {
-        tool_call_id: String,
-        content: String,
-    },
-    ToolApproval {
-        tool_call_id: String,
-        approved: bool,
-    },
-}
-
-impl From<ChatHistoryMessage> for Message {
-    fn from(msg: ChatHistoryMessage) -> Self {
-        match msg {
-            ChatHistoryMessage::User { content } => Self::user(&content),
-            ChatHistoryMessage::Assistant { content } => Self::assistant(&content),
-            ChatHistoryMessage::AssistantToolCall {
-                tool_call_id,
-                name,
-                args,
-                signature,
-            } => Message::Assistant {
-                id: None,
-                content: OneOrMany::one(AssistantContent::ToolCall(
-                    ToolCall::new(
-                        tool_call_id,
-                        ToolFunction::new(
-                            name,
-                            serde_json::from_str(&args)
-                                .unwrap_or(serde_json::Value::Object(Default::default())),
-                        ),
-                    )
-                    .with_signature(Some(
-                        signature.unwrap_or_else(|| "skip_thought_signature_validator".to_string()),
-                    )),
-                )),
-            },
-            ChatHistoryMessage::ToolResult {
-                tool_call_id,
-                content,
-            } => Message::User {
-                content: OneOrMany::one(UserContent::tool_result(
-                    tool_call_id,
-                    OneOrMany::one(ToolResultContent::text(content)),
-                )),
-            },
-            ChatHistoryMessage::ToolApproval { .. } => {
-                unreachable!("ToolApproval should be pre-processed before rig history conversion")
-            }
-        }
-    }
-}
-
 pub struct ToolRequestPayload {
     pub tool_call_id: String,
     pub name: String,
@@ -124,7 +71,6 @@ pub enum ChatStreamEvent {
         call_id: String,
         name: String,
         input: serde_json::Value,
-        signature: Option<String>,
     },
     ToolResult {
         name: String,

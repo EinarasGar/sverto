@@ -1,11 +1,12 @@
-use ai::conversation_provider::{ConversationProvider, HistoryEntry};
-use ai::models::chat::{Base64Attachment, ChatHistoryMessage};
+use ai::conversation_provider::ConversationProvider;
+use ai::models::chat::Base64Attachment;
+use ai::models::history::HistoryWrite;
 use futures::{Stream, StreamExt};
 use tokio::sync::{broadcast, oneshot};
 use tracing::Instrument;
 use uuid::Uuid;
 
-use crate::dtos::ai_chat_dto::{ChatHistoryMessageDto, ChatStreamEventDto};
+use crate::dtos::ai_chat_dto::ChatStreamEventDto;
 use crate::dtos::ai_error_dto::AiErrorDto;
 use crate::service_collection::ai_conversation_service::AiConversationService;
 use crate::service_collection::file_service::FileService;
@@ -89,49 +90,26 @@ impl UserConversationProvider {
 }
 
 impl ConversationProvider for UserConversationProvider {
-    async fn load_history(&self) -> anyhow::Result<Vec<HistoryEntry>> {
-        let messages = self
+    async fn read_history(&self) -> anyhow::Result<Vec<u8>> {
+        self.conv_service
+            .get_history(self.conversation_id, self.user_id)
+            .await
+    }
+
+    async fn append_history(
+        &self,
+        expected_len: u64,
+        bytes: &[u8],
+    ) -> anyhow::Result<HistoryWrite> {
+        let written = self
             .conv_service
-            .get_messages(self.conversation_id, self.user_id)
+            .append_history(self.conversation_id, self.user_id, expected_len, bytes)
             .await?;
-        Ok(messages
-            .into_iter()
-            .filter_map(|m| {
-                let file_ids = m.file_ids.clone();
-                serde_json::from_value::<ChatHistoryMessageDto>(m.content)
-                    .ok()
-                    .map(|dto| HistoryEntry {
-                        message: ChatHistoryMessage::from(dto),
-                        file_ids,
-                    })
-            })
-            .collect())
+        Ok(history_write(written))
     }
 
     async fn fetch_attachments(&self, file_ids: &[Uuid]) -> anyhow::Result<Vec<Base64Attachment>> {
         self.resolve_attachments(file_ids).await
-    }
-
-    async fn record_user_message(&self, content: String, file_ids: &[Uuid]) -> anyhow::Result<()> {
-        self.conv_service
-            .insert_message(
-                self.conversation_id,
-                ChatHistoryMessageDto::User { content },
-                file_ids,
-            )
-            .await?;
-        Ok(())
-    }
-
-    async fn append_message(&self, message: ChatHistoryMessage) -> anyhow::Result<()> {
-        self.conv_service
-            .insert_message(
-                self.conversation_id,
-                ChatHistoryMessageDto::from(message),
-                &[],
-            )
-            .await?;
-        Ok(())
     }
 
     async fn record_turn_error(&self, error: &ai::models::error::AiError) -> anyhow::Result<()> {
@@ -145,6 +123,14 @@ impl ConversationProvider for UserConversationProvider {
         self.conv_service
             .clear_conversation_error(self.conversation_id)
             .await
+    }
+}
+
+fn history_write(written: bool) -> HistoryWrite {
+    if written {
+        HistoryWrite::Written
+    } else {
+        HistoryWrite::Changed
     }
 }
 

@@ -1,34 +1,25 @@
+use std::sync::Arc;
+
 use anyhow::Result;
 use uuid::Uuid;
 
-pub use crate::models::chat::HistoryEntry;
-use crate::models::chat::{Base64Attachment, ChatHistoryMessage};
+use crate::models::chat::Base64Attachment;
 use crate::models::error::AiError;
+use crate::models::history::HistoryWrite;
 
 pub trait ConversationProvider: Send + Sync + 'static {
-    /// Load prior turns in oldest-to-newest order. File attachments are
-    /// returned as ids only — the wrapper batch-resolves them via `fetch_attachments`.
-    fn load_history(&self) -> impl std::future::Future<Output = Result<Vec<HistoryEntry>>> + Send;
+    fn read_history(&self) -> impl std::future::Future<Output = Result<Vec<u8>>> + Send;
 
-    /// Resolve a set of file ids into base64-encoded attachments (images or documents).
-    /// Called by the wrapper for both historical and current-turn attachments.
+    fn append_history(
+        &self,
+        expected_len: u64,
+        bytes: &[u8],
+    ) -> impl std::future::Future<Output = Result<HistoryWrite>> + Send;
+
     fn fetch_attachments(
         &self,
         file_ids: &[Uuid],
     ) -> impl std::future::Future<Output = Result<Vec<Base64Attachment>>> + Send;
-
-    /// Persist the user's input turn, including file attachment ids.
-    fn record_user_message(
-        &self,
-        content: String,
-        file_ids: &[Uuid],
-    ) -> impl std::future::Future<Output = Result<()>> + Send;
-
-    /// Persist a message emitted by the agent.
-    fn append_message(
-        &self,
-        message: ChatHistoryMessage,
-    ) -> impl std::future::Future<Output = Result<()>> + Send;
 
     /// Persist the failed-turn marker on the conversation. Replaces any
     /// previous marker.
@@ -39,4 +30,12 @@ pub trait ConversationProvider: Send + Sync + 'static {
 
     /// Clear the failed-turn marker.
     fn clear_turn_error(&self) -> impl std::future::Future<Output = Result<()>> + Send;
+}
+
+pub trait ConversationSource: Send + Sync {
+    type Conversation: ConversationProvider;
+
+    fn open(
+        &self,
+    ) -> impl std::future::Future<Output = Result<Option<Arc<Self::Conversation>>>> + Send;
 }

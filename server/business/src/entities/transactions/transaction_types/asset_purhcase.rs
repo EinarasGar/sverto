@@ -19,6 +19,7 @@ use crate::{
         portfolio_overview::investment_transaction::asset_purchase::AssetPurchase,
         transactions::{
             base_transaction::BaseTransaction,
+            entry_rules,
             transaction::{Transaction, TransactionPortfolioAction},
         },
     },
@@ -86,6 +87,19 @@ impl TransactionProcessor for AssetPurchaseTransaction {
             TransactionTypeDto::AssetPurchase(metadata) => metadata,
             _ => panic!("Invalid transaction type"),
         };
+
+        let [account_a, account_b] = entry_rules::same_account(
+            &metadata.purchase,
+            "purchase_change",
+            &metadata.sale,
+            "cash_outgoings_change",
+        );
+        entry_rules::check([
+            entry_rules::positive(&metadata.purchase, "purchase_change"),
+            entry_rules::negative(&metadata.sale, "cash_outgoings_change"),
+            account_a,
+            account_b,
+        ])?;
 
         let mut base = BaseTransaction::new(
             user_id,
@@ -324,49 +338,5 @@ mod tests {
             .expect("cash portfolio");
         assert_eq!(cash_portfolio.units(), dec!(-201));
         assert_eq!(cash_portfolio.fees(), dec!(0));
-    }
-
-    #[test]
-    fn try_from_dto_accepts_mismatched_leg_accounts() {
-        load_dynamic_enums();
-        let user_id = Uuid::new_v4();
-        let asset_account = Uuid::new_v4();
-        let cash_account = Uuid::new_v4();
-        let dto = TransactionDto {
-            transaction_id: None,
-            visibility: crate::dtos::transaction_dto::TransactionVisibilityDto::Default,
-            date: datetime!(2024-05-01 00:00:00 UTC),
-            fee_entries: vec![],
-            transaction_type: TransactionTypeDto::AssetPurchase(AssetPurchaseMetadataDto {
-                purchase: EntryDto::new(1, asset_account, dec!(2)),
-                sale: EntryDto::new(10, cash_account, dec!(-200)),
-            }),
-        };
-
-        let txn = AssetPurchaseTransaction::try_from_dto(dto, user_id)
-            .expect("mismatched accounts are not validated");
-
-        let action = txn.get_portfolio_action().expect("portfolio action");
-        let TransactionPortfolioAction::Referential(action) = action else {
-            panic!("expected referential portfolio action");
-        };
-        let mut portfolio = Portfolio::new();
-        action.update_porfolio(&mut portfolio);
-
-        let asset_side = portfolio
-            .account_portfolios()
-            .get(&asset_account)
-            .expect("asset leg account");
-        assert_eq!(asset_side.asset_portfolios.len(), 1);
-        assert_eq!(
-            asset_side
-                .cash_portfolios
-                .get(&10)
-                .expect("cash portfolio in the purchase leg's account")
-                .units(),
-            dec!(-200)
-        );
-
-        assert!(portfolio.account_portfolios().get(&cash_account).is_none());
     }
 }

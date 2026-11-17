@@ -3,8 +3,8 @@ use std::sync::Arc;
 use super::{ToolError, ToolMode};
 use crate::data_provider::AiDataProvider;
 use crate::models::tool_output::GetTransactionDetailArgs;
-use rig::{completion::request::ToolDefinition, tool::Tool};
-use serde_json::json;
+use rig::tool::{Tool, ToolContext, ToolExecutionError};
+use serde_json::{json, Value};
 use uuid::Uuid;
 
 pub struct GetTransactionDetailTool<D: AiDataProvider> {
@@ -26,27 +26,35 @@ impl<D: AiDataProvider> Tool for GetTransactionDetailTool<D> {
 
     type Error = ToolError;
     type Args = GetTransactionDetailArgs;
-    type Output = String;
+    type Output = Value;
 
-    async fn definition(&self, _prompt: String) -> ToolDefinition {
-        ToolDefinition {
-            name: Self::NAME.to_string(),
-            description: "Get the full detail of a single transaction: its type, date, description, and every entry/leg and fee entry with the associated accounts, assets, and categories. Requires a transaction_id obtained from a prior query_transactions result row.".to_string(),
-            parameters: json!({
-                "type": "object",
-                "properties": {
-                    "transaction_id": {
-                        "type": "string",
-                        "description": "UUID of the transaction to inspect, taken from a query_transactions row."
-                    }
-                },
-                "required": ["transaction_id"]
-            }),
-        }
+    fn description(&self) -> String {
+        "Get the full detail of a single transaction: its type, date, description, and every entry/leg and fee entry with the associated accounts, assets, and categories. Requires a transaction_id obtained from a prior query_transactions result row.".to_string()
+    }
+
+    fn parameters(&self) -> Value {
+        json!({
+            "type": "object",
+            "properties": {
+                "transaction_id": {
+                    "type": "string",
+                    "description": "UUID of the transaction to inspect, taken from a query_transactions row."
+                }
+            },
+            "required": ["transaction_id"]
+        })
+    }
+
+    fn map_error(&self, error: Self::Error) -> ToolExecutionError {
+        error.into()
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(tool = Self::NAME))]
-    async fn call(&self, args: Self::Args) -> std::result::Result<Self::Output, Self::Error> {
+    async fn call(
+        &self,
+        _context: &mut ToolContext,
+        args: Self::Args,
+    ) -> std::result::Result<Self::Output, Self::Error> {
         let transaction_id = args
             .transaction_id
             .parse::<Uuid>()
@@ -58,6 +66,6 @@ impl<D: AiDataProvider> Tool for GetTransactionDetailTool<D> {
             .await
             .map_err(|e| ToolError(e.to_string()))?;
 
-        serde_json::to_string(&result).map_err(Into::into)
+        serde_json::to_value(&result).map_err(Into::into)
     }
 }

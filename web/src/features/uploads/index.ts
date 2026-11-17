@@ -3,11 +3,14 @@ export {
   ATTACHMENT_POLICY,
   checkFile,
   formatBytes,
+  IMPORT_POLICY,
   isImageType,
   MAX_UPLOAD_BYTES,
   RECEIPT_POLICY,
   REJECTION_REASONS,
 } from "./policy"
+
+export { fileQueryOptions } from "./api/files"
 
 export type { UploadFileInit, UploadStage } from "./api/upload-file"
 export {

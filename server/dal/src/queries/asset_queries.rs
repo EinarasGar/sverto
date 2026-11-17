@@ -1,9 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
 use sea_query::{
-    extension::postgres::PgExpr, Alias, Asterisk, CommonTableExpression, Cond, Expr, ExprTrait,
-    Func, OnConflict, Order, PostgresQueryBuilder, Query, QueryStatementBuilder, SimpleExpr, Value,
-    WindowStatement, WithClause,
+    extension::postgres::{PgBinOper, PgExpr, PgFunc},
+    Alias, Asterisk, BinOper, CommonTableExpression, Cond, Expr, ExprTrait, Func, OnConflict,
+    Order, PostgresQueryBuilder, Query, QueryStatementBuilder, SimpleExpr, Value, WindowStatement,
+    WithClause,
 };
 use sea_query_sqlx::SqlxBinder;
 use sqlx::types::{time::OffsetDateTime, Uuid};
@@ -23,6 +24,7 @@ use crate::{
         asset_type_ids, AssetPair, AssetPairDate, AssetPairRateInsert, InsertAsset,
     },
     query_params::{
+        get_asset_refs_params::{GetAssetRefsParams, GetAssetRefsSearchType},
         get_assets_params::{GetAssetsParams, GetAssetsParamsSeachType},
         get_rates_params::{GetRatesParams, GetRatesSeachType},
     },
@@ -31,9 +33,8 @@ use crate::{
 use super::DbQueryWithValues;
 
 #[macros::named_query]
-pub fn get_public_assets(page_length: u64, page: u64, search: Option<String>) -> DbQueryWithValues {
-    let rows_to_skip = page_length * page;
-
+pub fn search_visible_assets(user_id: Uuid, search: String, limit: u64) -> DbQueryWithValues {
+    let search_lower = search.to_lowercase();
     Query::select()
         .column((AssetsIden::Table, AssetsIden::Id))
         .column((AssetsIden::Table, AssetsIden::AssetName))
@@ -49,67 +50,50 @@ pub fn get_public_assets(page_length: u64, page: u64, search: Option<String>) ->
             Expr::col((AssetsIden::Table, AssetsIden::AssetType))
                 .equals((AssetTypesIden::Table, AssetTypesIden::Id)),
         )
-        .conditions(
-            search.is_some(),
-            |q| {
-                let s = search.clone().unwrap();
-                let s_lower = s.to_lowercase();
-                q.cond_where(
-                    Cond::any()
-                        .add(Expr::cust_with_values(
-                            "LOWER(assets.ticker) = $1",
-                            [s_lower.clone()],
-                        ))
-                        .add(
-                            Expr::col((AssetsIden::Table, AssetsIden::Ticker))
-                                .ilike(format!("{}%", s)),
-                        )
-                        .add(
-                            Expr::col((AssetsIden::Table, AssetsIden::AssetName))
-                                .ilike(format!("{}%", s)),
-                        ),
-                );
-                q.order_by_expr(
-                    Expr::cust_with_values(
-                        "CASE \
-                         WHEN LOWER(assets.ticker) = $1 THEN 0 \
-                         WHEN LOWER(assets.asset_name) = $1 THEN 1 \
-                         WHEN LOWER(assets.asset_name) LIKE $2 THEN 2 \
-                         WHEN LOWER(assets.ticker) LIKE $2 THEN 3 \
-                         ELSE 4 END",
-                        [s_lower.clone(), format!("{}%", s_lower)],
-                    ),
-                    Order::Asc,
-                );
-                q.order_by_expr(
-                    Expr::cust_with_values(
-                        "GREATEST(similarity(assets.asset_name, $1), similarity(assets.ticker, $1))",
-                        [s_lower],
-                    ),
-                    Order::Desc,
-                );
-            },
-            |_| {},
+        .cond_where(
+            Cond::any()
+                .add(Expr::cust_with_values(
+                    "LOWER(assets.ticker) = $1",
+                    [search_lower.clone()],
+                ))
+                .add(
+                    Expr::col((AssetsIden::Table, AssetsIden::Ticker))
+                        .ilike(format!("{}%", search)),
+                )
+                .add(
+                    Expr::col((AssetsIden::Table, AssetsIden::AssetName))
+                        .ilike(format!("{}%", search)),
+                ),
         )
-        .and_where(Expr::col((AssetsIden::Table, AssetsIden::UserId)).is_null())
-        .limit(page_length)
-        .offset(rows_to_skip)
-        .build_sqlx(PostgresQueryBuilder)
-        .into()
-}
-
-#[macros::named_query]
-pub fn get_asset_ids_by_tickers(user_id: Uuid, tickers: Vec<String>) -> DbQueryWithValues {
-    Query::select()
-        .column((AssetsIden::Table, AssetsIden::Id))
-        .column((AssetsIden::Table, AssetsIden::Ticker))
-        .from(AssetsIden::Table)
-        .and_where(Expr::col((AssetsIden::Table, AssetsIden::Ticker)).is_in(tickers))
         .and_where(
             Expr::col((AssetsIden::Table, AssetsIden::UserId))
                 .is_null()
                 .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(user_id)),
         )
+        .order_by_expr(
+            Expr::cust_with_values(
+                "CASE \
+                 WHEN LOWER(assets.ticker) = $1 THEN 0 \
+                 WHEN LOWER(assets.asset_name) = $1 THEN 1 \
+                 WHEN LOWER(assets.asset_name) LIKE $2 THEN 2 \
+                 WHEN LOWER(assets.ticker) LIKE $2 THEN 3 \
+                 ELSE 4 END",
+                [search_lower.clone(), format!("{}%", search_lower)],
+            ),
+            Order::Asc,
+        )
+        .order_by_expr(
+            Expr::col((AssetsIden::Table, AssetsIden::UserId)).is_null(),
+            Order::Asc,
+        )
+        .order_by_expr(
+            Expr::cust_with_values(
+                "GREATEST(similarity(assets.asset_name, $1), similarity(assets.ticker, $1))",
+                [search_lower],
+            ),
+            Order::Desc,
+        )
+        .limit(limit)
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }
@@ -1616,6 +1600,89 @@ pub fn get_currency_cross_pairs(tickers: Vec<String>, has_rates: bool) -> DbQuer
                 .ne(Expr::col((AssetPairsIden::Table, AssetPairsIden::Pair2))),
         )
         .and_where(rates_filter)
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+fn like_literal(text: &str) -> String {
+    text.replace('\\', "\\\\")
+        .replace('%', "\\%")
+        .replace('_', "\\_")
+}
+
+#[macros::named_query]
+pub fn get_asset_refs(params: GetAssetRefsParams) -> DbQueryWithValues {
+    let matches_ref = match params.search_type {
+        GetAssetRefsSearchType::ByTickers(tickers) => {
+            Expr::col((AssetsIden::Table, AssetsIden::Ticker)).eq(PgFunc::any(Expr::val(tickers)))
+        }
+        GetAssetRefsSearchType::ByTickersSymbolsIsinsOrIds { refs, ids } => {
+            let listings_of_symbol: Vec<String> = refs
+                .iter()
+                .map(|asset_ref| format!("{}.%", like_literal(asset_ref)))
+                .collect();
+            let tickers: Vec<String> = refs
+                .iter()
+                .map(|asset_ref| asset_ref.to_lowercase())
+                .collect();
+            let isins: Vec<String> = refs
+                .iter()
+                .map(|asset_ref| asset_ref.to_uppercase())
+                .collect();
+            Expr::expr(Func::lower(Expr::col((
+                AssetsIden::Table,
+                AssetsIden::Ticker,
+            ))))
+            .eq(PgFunc::any(Expr::val(tickers)))
+            .or(Expr::col((AssetsIden::Table, AssetsIden::Ticker))
+                .binary(PgBinOper::ILike, PgFunc::any(Expr::val(listings_of_symbol))))
+            .or(Expr::col((AssetsIden::Table, AssetsIden::Isin)).eq(PgFunc::any(Expr::val(isins))))
+            .or(Expr::col((AssetsIden::Table, AssetsIden::Id)).eq(PgFunc::any(Expr::val(ids))))
+        }
+    };
+    let mut query = Query::select();
+    query
+        .column((AssetsIden::Table, AssetsIden::Id))
+        .column((AssetsIden::Table, AssetsIden::Ticker))
+        .column((AssetsIden::Table, AssetsIden::AssetName))
+        .column((AssetsIden::Table, AssetsIden::Isin))
+        .column((AssetsIden::Table, AssetsIden::AssetType))
+        .column((AssetsIden::Table, AssetsIden::BasePairId))
+        .from(AssetsIden::Table)
+        .and_where(matches_ref)
+        .and_where(
+            Expr::col((AssetsIden::Table, AssetsIden::UserId))
+                .is_null()
+                .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(params.user_id)),
+        )
+        .order_by((AssetsIden::Table, AssetsIden::Id), Order::Asc);
+    if let Some(asset_type) = params.asset_type {
+        query.and_where(Expr::col((AssetsIden::Table, AssetsIden::AssetType)).eq(asset_type));
+    }
+    query.build_sqlx(PostgresQueryBuilder).into()
+}
+
+#[macros::named_query]
+pub fn get_exchange_currencies(exchanges: Vec<String>) -> DbQueryWithValues {
+    let listed_on: Vec<String> = exchanges
+        .iter()
+        .map(|exchange| format!("%.{}", like_literal(exchange)))
+        .collect();
+    let exchange = Expr::cust("substring(\"ticker\" from '[^.]*$')");
+    Query::select()
+        .expr_as(exchange.clone(), Alias::new("exchange"))
+        .column(AssetsIden::BasePairId)
+        .expr_as(
+            Func::count(Expr::col(AssetsIden::Id)),
+            Alias::new("listings"),
+        )
+        .from(AssetsIden::Table)
+        .and_where(Expr::col(AssetsIden::UserId).is_null())
+        .and_where(Expr::col(AssetsIden::BasePairId).is_not_null())
+        .and_where(
+            Expr::col(AssetsIden::Ticker).binary(BinOper::Like, PgFunc::any(Expr::val(listed_on))),
+        )
+        .add_group_by([exchange, Expr::col(AssetsIden::BasePairId).into()])
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }

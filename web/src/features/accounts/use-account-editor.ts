@@ -2,12 +2,12 @@ import { useCallback, useState } from "react"
 
 import type { AccountId } from "@/lib/query"
 
-import type { AccountEditorMode } from "./account-editor"
+import type { AccountEditorMode, AccountPrefill } from "./account-editor"
 
 export interface AccountEditorController {
   readonly mode: AccountEditorMode
   readonly open: boolean
-  readonly openCreate: () => void
+  readonly openCreate: (prefill?: AccountPrefill) => void
   readonly openEdit: (accountId: AccountId) => void
   readonly setOpen: (open: boolean) => void
 }
@@ -20,8 +20,10 @@ export function useAccountEditor(): AccountEditorController {
   const [mode, setMode] = useState<AccountEditorMode>({ kind: "create" })
   const [open, setOpen] = useState(false)
 
-  const openCreate = useCallback(() => {
-    setMode({ kind: "create" })
+  const openCreate = useCallback((prefill?: AccountPrefill) => {
+    setMode(
+      prefill === undefined ? { kind: "create" } : { kind: "create", prefill }
+    )
     setOpen(true)
   }, [])
 

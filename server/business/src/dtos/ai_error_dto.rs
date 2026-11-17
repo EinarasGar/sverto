@@ -61,7 +61,9 @@ impl From<ai::models::error::AiError> for AiErrorDto {
                 reset_at,
             },
             AiError::ProviderRateLimited => Self::ProviderRateLimited,
-            AiError::ProviderUnavailable { detail } => Self::ProviderUnavailable { detail },
+            AiError::ProviderUnavailable { detail } | AiError::InvalidAnswer { detail } => {
+                Self::ProviderUnavailable { detail }
+            }
             AiError::ConcurrencyLimited => Self::ConcurrencyLimited,
             AiError::TurnLimit { max_turns } => Self::TurnLimit { max_turns },
             AiError::InputTooLarge => Self::InputTooLarge,

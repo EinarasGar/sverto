@@ -1,24 +1,31 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use futures::{Stream, StreamExt};
-use rig::agent::{Agent, MultiTurnStreamItem};
-use rig::completion::message::{AssistantContent, Message, ToolResultContent, UserContent};
-use rig::completion::Prompt;
-use rig::streaming::{StreamedAssistantContent, StreamedUserContent, StreamingChat};
-use rig::OneOrMany;
+use rig::agent::{AgentHook, MultiTurnStreamItem};
+use rig::completion::{PromptError, UsageTotals};
+use rig::conversation::{pairing, Conversation as History};
+use rig::message::{Message, ToolCall, UserContent};
+use rig::streaming::{Item, StreamEvent};
+use rig::tool::ToolContext;
+use serde::de::DeserializeOwned;
 use uuid::Uuid;
 
 use crate::action_provider::AiActionProvider;
-use crate::agents::approval::{build_gated_toolset, ApprovalHook};
-use crate::agents::chat_utils::{attachment_to_user_content, find_tool_call_in_history};
+use crate::agents::approval::{build_gated_toolset, ApprovalHook, GatedToolSet};
+use crate::agents::usage::UsageHook;
 use crate::conversation_provider::ConversationProvider;
+use crate::history::{self, render_tool_result, CommitHook};
+use crate::models::agent::{ModelAgent, StructuredAgent};
 use crate::models::chat::{
-    Base64Attachment, ChatHistoryMessage, ChatStreamEvent, ChatTurn, HistoryEntry, Persistence,
-    PromptOutput, ToolRequestPayload,
+    Base64Attachment, ChatStreamEvent, ChatTurn, Persistence, PromptOutput, StructuredOutput,
+    TokenUsage,
 };
 use crate::models::error::AiError;
 use crate::rate_limit_provider::RateLimitProvider;
+
+const DECLINED: &str = "User declined this action.";
+const SUPERSEDED: &str = "The user sent a new message instead of answering this request.";
 
 pub struct Conversation<C, R>
 where
@@ -41,364 +48,219 @@ where
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all)]
-    pub async fn run<M>(
+    pub async fn can_continue(&self) -> Result<bool, AiError> {
+        let history = history::load(&*self.conversation).await?;
+        Ok(history.pending_calls().is_empty() && history.awaits_model())
+    }
+
+    pub async fn run_structured<T: DeserializeOwned>(
         &self,
-        agent: Agent<M>,
+        agent: StructuredAgent<T>,
         turn: ChatTurn,
         persistence: Persistence,
-    ) -> Result<PromptOutput, AiError>
-    where
-        M: rig::completion::CompletionModel + 'static,
-    {
+    ) -> Result<StructuredOutput<T>, AiError> {
+        let output = self.run(agent.agent, turn, persistence).await?;
+        let value =
+            serde_json::from_str(output.output.trim()).map_err(|error| AiError::InvalidAnswer {
+                detail: error.to_string(),
+            })?;
+        Ok(StructuredOutput {
+            value,
+            usage: output.usage,
+        })
+    }
+
+    pub async fn run(
+        &self,
+        agent: ModelAgent,
+        turn: ChatTurn,
+        persistence: Persistence,
+    ) -> Result<PromptOutput, AiError> {
+        self.run_with_hook(agent, turn, persistence, ()).await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(otel.kind = "client"))]
+    pub async fn run_with_hook<H: AgentHook + 'static>(
+        &self,
+        agent: ModelAgent,
+        turn: ChatTurn,
+        persistence: Persistence,
+        hook: H,
+    ) -> Result<PromptOutput, AiError> {
         let persist = persistence == Persistence::Persist;
-        let prepared = match turn {
+        let mut history = history::load(&*self.conversation).await?;
+        let files = match turn {
             ChatTurn::Message { message, file_ids } => {
-                self.prepare_new(message, file_ids, !persist).await?
+                self.add_message(&mut history, message, &file_ids).await?
             }
-            ChatTurn::Continuation => self.prepare_continuation().await?,
+            ChatTurn::Continuation => self.files(&history, &[]).await?,
             ChatTurn::Approval { .. } => {
                 return Err(AiError::Fatal {
                     detail: "Approval turns require the streaming API".to_string(),
                 })
             }
         };
-        self.run_prepared(agent, prepared, persist).await
-    }
+        let request = self.prepare(&agent, &mut history, &files, persist).await?;
+        let (prompt, earlier) = request
+            .split_last()
+            .expect("a prepared request has a prompt");
 
-    #[tracing::instrument(level = "debug", skip_all, fields(otel.kind = "client"))]
-    async fn run_prepared<M>(
-        &self,
-        agent: Agent<M>,
-        prepared: PreparedTurn,
-        persist: bool,
-    ) -> Result<PromptOutput, AiError>
-    where
-        M: rig::completion::CompletionModel + 'static,
-    {
-        if persist {
-            self.clear_turn_error_marker().await;
+        let commit = persist
+            .then(|| CommitHook::new(self.conversation.clone(), history, earlier.len(), None));
+        let usage = UsageHook::default();
+        let mut runner = agent
+            .agent
+            .prompt(prompt.clone())
+            .history(earlier.to_vec())
+            .add_hook(usage.clone());
+        if let Some(commit) = &commit {
+            runner = runner.add_hook(commit.clone());
         }
+        let result = runner.add_hook(hook).await;
 
-        // rig returns the full conversation (`[fed history..., prompt, new...]`).
-        // Everything up to and including the prompt is already persisted, so we
-        // only persist the suffix produced this turn (see `messages_to_persist`).
-        let history_len = prepared.rig_history.len();
-
-        let response_result = agent
-            .prompt(prepared.current_message)
-            .with_history(prepared.rig_history.clone())
-            .extended_details()
-            .await;
-
-        let response = match response_result {
-            Ok(r) => r,
-            Err(e) => {
-                self.rate_limit.release().await;
-                let err = AiError::from(e);
+        let spent = usage.totals();
+        charge(&*self.rate_limit, &spent).await;
+        let failure = commit.as_ref().and_then(CommitHook::take_failure);
+        let output = match (result, failure) {
+            (_, Some(failure)) => {
+                self.record_turn_error(&failure).await;
+                return Err(failure);
+            }
+            (Ok(response), None) => response.output(),
+            (Err(PromptError::Cancelled { reason, .. }), None) => reason,
+            (Err(error), None) => {
+                let error = AiError::from(error);
                 if persist {
-                    if let Err(pe) = self.conversation.record_turn_error(&err).await {
-                        tracing::warn!(
-                            error = ?pe,
-                            error.type = "persist_turn_error",
-                            "failed to persist turn error"
-                        );
-                    }
+                    self.record_turn_error(&error).await;
                 }
-                return Err(err);
+                return Err(error);
             }
         };
-
-        if persist {
-            let new_messages =
-                messages_to_persist(response.messages.unwrap_or_default(), history_len);
-            for msg in new_messages {
-                if let Err(e) = self.conversation.append_message(msg).await {
-                    tracing::warn!(
-                        error = ?e,
-                        error.type = "persist_response_message",
-                        "failed to persist response message"
-                    );
-                }
-            }
-        }
-
-        let usage = &response.usage;
-        self.rate_limit
-            .record_usage(usage.input_tokens, usage.output_tokens)
-            .await;
-
         Ok(PromptOutput {
-            output: response.output,
+            output,
+            usage: spent.tokens.into(),
         })
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(otel.kind = "client"))]
     pub async fn stream<A>(
         &self,
-        agent: Agent<rig::providers::gemini::completion::CompletionModel>,
+        agent: ModelAgent,
         actions: Arc<A>,
         turn: ChatTurn,
     ) -> Result<impl Stream<Item = ChatStreamEvent>, AiError>
     where
         A: AiActionProvider,
     {
-        let (message, file_ids, skip_record) = match &turn {
-            ChatTurn::Message { message, file_ids } => (message.clone(), file_ids.clone(), false),
-            ChatTurn::Approval { approvals } => {
-                for (tool_call_id, approved) in approvals {
-                    self.conversation
-                        .append_message(ChatHistoryMessage::ToolApproval {
-                            tool_call_id: tool_call_id.clone(),
-                            approved: *approved,
-                        })
-                        .await
-                        .map_err(|e| AiError::unknown(format!("{e:#}")))?;
-                }
-                (String::new(), Vec::new(), true)
+        let mut history = history::load(&*self.conversation).await?;
+        let gated = build_gated_toolset(actions);
+        let mut opening = Vec::new();
+        let files = match turn {
+            ChatTurn::Message { message, file_ids } => {
+                self.add_message(&mut history, message, &file_ids).await?
             }
-            ChatTurn::Continuation => (String::new(), Vec::new(), true),
+            ChatTurn::Approval { approvals } => {
+                let (events, decided) = self.decide(&mut history, &gated, approvals).await?;
+                opening = events;
+                if !decided {
+                    return Ok(futures::stream::iter(opening).left_stream());
+                }
+                self.files(&history, &[]).await?
+            }
+            ChatTurn::Continuation => self.files(&history, &[]).await?,
         };
 
-        let prepared = self.prepare_new(message, file_ids, skip_record).await?;
-        // Only continuation turns look back at the last persisted message;
-        // don't clone a potentially large payload for the others.
-        let last_history_message = matches!(turn, ChatTurn::Continuation)
-            .then(|| prepared.history_entries.last().map(|e| e.message.clone()))
-            .flatten();
-
-        let gated = build_gated_toolset(actions);
-        let mut rig_history: Vec<Message> = Vec::new();
-        let mut deferred_results: Vec<ChatStreamEvent> = Vec::new();
-
-        let mut executed_call_ids: HashSet<String> = prepared
-            .history_entries
-            .iter()
-            .filter_map(|e| match &e.message {
-                ChatHistoryMessage::ToolResult { tool_call_id, .. } => Some(tool_call_id.clone()),
-                _ => None,
-            })
-            .collect();
-
-        for entry in prepared.history_entries {
-            match entry.message {
-                ChatHistoryMessage::ToolApproval {
-                    tool_call_id,
-                    approved,
-                } if !executed_call_ids.contains(tool_call_id.as_str()) => {
-                    let Some((name, args)) = find_tool_call_in_history(&rig_history, &tool_call_id)
-                    else {
-                        deferred_results.push(ChatStreamEvent::Error(AiError::unknown(format!(
-                            "No matching tool call found for approval: {tool_call_id}"
-                        ))));
-                        continue;
-                    };
-                    let result_str = if approved {
-                        match gated.toolset.call(&name, args.clone()).await {
-                            Ok(r) => {
-                                deferred_results.push(ChatStreamEvent::ToolResult {
-                                    name: name.clone(),
-                                    output: r.clone(),
-                                });
-                                r
-                            }
-                            Err(e) => {
-                                let msg = format!("Tool execution failed: {e}");
-                                deferred_results.push(ChatStreamEvent::ToolResult {
-                                    name: name.clone(),
-                                    output: msg.clone(),
-                                });
-                                msg
-                            }
-                        }
-                    } else {
-                        "User declined this action.".to_string()
-                    };
-                    executed_call_ids.insert(tool_call_id.clone());
-                    let _ = self
-                        .conversation
-                        .append_message(ChatHistoryMessage::ToolResult {
-                            tool_call_id: tool_call_id.clone(),
-                            content: result_str.clone(),
-                        })
-                        .await;
-                    rig_history.push(Message::User {
-                        content: OneOrMany::one(UserContent::tool_result(
-                            tool_call_id,
-                            OneOrMany::one(ToolResultContent::text(result_str)),
-                        )),
-                    });
-                }
-                ChatHistoryMessage::ToolApproval { .. } => {}
-                ChatHistoryMessage::User { ref content } if !entry.file_ids.is_empty() => {
-                    let imgs: Vec<Base64Attachment> = entry
-                        .file_ids
-                        .iter()
-                        .filter_map(|id| prepared.images_by_id.get(id).cloned())
-                        .collect();
-                    rig_history.push(build_user_message(content, &imgs));
-                }
-                other => rig_history.push(other.into()),
-            }
+        let still_pending = history.pending_calls();
+        if !still_pending.is_empty() {
+            opening.extend(still_pending.iter().map(tool_request));
+            return Ok(futures::stream::iter(opening).left_stream());
         }
 
-        let mut rig_history = coalesce_tool_messages(rig_history);
+        let request = self.prepare(&agent, &mut history, &files, true).await?;
+        let (prompt, earlier) = request
+            .split_last()
+            .expect("a prepared request has a prompt");
 
-        let chat_prompt_result: Result<Message, AiError> = match turn {
-            ChatTurn::Message { .. } => Ok(prepared.current_message),
-            ChatTurn::Approval { .. } => rig_history.pop().ok_or_else(|| AiError::Fatal {
-                detail: "Approval turn received but no tool result in history".to_string(),
-            }),
-            ChatTurn::Continuation => {
-                match continuation_prompt(last_history_message.as_ref(), &mut rig_history) {
-                    Ok((prompt, synthetic)) => match synthetic {
-                        Some(synthetic) => self
-                            .conversation
-                            .append_message(synthetic)
-                            .await
-                            .map(|()| prompt)
-                            .map_err(|e| AiError::unknown(format!("{e:#}"))),
-                        None => Ok(prompt),
-                    },
-                    Err(e) => Err(e),
-                }
-            }
-        };
-        let chat_prompt = match chat_prompt_result {
-            Ok(m) => m,
-            Err(e) => {
-                self.rate_limit.release().await;
-                return Err(e);
-            }
-        };
-        self.clear_turn_error_marker().await;
-
-        let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<ToolRequestPayload>();
-        let gated_names = gated.gated_names.clone();
-        let hook = ApprovalHook::new(tx, gated.gated_names.clone());
+        let approvals = ApprovalHook::new(gated.gated_names);
+        let commit = CommitHook::new(
+            self.conversation.clone(),
+            history,
+            earlier.len(),
+            Some(approvals.clone()),
+        );
+        let usage = UsageHook::default();
+        let mut rig_stream = agent
+            .agent
+            .prompt(prompt.clone())
+            .history(earlier.to_vec())
+            .add_hook(usage.clone())
+            .add_hook(commit.clone())
+            .add_hook(approvals.clone())
+            .max_turns(8)
+            .stream();
 
         let conversation = self.conversation.clone();
         let rate_limit = self.rate_limit.clone();
 
         Ok(async_stream::stream! {
-            for ev in deferred_results { yield ev; }
+            for event in opening { yield event; }
 
             let mut thinking_span: Option<tracing::Span> = None;
-
-            let mut rig_stream = agent
-                .stream_chat(chat_prompt, rig_history)
-                .with_hook(hook)
-                .multi_turn(8)
-                .await;
-
-            let mut pending_text = String::new();
-            let mut last_tool_name = String::new();
-            let mut last_tool_call_id = String::new();
-            let mut usage_recorded = false;
+            let mut completed = false;
             let mut error_yielded = false;
             let mut paused_for_approval = false;
 
             while let Some(item) = rig_stream.next().await {
                 match item {
-                    Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::Text(t))) => {
+                    Ok(MultiTurnStreamItem::StreamAssistantItem(Item::Event(StreamEvent::Text { text, .. }))) => {
                         let _ = thinking_span.take();
-                        pending_text.push_str(&t.text);
-                        yield ChatStreamEvent::Text(t.text);
+                        yield ChatStreamEvent::Text(text);
                     }
-                    Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::ToolCall { tool_call, internal_call_id })) => {
+                    Ok(MultiTurnStreamItem::ToolCall { tool_call }) => {
                         let _ = thinking_span.take();
-                        if !pending_text.is_empty() {
-                            let _ = conversation.append_message(ChatHistoryMessage::Assistant {
-                                content: std::mem::take(&mut pending_text),
-                            }).await;
-                        }
-                        let call_id = tool_call.call_id.clone().unwrap_or(internal_call_id);
-                        let name = tool_call.function.name.clone();
-                        let args_str = serde_json::to_string(&tool_call.function.arguments).unwrap_or_default();
-                        let signature = tool_call.signature.clone();
-
-                        let _ = conversation.append_message(ChatHistoryMessage::AssistantToolCall {
-                            tool_call_id: call_id.clone(),
-                            name: name.clone(),
-                            args: args_str,
-                            signature: signature.clone(),
-                        }).await;
-
-                        last_tool_name = name.clone();
-                        last_tool_call_id = call_id.clone();
                         yield ChatStreamEvent::ToolCall {
-                            call_id,
-                            name,
-                            input: tool_call.function.arguments,
-                            signature,
+                            call_id: tool_call.id.to_string(),
+                            name: tool_call.function.name.to_string(),
+                            input: tool_call.function.arguments_value(),
                         };
                     }
-                    Ok(MultiTurnStreamItem::StreamUserItem(StreamedUserContent::ToolResult { .. })) if gated_names.contains(&last_tool_name) => {}
-                    Ok(MultiTurnStreamItem::StreamUserItem(StreamedUserContent::ToolResult { tool_result, .. })) => {
-                        let raw = match tool_result.content.first() {
-                            ToolResultContent::Text(t) => t.text.clone(),
-                            _ => String::new(),
+                    Ok(MultiTurnStreamItem::ToolResult { tool_result }) if approvals.is_pending(&tool_result.call.to_string()) => {}
+                    Ok(MultiTurnStreamItem::ToolResult { tool_result }) => {
+                        yield ChatStreamEvent::ToolResult {
+                            name: tool_result.name.to_string(),
+                            output: render_tool_result(&tool_result),
                         };
-                        let output = serde_json::from_str::<String>(&raw).unwrap_or(raw);
-                        let _ = conversation.append_message(ChatHistoryMessage::ToolResult {
-                            tool_call_id: last_tool_call_id.clone(),
-                            content: output.clone(),
-                        }).await;
-                        yield ChatStreamEvent::ToolResult { name: last_tool_name.clone(), output };
                     }
-                    Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::Reasoning(r))) => {
+                    Ok(MultiTurnStreamItem::StreamAssistantItem(Item::Event(StreamEvent::Reasoning { text, .. }))) => {
                         if thinking_span.is_none() {
                             thinking_span = Some(tracing::debug_span!("thinking"));
                         }
-                        let text = r.content.iter().filter_map(|c| match c {
-                            rig::completion::message::ReasoningContent::Text { text, .. } => Some(text.as_str()),
-                            _ => None,
-                        }).collect::<Vec<_>>().join("");
                         if !text.is_empty() {
                             yield ChatStreamEvent::Reasoning(text);
                         }
                     }
-                    Ok(MultiTurnStreamItem::StreamAssistantItem(StreamedAssistantContent::ReasoningDelta { reasoning, .. })) => {
-                        if thinking_span.is_none() {
-                            thinking_span = Some(tracing::debug_span!("thinking"));
-                        }
-                        if !reasoning.is_empty() {
-                            yield ChatStreamEvent::Reasoning(reasoning);
-                        }
-                    }
-                    Ok(MultiTurnStreamItem::FinalResponse(final_resp)) => {
-                        let usage = final_resp.usage();
+                    Ok(MultiTurnStreamItem::FinalResponse(_)) => {
+                        let spent = TokenUsage::from(usage.totals().tokens);
                         tracing::debug!(
-                            input_tokens = usage.input_tokens,
-                            output_tokens = usage.output_tokens,
+                            input_tokens = spent.input,
+                            cached_input_tokens = spent.cached_input,
+                            output_tokens = spent.output,
                             "chat stream completed"
                         );
-                        rate_limit.record_usage(usage.input_tokens, usage.output_tokens).await;
-                        usage_recorded = true;
+                        completed = true;
                         yield ChatStreamEvent::Usage {
-                            input_tokens: usage.input_tokens,
-                            output_tokens: usage.output_tokens,
+                            input_tokens: spent.input,
+                            output_tokens: spent.output,
                         };
                     }
                     Ok(_) => {}
+                    Err(PromptError::Cancelled { .. } | PromptError::MaxTurns { .. }) if !commit.has_failed() && approvals.has_pending() => {
+                        paused_for_approval = true;
+                        break;
+                    }
                     Err(e) => {
-                        if crate::models::error::is_prompt_cancelled(&e) {
-                            paused_for_approval = true;
-                            break;
-                        }
-                        let err = AiError::from(e);
-                        if !pending_text.is_empty() {
-                            let _ = conversation.append_message(ChatHistoryMessage::Assistant {
-                                content: std::mem::take(&mut pending_text),
-                            }).await;
-                        }
-                        if let Err(pe) = conversation.record_turn_error(&err).await {
-                            tracing::warn!(
-                                error = ?pe,
-                                error.type = "persist_turn_error",
-                                "failed to persist turn error"
-                            );
-                        }
+                        let err = commit.take_failure().unwrap_or_else(|| AiError::from(e));
+                        record_turn_error(&*conversation, &err).await;
                         error_yielded = true;
                         yield ChatStreamEvent::Error(err);
                         break;
@@ -406,22 +268,18 @@ where
                 }
             }
 
-            if !pending_text.is_empty() {
-                let _ = conversation.append_message(ChatHistoryMessage::Assistant {
-                    content: pending_text,
-                }).await;
+            if let Some(err) = commit.take_failure() {
+                record_turn_error(&*conversation, &err).await;
+                error_yielded = true;
+                yield ChatStreamEvent::Error(err);
             }
 
-            if !usage_recorded {
-                rate_limit.release().await;
-            }
+            charge(&*rate_limit, &usage.totals()).await;
 
-            let mut tool_requests = Vec::new();
-            while let Ok(payload) = rx.try_recv() {
-                tool_requests.push(payload);
-            }
+            let tool_requests = approvals.take_pending();
+            let tool_requests = if error_yielded { Vec::new() } else { tool_requests };
 
-            if !usage_recorded && !error_yielded && !paused_for_approval && tool_requests.is_empty() {
+            if !completed && !error_yielded && !paused_for_approval && tool_requests.is_empty() {
                 tracing::error!(
                     error.type = "stream_ended_without_completion",
                     "AI stream ended without final response, error, or pending approval"
@@ -429,13 +287,7 @@ where
                 let err = AiError::ProviderUnavailable {
                     detail: "The model stream ended unexpectedly without completing the turn".to_string(),
                 };
-                if let Err(pe) = conversation.record_turn_error(&err).await {
-                    tracing::warn!(
-                        error = ?pe,
-                        error.type = "persist_turn_error",
-                        "failed to persist turn error"
-                    );
-                }
+                record_turn_error(&*conversation, &err).await;
                 yield ChatStreamEvent::Error(err);
             }
 
@@ -455,613 +307,758 @@ where
                     }
                 }
             }
-        })
-    }
-
-    async fn clear_turn_error_marker(&self) {
-        if let Err(e) = self.conversation.clear_turn_error().await {
-            tracing::warn!(
-                error = ?e,
-                error.type = "clear_turn_error",
-                "failed to clear turn error marker"
-            );
         }
+        .right_stream())
     }
 
-    async fn load_history_and_images(
+    async fn add_message(
         &self,
-    ) -> Result<(Vec<HistoryEntry>, HashMap<Uuid, Base64Attachment>), AiError> {
-        let history_entries = self
-            .conversation
-            .load_history()
-            .await
-            .map_err(|e| AiError::unknown(format!("{e:#}")))?;
-
-        let ids: Vec<Uuid> = history_entries
-            .iter()
-            .flat_map(|e| e.file_ids.iter().copied())
-            .collect();
-        let images = self.resolve_attachments(&ids).await?;
-        let images_by_id: HashMap<Uuid, Base64Attachment> = ids.into_iter().zip(images).collect();
-
-        Ok((history_entries, images_by_id))
+        history: &mut History,
+        message: String,
+        file_ids: &[Uuid],
+    ) -> Result<HashMap<Uuid, Base64Attachment>, AiError> {
+        let files = self.files(history, file_ids).await?;
+        let passed_over = history.pending_calls();
+        if !passed_over.is_empty() {
+            history.push(pairing::close_pending_with(&passed_over, SUPERSEDED));
+        }
+        history.push(history::user_message(message, file_ids, &files));
+        Ok(files)
     }
 
-    async fn resolve_attachments(&self, ids: &[Uuid]) -> Result<Vec<Base64Attachment>, AiError> {
-        if ids.is_empty() {
-            return Ok(Vec::new());
+    async fn decide(
+        &self,
+        history: &mut History,
+        gated: &GatedToolSet,
+        approvals: Vec<(String, bool)>,
+    ) -> Result<(Vec<ChatStreamEvent>, bool), AiError> {
+        let pending = history.pending_calls();
+        let already_decided = history::decided_calls(history);
+        let after = history
+            .messages()
+            .len()
+            .checked_sub(1)
+            .and_then(|last| history.id(last));
+        let mut events = Vec::new();
+        let mut decided: Vec<(&ToolCall, bool)> = Vec::new();
+
+        for (tool_call_id, approved) in approvals {
+            let call = pending.iter().find(|call| {
+                call.id.to_string() == tool_call_id
+                    && !already_decided.contains(&tool_call_id)
+                    && !decided.iter().any(|(chosen, _)| chosen.id == call.id)
+            });
+            let Some(call) = call else {
+                events.push(ChatStreamEvent::Error(AiError::unknown(format!(
+                    "No pending tool call found for approval: {tool_call_id}"
+                ))));
+                continue;
+            };
+            history.add_aside(history::tool_approval(tool_call_id, approved, after));
+            decided.push((call, approved));
         }
-        self.conversation
-            .fetch_attachments(ids)
+        if decided.is_empty() {
+            return Ok((events, false));
+        }
+        history::save(&*self.conversation, history).await?;
+
+        let mut results: Vec<UserContent> = Vec::new();
+        for (call, approved) in decided {
+            if approved {
+                let result = gated
+                    .toolset
+                    .execute(
+                        call.function.name.as_ref(),
+                        call.function.raw_arguments(),
+                        &mut ToolContext::new(),
+                    )
+                    .await;
+                let result = call.answer(&result);
+                events.push(ChatStreamEvent::ToolResult {
+                    name: result.name.to_string(),
+                    output: render_tool_result(&result),
+                });
+                results.push(UserContent::ToolResult(result));
+            } else if let Message::User { content } = pairing::close_pending_with([call], DECLINED)
+            {
+                results.extend(content);
+            }
+        }
+        history.push(Message::User { content: results });
+        history::save(&*self.conversation, history).await?;
+        Ok((events, true))
+    }
+
+    async fn files(
+        &self,
+        history: &History,
+        new_files: &[Uuid],
+    ) -> Result<HashMap<Uuid, Base64Attachment>, AiError> {
+        let mut ids = history::referenced_files(history.messages());
+        ids.extend(
+            new_files
+                .iter()
+                .filter(|id| !ids.contains(id))
+                .copied()
+                .collect::<Vec<_>>(),
+        );
+        if ids.is_empty() {
+            return Ok(HashMap::new());
+        }
+        let attachments = self
+            .conversation
+            .fetch_attachments(&ids)
             .await
             .map_err(|e| AiError::InvalidAttachment {
                 detail: format!("{e:#}"),
-            })
+            })?;
+        Ok(ids.into_iter().zip(attachments).collect())
     }
 
-    async fn prepare_new(
+    async fn prepare(
         &self,
-        message: String,
-        file_ids: Vec<Uuid>,
-        skip_record: bool,
-    ) -> Result<PreparedTurn, AiError> {
-        let (history_entries, images_by_id) = self.load_history_and_images().await?;
-        let current_images = self.resolve_attachments(&file_ids).await?;
-
-        let history_messages: Vec<ChatHistoryMessage> =
-            history_entries.iter().map(|e| e.message.clone()).collect();
+        agent: &ModelAgent,
+        history: &mut History,
+        files: &HashMap<Uuid, Base64Attachment>,
+        persist: bool,
+    ) -> Result<Vec<Message>, AiError> {
+        if !history.awaits_model() {
+            return Err(AiError::Fatal {
+                detail: "Conversation has no interrupted turn to continue".to_string(),
+            });
+        }
+        let request = history::resolve(history.messages(), files);
         self.rate_limit
-            .pre_check(&message, &current_images, &history_messages)
+            .pre_check(request_tokens(agent, &request).await)
             .await?;
-
-        if !skip_record {
-            if let Err(e) = self
-                .conversation
-                .record_user_message(message.clone(), &file_ids)
-                .await
-            {
+        if persist {
+            if let Err(error) = history::save(&*self.conversation, history).await {
                 self.rate_limit.release().await;
-                return Err(AiError::unknown(format!("{e:#}")));
+                return Err(error);
+            }
+            if let Err(e) = self.conversation.clear_turn_error().await {
+                tracing::warn!(
+                    error = ?e,
+                    error.type = "clear_turn_error",
+                    "failed to clear turn error marker"
+                );
             }
         }
-
-        let rig_history = build_rig_history(&history_entries, &images_by_id);
-        let current_message = build_user_message(&message, &current_images);
-
-        Ok(PreparedTurn {
-            rig_history,
-            current_message,
-            history_entries,
-            images_by_id,
-        })
+        Ok(request)
     }
 
-    async fn prepare_continuation(&self) -> Result<PreparedTurn, AiError> {
-        let (history_entries, images_by_id) = self.load_history_and_images().await?;
-
-        let last_history_message = history_entries.last().map(|e| e.message.clone());
-        let mut rig_history = build_rig_history(&history_entries, &images_by_id);
-        let (current_message, synthetic) =
-            continuation_prompt(last_history_message.as_ref(), &mut rig_history)?;
-        if let Some(synthetic) = synthetic {
-            self.conversation
-                .append_message(synthetic)
-                .await
-                .map_err(|e| AiError::unknown(format!("{e:#}")))?;
-        }
-
-        // Rate-limit on the user content being replayed. When the replayed turn
-        // is a user message, attribute it to the current turn (not history) so
-        // it isn't double-counted; a resumed tool/approval turn adds no new
-        // user input.
-        let (current_text, current_images, prior_messages): (
-            String,
-            Vec<Base64Attachment>,
-            Vec<ChatHistoryMessage>,
-        ) = match history_entries.split_last() {
-            Some((last, prior)) if matches!(last.message, ChatHistoryMessage::User { .. }) => {
-                let ChatHistoryMessage::User { content } = &last.message else {
-                    unreachable!("matched a user message above")
-                };
-                let imgs = last
-                    .file_ids
-                    .iter()
-                    .filter_map(|id| images_by_id.get(id).cloned())
-                    .collect();
-                let prior_msgs = prior.iter().map(|e| e.message.clone()).collect();
-                (content.clone(), imgs, prior_msgs)
-            }
-            _ => {
-                let all = history_entries.iter().map(|e| e.message.clone()).collect();
-                (String::new(), Vec::new(), all)
-            }
-        };
-        self.rate_limit
-            .pre_check(&current_text, &current_images, &prior_messages)
-            .await?;
-
-        Ok(PreparedTurn {
-            rig_history,
-            current_message,
-            history_entries,
-            images_by_id,
-        })
+    async fn record_turn_error(&self, error: &AiError) {
+        record_turn_error(&*self.conversation, error).await;
     }
 }
 
-struct PreparedTurn {
-    rig_history: Vec<Message>,
-    current_message: Message,
-    history_entries: Vec<HistoryEntry>,
-    images_by_id: HashMap<Uuid, Base64Attachment>,
-}
-
-fn continuation_prompt(
-    last_history: Option<&ChatHistoryMessage>,
-    rig_history: &mut Vec<Message>,
-) -> Result<(Message, Option<ChatHistoryMessage>), AiError> {
-    let mut synthetic = None;
-    if let Some(ChatHistoryMessage::AssistantToolCall { tool_call_id, .. }) = last_history {
-        let msg = ChatHistoryMessage::ToolResult {
-            tool_call_id: tool_call_id.clone(),
-            content: "Tool execution was interrupted before completing.".to_string(),
-        };
-        rig_history.push(msg.clone().into());
-        synthetic = Some(msg);
-    }
-    match rig_history.pop() {
-        Some(msg @ Message::User { .. }) => Ok((msg, synthetic)),
-        _ => Err(AiError::Fatal {
-            detail: "Conversation has no interrupted turn to continue".to_string(),
-        }),
+async fn charge<R: RateLimitProvider>(rate_limit: &R, spent: &UsageTotals) {
+    if spent.calls == 0 {
+        rate_limit.release().await;
+    } else {
+        let spent = TokenUsage::from(spent.tokens);
+        rate_limit.record_usage(spent.input, spent.output).await;
     }
 }
 
-fn build_user_message(text: &str, attachments: &[Base64Attachment]) -> Message {
-    if attachments.is_empty() {
-        return Message::user(text);
-    }
-
-    let mut contents: Vec<UserContent> = vec![UserContent::text(text)];
-    for att in attachments {
-        match attachment_to_user_content(att) {
-            Some(uc) => contents.push(uc),
-            None => tracing::warn!(
-                media_type = %att.media_type,
-                "Skipping unsupported attachment"
-            ),
-        }
-    }
-    Message::User {
-        content: OneOrMany::many(contents)
-            .unwrap_or_else(|_| OneOrMany::one(UserContent::text(text))),
+async fn record_turn_error<C: ConversationProvider>(conversation: &C, error: &AiError) {
+    if let Err(pe) = conversation.record_turn_error(error).await {
+        tracing::warn!(
+            error = ?pe,
+            error.type = "persist_turn_error",
+            "failed to persist turn error"
+        );
     }
 }
 
-/// Gemini expects parallel tool calls and their results grouped as a single
-/// model turn followed by a single tool-result turn. Persisted history stores
-/// each call/result as its own row, so merge adjacent same-kind messages back
-/// into that shape before sending.
-fn coalesce_tool_messages(messages: Vec<Message>) -> Vec<Message> {
-    let mut out: Vec<Message> = Vec::with_capacity(messages.len());
-    for msg in messages {
-        let merged = match (out.last_mut(), &msg) {
-            (
-                Some(Message::Assistant { content: prev, .. }),
-                Message::Assistant { content: cur, .. },
-            ) if is_all_tool_calls(prev) && is_all_tool_calls(cur) => {
-                cur.iter().for_each(|item| prev.push(item.clone()));
-                true
-            }
-            (Some(Message::User { content: prev }), Message::User { content: cur })
-                if is_all_tool_results(prev) && is_all_tool_results(cur) =>
-            {
-                cur.iter().for_each(|item| prev.push(item.clone()));
-                true
-            }
-            _ => false,
-        };
-        if !merged {
-            out.push(msg);
-        }
+fn tool_request(call: &ToolCall) -> ChatStreamEvent {
+    ChatStreamEvent::ToolRequest {
+        tool_call_id: call.id.to_string(),
+        name: call.function.name.to_string(),
+        args: call.function.arguments_value(),
     }
-    out
 }
 
-fn is_all_tool_calls(content: &OneOrMany<AssistantContent>) -> bool {
-    content
-        .iter()
-        .all(|c| matches!(c, AssistantContent::ToolCall(_)))
-}
-
-fn is_all_tool_results(content: &OneOrMany<UserContent>) -> bool {
-    content
-        .iter()
-        .all(|c| matches!(c, UserContent::ToolResult(_)))
-}
-
-fn build_rig_history(
-    entries: &[HistoryEntry],
-    images_by_id: &HashMap<Uuid, Base64Attachment>,
-) -> Vec<Message> {
-    let mut out = Vec::with_capacity(entries.len());
-    for entry in entries {
-        match &entry.message {
-            ChatHistoryMessage::User { content } if !entry.file_ids.is_empty() => {
-                let imgs: Vec<Base64Attachment> = entry
-                    .file_ids
-                    .iter()
-                    .filter_map(|id| images_by_id.get(id).cloned())
-                    .collect();
-                out.push(build_user_message(content, &imgs));
-            }
-            ChatHistoryMessage::ToolApproval { .. } => {}
-            _ => out.push(entry.message.clone().into()),
-        }
+async fn request_tokens(agent: &ModelAgent, messages: &[Message]) -> u64 {
+    let tools = agent.agent.tool_definitions(None).await.unwrap_or_default();
+    let spec = agent.agent.run_spec();
+    let conversation = History::from_messages(messages.iter().cloned());
+    let estimate = rig::memory::Prepared {
+        model: &agent.model,
+        prompt: spec.preamble.as_deref(),
+        tools: &tools,
+        history: &conversation,
     }
-    out
-}
-
-fn convert_messages_to_history(messages: Vec<Message>) -> Vec<ChatHistoryMessage> {
-    messages
-        .into_iter()
-        .flat_map(message_to_history_items)
-        .collect()
-}
-
-fn messages_to_persist(
-    response_messages: Vec<Message>,
-    history_len: usize,
-) -> Vec<ChatHistoryMessage> {
-    let new_messages: Vec<Message> = response_messages
-        .into_iter()
-        .skip(history_len + 1)
-        .collect();
-    convert_messages_to_history(new_messages)
-        .into_iter()
-        .filter(|msg| {
-            !matches!(
-                msg,
-                ChatHistoryMessage::User { .. } | ChatHistoryMessage::ToolApproval { .. }
-            )
-        })
-        .collect()
-}
-
-fn message_to_history_items(message: Message) -> Vec<ChatHistoryMessage> {
-    use rig::completion::message::AssistantContent;
-    match message {
-        Message::User { content } => {
-            let mut items = Vec::new();
-            for item in content.iter() {
-                match item {
-                    UserContent::Text(t) => items.push(ChatHistoryMessage::User {
-                        content: t.text.clone(),
-                    }),
-                    UserContent::ToolResult(tr) => {
-                        let content_text = tr
-                            .content
-                            .iter()
-                            .filter_map(|c| match c {
-                                ToolResultContent::Text(t) => Some(t.text.clone()),
-                                _ => None,
-                            })
-                            .collect::<Vec<_>>()
-                            .join("\n");
-                        items.push(ChatHistoryMessage::ToolResult {
-                            tool_call_id: tr.id.clone(),
-                            content: content_text,
-                        });
-                    }
-                    _ => {}
-                }
-            }
-            items
-        }
-        Message::Assistant { content, .. } => {
-            let mut items = Vec::new();
-            for item in content.iter() {
-                match item {
-                    AssistantContent::Text(t) => items.push(ChatHistoryMessage::Assistant {
-                        content: t.text.clone(),
-                    }),
-                    AssistantContent::ToolCall(tc) => {
-                        let args = serde_json::to_string(&tc.function.arguments)
-                            .unwrap_or_else(|_| "{}".to_string());
-                        let call_id = tc.call_id.clone().unwrap_or_else(|| tc.id.clone());
-                        items.push(ChatHistoryMessage::AssistantToolCall {
-                            tool_call_id: call_id,
-                            name: tc.function.name.clone(),
-                            args,
-                            signature: tc.signature.clone(),
-                        });
-                    }
-                    _ => {}
-                }
-            }
-            items
-        }
-        Message::System { content } => {
-            tracing::warn!(
-                len = content.len(),
-                "dropping unexpected mid-conversation system message (not representable in ChatHistoryMessage)"
-            );
-            Vec::new()
-        }
-    }
+    .whole_tokens();
+    tracing::debug!(estimate, "estimated request tokens");
+    estimate
 }
 
 #[cfg(test)]
 mod tests {
+    use rig::conversation::Conversation as History;
+    use serde_json::{json, Value};
+
     use super::*;
-    use crate::models::chat::ChatHistoryMessage;
-    use rig::completion::message::{ToolCall, ToolFunction};
+    use crate::models::history::TranscriptEntry;
+    use crate::test_support::{
+        gemini_parts, CountingLimit, FakeModel, FeeActions, MemoryConversation, NoLimit, Reply,
+    };
+    use crate::tools::record_fee::RecordFeeTool;
+    use crate::tools::run_script::RunScriptTool;
 
-    fn rig_history_from(messages: &[ChatHistoryMessage]) -> Vec<Message> {
-        messages.iter().cloned().map(Into::into).collect()
+    fn reply(parts: Value) -> Value {
+        json!({
+            "candidates": [{"content": {"role": "model", "parts": parts}, "finishReason": "STOP"}],
+            "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "totalTokenCount": 15}
+        })
     }
 
-    #[test]
-    fn continuation_after_tool_result_pops_it_as_prompt() {
-        let history = vec![
-            ChatHistoryMessage::User {
-                content: "hi".into(),
-            },
-            ChatHistoryMessage::ToolResult {
-                tool_call_id: "c1".into(),
-                content: "result".into(),
-            },
-        ];
-        let mut rig = rig_history_from(&history);
-        let (prompt, synthetic) = continuation_prompt(history.last(), &mut rig).unwrap();
-        let Message::User { content } = &prompt else {
-            panic!("expected user prompt");
-        };
-        assert!(content
-            .iter()
-            .any(|c| matches!(c, UserContent::ToolResult(tr) if tr.id == "c1")));
-        assert!(synthetic.is_none());
-        assert_eq!(rig.len(), 1);
+    fn text(text: &str) -> Value {
+        reply(json!([{ "text": text }]))
     }
 
-    #[test]
-    fn continuation_after_dangling_tool_call_synthesizes_result() {
-        let history = vec![
-            ChatHistoryMessage::User {
-                content: "hi".into(),
-            },
-            ChatHistoryMessage::AssistantToolCall {
-                tool_call_id: "c1".into(),
-                name: "search".into(),
-                args: "{}".into(),
-                signature: None,
-            },
-        ];
-        let mut rig = rig_history_from(&history);
-        let (prompt, synthetic) = continuation_prompt(history.last(), &mut rig).unwrap();
-        let Message::User { content } = &prompt else {
-            panic!("expected user prompt");
-        };
-        assert!(content
-            .iter()
-            .any(|c| matches!(c, UserContent::ToolResult(tr) if tr.id == "c1")));
-        assert_eq!(rig.len(), 2);
-        let Some(ChatHistoryMessage::ToolResult { tool_call_id, .. }) = synthetic else {
-            panic!("expected synthetic tool result");
-        };
-        assert_eq!(tool_call_id, "c1");
+    fn run_script_call(id: &str) -> Value {
+        json!({"functionCall": {"id": id, "name": "run_script", "args": {"script": "1 + 1"}}, "thoughtSignature": "c2lnbmF0dXJl"})
     }
 
-    #[test]
-    fn continuation_after_bare_user_message_reuses_it() {
-        let history = vec![ChatHistoryMessage::User {
-            content: "hi".into(),
-        }];
-        let mut rig = rig_history_from(&history);
-        let (prompt, synthetic) = continuation_prompt(history.last(), &mut rig).unwrap();
-        assert!(matches!(prompt, Message::User { .. }));
-        assert!(synthetic.is_none());
-        assert!(rig.is_empty());
+    fn fee_call(id: &str, amount: f64) -> Value {
+        json!({"functionCall": {"id": id, "name": "record_fee", "args": {
+            "account_id": "00000000-0000-0000-0000-000000000000", "asset_id": 45, "amount": amount
+        }}})
     }
 
-    #[test]
-    fn continuation_after_final_assistant_text_is_rejected() {
-        let history = vec![
-            ChatHistoryMessage::User {
-                content: "hi".into(),
-            },
-            ChatHistoryMessage::Assistant {
-                content: "done".into(),
-            },
-        ];
-        let mut rig = rig_history_from(&history);
-        assert!(continuation_prompt(history.last(), &mut rig).is_err());
-    }
-
-    #[test]
-    fn continuation_on_empty_history_is_rejected() {
-        let mut rig = Vec::new();
-        assert!(continuation_prompt(None, &mut rig).is_err());
-    }
-
-    #[test]
-    fn persist_excludes_fed_history_and_prompt() {
-        // A correction turn: rig is fed the prior turn's history, then the
-        // correction prompt, and returns `[history..., prompt, new turn...]`.
-        // Only the new turn's messages must be persisted — re-persisting the
-        // history is what bloated conversations on every correction.
-        let prior = vec![
-            ChatHistoryMessage::User {
-                content: "analyze receipt".into(),
-            },
-            ChatHistoryMessage::AssistantToolCall {
-                tool_call_id: "t1".into(),
-                name: "search".into(),
-                args: "{}".into(),
-                signature: None,
-            },
-            ChatHistoryMessage::ToolResult {
-                tool_call_id: "t1".into(),
-                content: "[]".into(),
-            },
-            ChatHistoryMessage::Assistant {
-                content: "proposal v1".into(),
-            },
-        ];
-        let fed_history = rig_history_from(&prior);
-        let history_len = fed_history.len();
-
-        let prompt: Message = ChatHistoryMessage::User {
-            content: "make this a group".into(),
+    fn message(text: &str) -> ChatTurn {
+        ChatTurn::Message {
+            message: text.to_string(),
+            file_ids: Vec::new(),
         }
-        .into();
-
-        let new_turn = vec![
-            ChatHistoryMessage::AssistantToolCall {
-                tool_call_id: "t2".into(),
-                name: "search".into(),
-                args: "{}".into(),
-                signature: None,
-            },
-            ChatHistoryMessage::ToolResult {
-                tool_call_id: "t2".into(),
-                content: "[]".into(),
-            },
-            ChatHistoryMessage::Assistant {
-                content: "proposal v2".into(),
-            },
-        ];
-
-        let mut response_messages = fed_history.clone();
-        response_messages.push(prompt);
-        response_messages.extend(rig_history_from(&new_turn));
-
-        let persisted = messages_to_persist(response_messages, history_len);
-
-        assert_eq!(persisted.len(), 3, "only the new turn should be persisted");
-        assert!(matches!(
-            &persisted[0],
-            ChatHistoryMessage::AssistantToolCall { tool_call_id, .. } if tool_call_id == "t2"
-        ));
-        assert!(matches!(
-            &persisted[1],
-            ChatHistoryMessage::ToolResult { tool_call_id, .. } if tool_call_id == "t2"
-        ));
-        assert!(matches!(
-            &persisted[2],
-            ChatHistoryMessage::Assistant { content } if content == "proposal v2"
-        ));
-        // The prior turn's messages and the prompt must not be re-persisted.
-        assert!(!persisted.iter().any(
-            |m| matches!(m, ChatHistoryMessage::Assistant { content } if content == "proposal v1")
-        ));
-        assert!(!persisted
-            .iter()
-            .any(|m| matches!(m, ChatHistoryMessage::AssistantToolCall { tool_call_id, .. } if tool_call_id == "t1")));
     }
 
-    #[test]
-    fn persist_excludes_replayed_tool_result_prompt_on_continuation() {
-        // Resuming an interrupted turn: `continuation_prompt` pops the trailing
-        // tool result to use as the prompt. That prompt converts to a
-        // `ToolResult` (not `User`), so it must be excluded by position — the
-        // role filter alone would re-persist it.
-        let history = vec![
-            ChatHistoryMessage::User {
-                content: "hi".into(),
-            },
-            ChatHistoryMessage::ToolResult {
-                tool_call_id: "c1".into(),
-                content: "interrupted result".into(),
-            },
-        ];
-        let mut rig_history = rig_history_from(&history);
-        let (prompt, synthetic) = continuation_prompt(history.last(), &mut rig_history).unwrap();
-        assert!(synthetic.is_none());
-        let history_len = rig_history.len();
+    fn chat_agent(model: &FakeModel, actions: &Arc<FeeActions>) -> ModelAgent {
+        let actions = actions.clone();
+        model.agent(|builder| {
+            builder
+                .tool(RunScriptTool::new(rig::tool::ToolSet::default()))
+                .tool(RecordFeeTool::new(actions))
+        })
+    }
 
-        let new_turn = vec![ChatHistoryMessage::Assistant {
-            content: "final answer".into(),
-        }];
-        let mut response_messages = rig_history.clone();
-        response_messages.push(prompt);
-        response_messages.extend(rig_history_from(&new_turn));
+    async fn stream(
+        conversation: &Arc<MemoryConversation>,
+        model: &FakeModel,
+        actions: &Arc<FeeActions>,
+        turn: ChatTurn,
+    ) -> Vec<ChatStreamEvent> {
+        Conversation::new(conversation.clone(), Arc::new(NoLimit))
+            .stream(chat_agent(model, actions), actions.clone(), turn)
+            .await
+            .unwrap()
+            .collect()
+            .await
+    }
 
-        let persisted = messages_to_persist(response_messages, history_len);
+    async fn saved(conversation: &MemoryConversation) -> History {
+        history::load(conversation).await.unwrap()
+    }
 
-        assert_eq!(persisted.len(), 1);
-        assert!(matches!(
-            &persisted[0],
-            ChatHistoryMessage::Assistant { content } if content == "final answer"
-        ));
-        assert!(
-            !persisted
-                .iter()
-                .any(|m| matches!(m, ChatHistoryMessage::ToolResult { .. })),
-            "the replayed tool result used as the prompt must not be persisted again"
+    fn pending(history: &History) -> Vec<String> {
+        history
+            .pending_calls()
+            .iter()
+            .map(|call| call.id.to_string())
+            .collect()
+    }
+
+    fn tool_results(request: &Value) -> Vec<Value> {
+        gemini_parts(request)
+            .into_iter()
+            .filter_map(|part| part.get("functionResponse").cloned())
+            .collect()
+    }
+
+    fn errors(events: &[ChatStreamEvent]) -> Vec<&AiError> {
+        events
+            .iter()
+            .filter_map(|event| match event {
+                ChatStreamEvent::Error(error) => Some(error),
+                _ => None,
+            })
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn an_ephemeral_run_saves_nothing() {
+        let model = FakeModel::start(vec![Reply::Json(text("A Title"))]).await;
+        let conversation = Arc::new(MemoryConversation::default());
+
+        Conversation::new(conversation.clone(), Arc::new(NoLimit))
+            .run(
+                model.agent(|builder| builder),
+                message("title this"),
+                Persistence::Ephemeral,
+            )
+            .await
+            .unwrap();
+
+        assert!(conversation.history().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_message_with_files_saves_references_and_sends_the_files() {
+        let image = Uuid::new_v4();
+        let statement = Uuid::new_v4();
+        let csv = Uuid::new_v4();
+        let model = FakeModel::start(vec![Reply::Json(text("seen"))]).await;
+        let conversation = Arc::new(
+            MemoryConversation::default()
+                .with_file(image, "image/png", b"PNG receipt")
+                .with_file(statement, "application/pdf", b"%PDF-1.7 statement")
+                .with_file(csv, "text/csv", b"date,amount\n2026-10-01,-12.50\n"),
         );
+
+        Conversation::new(conversation.clone(), Arc::new(NoLimit))
+            .run(
+                model.agent(|builder| builder),
+                ChatTurn::Message {
+                    message: "what are these".into(),
+                    file_ids: vec![image, statement, csv],
+                },
+                Persistence::Persist,
+            )
+            .await
+            .unwrap();
+
+        let saved = String::from_utf8(conversation.history()).unwrap();
+        assert!(!saved.contains("UE5HIHJlY2VpcHQ=") && !saved.contains("2026-10-01"));
+        let parts = gemini_parts(&model.requests()[0]);
+        let mime_types: Vec<&Value> = parts
+            .iter()
+            .filter_map(|part| part.pointer("/inlineData/mimeType"))
+            .collect();
+        assert_eq!(mime_types, vec!["image/png", "application/pdf"]);
+        assert!(parts
+            .iter()
+            .any(|part| part["text"] == "date,amount\n2026-10-01,-12.50\n"));
+        let items = history::transcript(&conversation.history()).unwrap();
+        assert_eq!(items[0].file_ids, vec![image, statement, csv]);
     }
 
-    fn asst_call(id: &str) -> Message {
-        Message::Assistant {
-            id: None,
-            content: OneOrMany::one(AssistantContent::ToolCall(ToolCall::new(
-                id.to_string(),
-                ToolFunction::new("record_asset_trade".to_string(), serde_json::json!({})),
-            ))),
+    #[tokio::test]
+    async fn a_gated_call_pauses_the_stream_and_its_neighbour_still_runs() {
+        let model = FakeModel::start(vec![Reply::Sse(reply(json!([
+            run_script_call("c1"),
+            fee_call("c2", 1.5)
+        ])))])
+        .await;
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+
+        let events = stream(&conversation, &model, &actions, message("record a fee")).await;
+
+        assert!(events.iter().any(|event| matches!(event,
+            ChatStreamEvent::ToolResult { name, output } if name == "run_script" && output.contains("\"result\":2"))));
+        assert!(events.iter().any(|event| matches!(event,
+            ChatStreamEvent::ToolRequest { tool_call_id, name, .. } if tool_call_id == "c2" && name == "record_fee")));
+        assert!(errors(&events).is_empty());
+        assert!(actions.fees.lock().unwrap().is_empty());
+        let history = saved(&conversation).await;
+        assert_eq!(pending(&history), vec!["c2"]);
+        assert_eq!(history.messages().len(), 3);
+        let can_continue = Conversation::new(conversation.clone(), Arc::new(NoLimit))
+            .can_continue()
+            .await
+            .unwrap();
+        assert!(!can_continue);
+    }
+
+    #[tokio::test]
+    async fn approving_one_call_and_declining_another_resumes_the_model_with_both_answers() {
+        let model = FakeModel::start(vec![
+            Reply::Sse(reply(json!([
+                {"text": "Two fees to record.", "thought": true},
+                fee_call("c1", 1.5),
+                fee_call("c2", 2.5)
+            ]))),
+            Reply::Sse(text("Recorded one fee and skipped the other.")),
+        ])
+        .await;
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+
+        let paused = stream(&conversation, &model, &actions, message("record two fees")).await;
+        let requested: Vec<&String> = paused
+            .iter()
+            .filter_map(|event| match event {
+                ChatStreamEvent::ToolRequest { tool_call_id, .. } => Some(tool_call_id),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(requested, vec!["c1", "c2"]);
+
+        let resumed = stream(
+            &conversation,
+            &model,
+            &actions,
+            ChatTurn::Approval {
+                approvals: vec![("c1".into(), true), ("c2".into(), false)],
+            },
+        )
+        .await;
+
+        assert!(errors(&resumed).is_empty());
+        assert!(resumed.iter().any(|event| matches!(event,
+            ChatStreamEvent::ToolResult { name, output } if name == "record_fee" && output.contains("Recorded a fee of 1.5"))));
+        assert!(resumed
+            .iter()
+            .any(|event| matches!(event, ChatStreamEvent::Text(_))));
+        assert_eq!(*actions.fees.lock().unwrap(), vec!["1.5"]);
+
+        let resume_request = &model.requests()[1];
+        let answers = tool_results(resume_request);
+        assert_eq!(answers.len(), 2);
+        assert_eq!(answers[0]["id"], "c1");
+        assert!(answers[1].to_string().contains(DECLINED));
+        assert!(gemini_parts(resume_request)
+            .iter()
+            .any(|part| part["thought"] == true && part["text"] == "Two fees to record."));
+
+        let history = saved(&conversation).await;
+        assert!(pending(&history).is_empty());
+        assert!(!history.awaits_model());
+        let approvals: Vec<(String, bool)> = history::transcript(&conversation.history())
+            .unwrap()
+            .into_iter()
+            .filter_map(|item| match item.entry {
+                TranscriptEntry::ToolApproval {
+                    tool_call_id,
+                    approved,
+                } => Some((tool_call_id, approved)),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(approvals, vec![("c1".into(), true), ("c2".into(), false)]);
+    }
+
+    #[tokio::test]
+    async fn a_call_replayed_from_the_saved_history_keeps_its_signature() {
+        let model = FakeModel::start(vec![
+            Reply::Sse(reply(json!([run_script_call("c1")]))),
+            Reply::Sse(text("It is 2.")),
+            Reply::Sse(text("You're welcome.")),
+        ])
+        .await;
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+
+        stream(&conversation, &model, &actions, message("what is 1 + 1")).await;
+        stream(&conversation, &model, &actions, message("thanks")).await;
+
+        let signatures: Vec<Value> = gemini_parts(&model.requests()[2])
+            .into_iter()
+            .filter_map(|part| part.get("thoughtSignature").cloned())
+            .collect();
+        assert_eq!(signatures, vec![json!("c2lnbmF0dXJl")]);
+    }
+
+    #[tokio::test]
+    async fn a_model_call_that_fails_after_a_tool_ran_keeps_the_tool_and_can_be_retried() {
+        let model = FakeModel::start(vec![
+            Reply::Sse(reply(json!([run_script_call("c1")]))),
+            Reply::Status(
+                400,
+                json!({"error": {"code": 400, "message": "bad request", "status": "INVALID_ARGUMENT"}}),
+            ),
+            Reply::Sse(text("It is 2.")),
+        ])
+        .await;
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+
+        let failed = stream(&conversation, &model, &actions, message("what is 1 + 1")).await;
+
+        assert!(matches!(errors(&failed)[..], [AiError::Fatal { .. }]));
+        assert_eq!(conversation.turn_errors.lock().unwrap().len(), 1);
+        assert_eq!(saved(&conversation).await.messages().len(), 3);
+        let wrapper = Conversation::new(conversation.clone(), Arc::new(NoLimit));
+        assert!(wrapper.can_continue().await.unwrap());
+
+        let retried = stream(&conversation, &model, &actions, ChatTurn::Continuation).await;
+
+        assert!(errors(&retried).is_empty());
+        assert!(!retried
+            .iter()
+            .any(|event| matches!(event, ChatStreamEvent::ToolResult { .. })));
+        assert_eq!(tool_results(&model.requests()[2]).len(), 1);
+        assert!(!wrapper.can_continue().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn a_new_message_answers_calls_left_waiting_for_approval() {
+        let model = FakeModel::start(vec![
+            Reply::Sse(reply(json!([fee_call("c1", 1.5)]))),
+            Reply::Sse(text("Okay, never mind the fee.")),
+        ])
+        .await;
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+
+        stream(&conversation, &model, &actions, message("record a fee")).await;
+        stream(&conversation, &model, &actions, message("actually, don't")).await;
+
+        let answers = tool_results(&model.requests()[1]);
+        assert_eq!(answers.len(), 1);
+        assert!(answers[0].to_string().contains(SUPERSEDED));
+        assert!(actions.fees.lock().unwrap().is_empty());
+        assert!(pending(&saved(&conversation).await).is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_finished_conversation_has_nothing_to_continue() {
+        let model = FakeModel::start(vec![Reply::Json(text("done"))]).await;
+        let conversation = Arc::new(MemoryConversation::default());
+        let wrapper = Conversation::new(conversation.clone(), Arc::new(NoLimit));
+        wrapper
+            .run(
+                model.agent(|builder| builder),
+                message("hello"),
+                Persistence::Persist,
+            )
+            .await
+            .unwrap();
+
+        assert!(!wrapper.can_continue().await.unwrap());
+        let continued = wrapper
+            .run(
+                model.agent(|builder| builder),
+                ChatTurn::Continuation,
+                Persistence::Persist,
+            )
+            .await;
+        assert!(matches!(continued, Err(AiError::Fatal { .. })));
+    }
+
+    async fn pause_on_a_fee(
+        conversation: &Arc<MemoryConversation>,
+        actions: &Arc<FeeActions>,
+        replies: Vec<Reply>,
+    ) -> FakeModel {
+        let mut all = vec![Reply::Sse(reply(json!([fee_call("c1", 1.5)])))];
+        all.extend(replies);
+        let model = FakeModel::start(all).await;
+        stream(conversation, &model, actions, message("record a fee")).await;
+        model
+    }
+
+    fn approve(id: &str) -> ChatTurn {
+        ChatTurn::Approval {
+            approvals: vec![(id.into(), true)],
         }
     }
 
-    fn tool_result(id: &str) -> Message {
-        Message::User {
-            content: OneOrMany::one(UserContent::tool_result(
-                id.to_string(),
-                OneOrMany::one(ToolResultContent::text("ok")),
-            )),
+    #[tokio::test]
+    async fn a_repeated_approval_runs_the_call_once() {
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+        let model =
+            pause_on_a_fee(&conversation, &actions, vec![Reply::Sse(text("Recorded."))]).await;
+
+        let doubled = ChatTurn::Approval {
+            approvals: vec![("c1".into(), true), ("c1".into(), true)],
+        };
+        let first = stream(&conversation, &model, &actions, doubled).await;
+        let again = stream(&conversation, &model, &actions, approve("c1")).await;
+
+        assert_eq!(*actions.fees.lock().unwrap(), vec!["1.5"]);
+        assert_eq!(errors(&first).len(), 1);
+        assert!(matches!(errors(&again)[..], [AiError::Unknown { .. }]));
+        assert_eq!(model.requests().len(), 2);
+        let answers = tool_results(&model.requests()[1]);
+        assert_eq!(answers.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn an_approval_that_another_request_got_to_first_runs_nothing() {
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+        let model = pause_on_a_fee(&conversation, &actions, Vec::new()).await;
+        conversation
+            .refuse_writes
+            .store(true, std::sync::atomic::Ordering::SeqCst);
+
+        let refused = Conversation::new(conversation.clone(), Arc::new(NoLimit))
+            .stream(chat_agent(&model, &actions), actions.clone(), approve("c1"))
+            .await;
+
+        assert!(matches!(refused.err(), Some(AiError::ConcurrencyLimited)));
+        assert!(actions.fees.lock().unwrap().is_empty());
+    }
+
+    #[tokio::test]
+    async fn a_failed_turn_with_calls_is_answered_so_it_can_be_retried() {
+        let failed = json!({
+            "candidates": [{"content": {"role": "model", "parts": [run_script_call("c1")]}, "finishReason": "UNEXPECTED_TOOL_CALL"}],
+            "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 5, "totalTokenCount": 15}
+        });
+        let model = FakeModel::start(vec![Reply::Sse(failed)]).await;
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+
+        let events = stream(&conversation, &model, &actions, message("what is 1 + 1")).await;
+
+        assert_eq!(errors(&events).len(), 1);
+        assert!(!events
+            .iter()
+            .any(|event| matches!(event, ChatStreamEvent::ToolRequest { .. })));
+        let history = saved(&conversation).await;
+        assert!(pending(&history).is_empty());
+        let wrapper = Conversation::new(conversation.clone(), Arc::new(NoLimit));
+        assert!(wrapper.can_continue().await.unwrap());
+    }
+
+    #[tokio::test]
+    async fn every_admitted_turn_ends_with_one_usage_record_or_release() {
+        let limit = Arc::new(CountingLimit::default());
+        let model = FakeModel::start(vec![
+            Reply::Sse(text("hello")),
+            Reply::Sse(reply(json!([fee_call("c1", 1.5)]))),
+            Reply::Status(
+                400,
+                json!({"error": {"code": 400, "message": "bad request", "status": "INVALID_ARGUMENT"}}),
+            ),
+        ])
+        .await;
+        let conversation = Arc::new(MemoryConversation::default());
+        let actions = Arc::new(FeeActions::default());
+        let wrapper = Conversation::new(conversation.clone(), limit.clone());
+
+        for turn in [message("hi"), message("record a fee"), approve("c1")] {
+            let _: Vec<ChatStreamEvent> = wrapper
+                .stream(chat_agent(&model, &actions), actions.clone(), turn)
+                .await
+                .unwrap()
+                .collect()
+                .await;
         }
+
+        let (admitted, _, released) = limit.counts();
+        assert_eq!(admitted, 3);
+        assert_eq!(limit.charged(), vec![(10, 5), (10, 5)]);
+        assert_eq!(released, 1);
     }
 
-    fn tool_call_count(msg: &Message) -> usize {
-        match msg {
-            Message::Assistant { content, .. } => content.iter().count(),
-            Message::User { content } => content.iter().count(),
-            Message::System { .. } => 0,
-        }
+    #[tokio::test]
+    async fn a_run_that_fails_after_a_model_call_answered_is_charged_for_it() {
+        let limit = Arc::new(CountingLimit::default());
+        let model = FakeModel::start(vec![
+            Reply::Json(reply(json!([run_script_call("c1")]))),
+            Reply::Status(
+                400,
+                json!({"error": {"code": 400, "message": "bad request", "status": "INVALID_ARGUMENT"}}),
+            ),
+        ])
+        .await;
+
+        let result = Conversation::new(Arc::new(MemoryConversation::default()), limit.clone())
+            .run(
+                model.agent(|builder| {
+                    builder
+                        .default_max_turns(5)
+                        .tool(RunScriptTool::new(rig::tool::ToolSet::default()))
+                }),
+                message("what is 1 + 1"),
+                Persistence::Ephemeral,
+            )
+            .await;
+
+        assert!(matches!(result, Err(AiError::Fatal { .. })));
+        assert_eq!(limit.charged(), vec![(10, 5)]);
+        assert_eq!(limit.counts().2, 0);
     }
 
-    #[test]
-    fn merges_parallel_calls_and_their_results() {
-        let out = coalesce_tool_messages(vec![
-            asst_call("a"),
-            asst_call("b"),
-            tool_result("a"),
-            tool_result("b"),
-        ]);
+    #[tokio::test]
+    async fn files_stay_out_of_the_history_across_tool_calls_and_turns() {
+        let receipt = Uuid::new_v4();
+        let statement = Uuid::new_v4();
+        let model = FakeModel::start(vec![
+            Reply::Sse(reply(json!([run_script_call("c1")]))),
+            Reply::Sse(text("Totals match.")),
+            Reply::Sse(text("Still the same.")),
+        ])
+        .await;
+        let conversation = Arc::new(
+            MemoryConversation::default()
+                .with_file(receipt, "image/png", b"PNG receipt")
+                .with_file(statement, "application/pdf", b"%PDF-1.7 statement"),
+        );
+        let actions = Arc::new(FeeActions::default());
 
-        assert_eq!(out.len(), 2);
-        assert!(matches!(out[0], Message::Assistant { .. }));
-        assert_eq!(tool_call_count(&out[0]), 2);
-        assert!(matches!(out[1], Message::User { .. }));
-        assert_eq!(tool_call_count(&out[1]), 2);
+        stream(
+            &conversation,
+            &model,
+            &actions,
+            ChatTurn::Message {
+                message: "do these match".into(),
+                file_ids: vec![receipt, statement],
+            },
+        )
+        .await;
+        stream(&conversation, &model, &actions, message("and now?")).await;
+
+        let saved = String::from_utf8(conversation.history()).unwrap();
+        assert!(!saved.contains("UE5HIHJlY2VpcHQ="));
+        assert!(!saved.contains("JVBERi0xLjcgc3RhdGVtZW50"));
+        let inline = gemini_parts(&model.requests()[2])
+            .into_iter()
+            .filter(|part| part.get("inlineData").is_some())
+            .count();
+        assert_eq!(inline, 2);
     }
 
-    #[test]
-    fn leaves_alternating_pairs_untouched() {
-        let out = coalesce_tool_messages(vec![
-            asst_call("a"),
-            tool_result("a"),
-            asst_call("b"),
-            tool_result("b"),
-        ]);
-
-        assert_eq!(out.len(), 4);
+    #[derive(Debug, PartialEq, serde::Deserialize, schemars::JsonSchema)]
+    struct Answer {
+        rows: Vec<u32>,
     }
 
-    #[test]
-    fn does_not_merge_across_a_text_message() {
-        let out =
-            coalesce_tool_messages(vec![asst_call("a"), Message::user("hello"), asst_call("b")]);
+    fn text_reply(text: &str) -> Reply {
+        Reply::Json(json!({
+            "candidates": [{"content": {"role": "model", "parts": [{"text": text}]}, "finishReason": "STOP"}],
+            "usageMetadata": {"promptTokenCount": 10, "candidatesTokenCount": 2, "totalTokenCount": 12}
+        }))
+    }
 
-        assert_eq!(out.len(), 3);
+    #[tokio::test]
+    async fn a_structured_answer_is_parsed_and_a_malformed_one_is_an_invalid_answer() {
+        let model = FakeModel::start(vec![
+            text_reply(r#"{"rows":[1,2]}"#),
+            text_reply("not json"),
+        ])
+        .await;
+        let conversation =
+            Conversation::new(Arc::new(MemoryConversation::default()), Arc::new(NoLimit));
+        let turn = || ChatTurn::Message {
+            message: "classify".to_string(),
+            file_ids: Vec::new(),
+        };
+
+        let parsed = conversation
+            .run_structured(
+                model.structured::<Answer>(|builder| builder),
+                turn(),
+                Persistence::Ephemeral,
+            )
+            .await
+            .unwrap();
+        let malformed = conversation
+            .run_structured(
+                model.structured::<Answer>(|builder| builder),
+                turn(),
+                Persistence::Ephemeral,
+            )
+            .await;
+
+        assert_eq!(parsed.value, Answer { rows: vec![1, 2] });
+        assert_eq!(parsed.usage.input, 10);
+        assert!(matches!(malformed, Err(AiError::InvalidAnswer { .. })));
     }
 }

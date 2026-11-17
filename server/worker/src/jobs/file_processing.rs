@@ -8,6 +8,7 @@ use business::service_collection::ServiceProviders;
 use dal::file_provider::FileProvider;
 use dal::models::file_models::FileStatus;
 use dal::queries::file_queries;
+use infer::MatcherType;
 use std::sync::Arc;
 use tokio::sync::Semaphore;
 use uuid::Uuid;
@@ -30,26 +31,6 @@ const MAX_CONCURRENT_THUMBNAILS: usize = 4;
 
 static THUMBNAIL_SEMAPHORE: once_cell::sync::Lazy<Semaphore> =
     once_cell::sync::Lazy::new(|| Semaphore::new(MAX_CONCURRENT_THUMBNAILS));
-
-const TEXT_BASED_MIME_TYPES: &[&str] = &[
-    "text/",
-    "application/json",
-    "application/xml",
-    "application/javascript",
-    "application/xhtml+xml",
-    "application/sql",
-    "application/graphql",
-    "application/ld+json",
-    "application/x-yaml",
-    "application/toml",
-];
-
-fn is_text_based_mime(mime: &str) -> bool {
-    let base = mime.split(';').next().unwrap_or("").trim();
-    TEXT_BASED_MIME_TYPES
-        .iter()
-        .any(|prefix| base.starts_with(prefix))
-}
 
 #[tracing::instrument(level = "info", skip_all, fields(file_id = %file_id, user_id = %user_id))]
 async fn handle(providers: &ServiceProviders, file_id: Uuid, user_id: Uuid) -> Result<()> {
@@ -134,24 +115,25 @@ async fn process_file(
         )
         .await?;
 
-    match infer::get(&header_bytes) {
-        Some(kind) => {
-            if kind.mime_type() != declared_base_mime {
-                return Err(anyhow!(
-                    "MIME type mismatch: declared {} but detected {}",
-                    declared_base_mime,
-                    kind.mime_type()
-                ));
-            }
-        }
-        None => {
-            if !is_text_based_mime(declared_mime) {
-                return Err(anyhow!(
-                    "Could not determine file type; upload rejected. Declared MIME: {}",
-                    declared_mime
-                ));
-            }
-        }
+    let detected = infer::get(&header_bytes);
+    let text = detected.is_none_or(|kind| kind.matcher_type() == MatcherType::Text);
+    let container = detected.is_some_and(|kind| {
+        kind.matcher_type() == MatcherType::Doc
+            || matches!(
+                kind.mime_type(),
+                "application/zip" | "application/x-ole-storage"
+            )
+    });
+    let must_match =
+        declared_base_mime.starts_with("image/") || declared_base_mime == "application/pdf";
+    let label_holds = detected.is_some_and(|kind| kind.mime_type() == declared_base_mime)
+        || (!must_match && (text || (container && !declared_base_mime.starts_with("text/"))));
+    if !label_holds {
+        return Err(anyhow!(
+            "MIME type mismatch: declared {} but detected {}",
+            declared_base_mime,
+            detected.map_or("no known signature", |kind| kind.mime_type())
+        ));
     }
 
     let actual_size = file_provider.head_object(storage_key).await?;
@@ -204,4 +186,174 @@ fn generate_thumbnail(bytes: &[u8]) -> Result<Vec<u8>> {
     thumbnail.write_to(&mut Cursor::new(&mut output), image::ImageFormat::WebP)?;
 
     Ok(output)
+}
+
+#[cfg(test)]
+mod tests {
+    use async_trait::async_trait;
+    use dal::file_provider::PresignedUpload;
+
+    use super::*;
+
+    const OLE_WORKBOOK: &[u8] = b"\xD0\xCF\x11\xE0\xA1\xB1\x1A\xE1\x00\x00\x00\x00\x00\x00\x00\x00";
+    const PNG: &[u8] = b"\x89PNG\r\n\x1A\n\x00\x00\x00\rIHDR";
+    const PDF: &[u8] = b"%PDF-1.7\n1 0 obj\n";
+
+    struct Stored(Vec<u8>);
+
+    #[async_trait]
+    impl FileProvider for Stored {
+        async fn generate_presigned_upload(
+            &self,
+            _key: &str,
+            _content_type: &str,
+            _content_length: u64,
+            _expires_in_seconds: u32,
+        ) -> Result<PresignedUpload> {
+            Err(anyhow!("not used"))
+        }
+
+        async fn generate_presigned_download(
+            &self,
+            _key: &str,
+            _expires_in_seconds: u32,
+            _download_filename: Option<&str>,
+        ) -> Result<String> {
+            Err(anyhow!("not used"))
+        }
+
+        async fn download(&self, _key: &str) -> Result<Vec<u8>> {
+            Ok(self.0.clone())
+        }
+
+        async fn download_range(&self, _key: &str, start: u64, end: u64) -> Result<Vec<u8>> {
+            Ok(self.0[start as usize..=(end as usize).min(self.0.len() - 1)].to_vec())
+        }
+
+        async fn head_object(&self, _key: &str) -> Result<u64> {
+            Ok(self.0.len() as u64)
+        }
+
+        async fn upload(&self, _key: &str, _content: &[u8], _content_type: &str) -> Result<()> {
+            Ok(())
+        }
+
+        async fn delete(&self, _key: &str) -> Result<()> {
+            Ok(())
+        }
+    }
+
+    async fn accepted(content: &[u8], declared: &str) -> bool {
+        let provider: Arc<dyn FileProvider> = Arc::new(Stored(content.to_vec()));
+        process_file(
+            &provider,
+            Uuid::nil(),
+            "key",
+            declared,
+            content.len() as i64,
+        )
+        .await
+        .is_ok()
+    }
+
+    fn zip_starting_with(entry: &str, content: &[u8]) -> Vec<u8> {
+        let mut bytes = b"PK\x03\x04\x14\x00\x00\x00\x00\x00\x00\x00\x00\x00".to_vec();
+        bytes.extend([0u8; 4]);
+        bytes.extend((content.len() as u32).to_le_bytes());
+        bytes.extend((content.len() as u32).to_le_bytes());
+        bytes.extend((entry.len() as u16).to_le_bytes());
+        bytes.extend([0u8; 2]);
+        bytes.extend(entry.as_bytes());
+        bytes.extend(content);
+        bytes
+    }
+
+    #[tokio::test]
+    async fn text_is_accepted_whatever_the_browser_called_it() {
+        for (content, declared) in [
+            (
+                &b"Date,Amount\n2024-01-02,-3.50\n"[..],
+                "application/vnd.ms-excel",
+            ),
+            (
+                b"OFXHEADER:100\nDATA:OFXSGML\n\n<OFX>\n<STMTTRN>\n",
+                "application/x-ofx",
+            ),
+            (
+                b":20:STMT\n:25:DE4370054306\n:60F:C240101EUR1,00\n",
+                "application/octet-stream",
+            ),
+            (b"!Type:Bank\nD01/02/2024\nT-3.50\n^\n", "application/x-qif"),
+            (
+                b"<?xml version=\"1.0\"?>\n<Document><Ntry/></Document>",
+                "application/xml",
+            ),
+            (b"{\"transactions\": []}", "application/json"),
+            (b"Date,Amount\n2024-01-02,-3.50\n", "text/csv"),
+        ] {
+            assert!(accepted(content, declared).await, "{declared}");
+        }
+    }
+
+    #[tokio::test]
+    async fn workbook_containers_are_accepted_under_any_document_label() {
+        let xlsx = zip_starting_with("xl/workbook.xml", b"<workbook/>");
+        let ods = zip_starting_with(
+            "mimetype",
+            b"application/vnd.oasis.opendocument.spreadsheet",
+        );
+        let bare_zip = zip_starting_with("sheet.xml", b"<sheet/>");
+        for (content, declared) in [
+            (OLE_WORKBOOK, "application/vnd.ms-excel"),
+            (OLE_WORKBOOK, "application/octet-stream"),
+            (
+                &xlsx[..],
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            ),
+            (&xlsx[..], "application/vnd.ms-excel"),
+            (&xlsx[..], "application/octet-stream"),
+            (&ods[..], "application/vnd.oasis.opendocument.spreadsheet"),
+            (&ods[..], "application/octet-stream"),
+            (
+                &bare_zip[..],
+                "application/vnd.oasis.opendocument.spreadsheet",
+            ),
+        ] {
+            assert!(accepted(content, declared).await, "{declared}");
+        }
+    }
+
+    #[tokio::test]
+    async fn a_file_declared_as_an_image_or_a_pdf_must_be_one() {
+        let xlsx = zip_starting_with("xl/workbook.xml", b"<workbook/>");
+        for (content, declared) in [
+            (&b"<svg onload=\"alert(1)\"/>"[..], "image/png"),
+            (b"Date,Amount\n2024-01-02,-3.50\n", "application/pdf"),
+            (&xlsx[..], "image/jpeg"),
+            (OLE_WORKBOOK, "application/pdf"),
+            (PDF, "image/png"),
+        ] {
+            assert!(!accepted(content, declared).await, "{declared}");
+        }
+        assert!(accepted(PNG, "image/png").await);
+        assert!(accepted(PDF, "application/pdf").await);
+    }
+
+    #[tokio::test]
+    async fn media_and_executables_cannot_hide_behind_another_label() {
+        let mut elf = b"\x7FELF\x02\x01\x01".to_vec();
+        elf.resize(64, 0);
+        for (content, declared) in [
+            (PNG, "text/csv"),
+            (PNG, "application/octet-stream"),
+            (PDF, "text/plain"),
+            (&elf[..], "text/plain"),
+            (
+                b"MZ\x90\x00\x03\x00\x00\x00\x04\x00\x00\x00\xFF\xFF\x00\x00",
+                "application/vnd.ms-excel",
+            ),
+        ] {
+            assert!(!accepted(content, declared).await, "{declared}");
+        }
+    }
 }

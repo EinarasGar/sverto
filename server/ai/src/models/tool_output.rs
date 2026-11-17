@@ -32,6 +32,11 @@ pub struct DatasetSpec {
 }
 
 #[derive(Deserialize)]
+pub struct ExtractionScriptArgs {
+    pub script: String,
+}
+
+#[derive(Deserialize)]
 pub struct AggregateTransactionsArgs {
     pub group_by: String,
     pub date_from: Option<String>,

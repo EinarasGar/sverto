@@ -192,13 +192,7 @@ impl RateLimiter {
             None => return true,
         };
 
-        if count > rate_limit_redis_queries::max_concurrent_requests() {
-            let key = rate_limit_redis_queries::concurrency_key(user_id);
-            self.redis.decr(&key).await;
-            false
-        } else {
-            true
-        }
+        count <= rate_limit_redis_queries::max_concurrent_requests()
     }
 
     pub async fn release_concurrency_slot(&self, user_id: Uuid) {
@@ -866,7 +860,6 @@ mod tests {
     async fn concurrency_slot_rejected_over_limit() {
         let mut redis = RedisConnection::default();
         redis.expect_execute_script_int().returning(|_| Some(3));
-        redis.expect_decr().returning(|_| ());
         redis.expect_clone().returning(RedisConnection::default);
 
         let db = mock_db_with_limits();
