@@ -23,7 +23,7 @@ import type {
   AssetHolding,
   PortfolioOverviewView,
 } from "@/features/portfolio/api"
-import { assetLabel } from "@/lib/domain/refs"
+import { isPhysicalAssetType, readableAssetLabel } from "@/lib/domain/refs"
 
 import {
   holdingsColumns,
@@ -35,12 +35,18 @@ import {
 function holdingName(holding: AssetHolding): string {
   return holding.asset === null
     ? `Asset ${String(holding.assetId)}`
-    : assetLabel(holding.asset)
+    : readableAssetLabel(holding.asset)
 }
 
 function holdingSubLabel(holding: AssetHolding): string | null {
   const asset = holding.asset
-  if (asset === null || asset.ticker === null) return null
+  if (
+    asset === null ||
+    asset.ticker === null ||
+    isPhysicalAssetType(asset.assetTypeId)
+  ) {
+    return null
+  }
   return asset.name
 }
 
@@ -121,7 +127,11 @@ export function AccountHoldings({
                 {showUnits ? (
                   <FigureCell>
                     <Figure
-                      value={holding.unitsRemaining}
+                      value={
+                        isPhysicalAssetType(holding.asset?.assetTypeId)
+                          ? null
+                          : holding.unitsRemaining
+                      }
                       kind="units"
                       size="base"
                     />

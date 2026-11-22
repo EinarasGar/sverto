@@ -6,6 +6,9 @@ struct ChartView: View {
     private let baseTicker: String
     @Binding private var selectedPeriod: ChartPeriod
     private let showHeadline: Bool
+    private let showsPeriodPicker: Bool
+    private let changeSuffix: String?
+    private let markers: [ChartPoint]
     private let headerTrailing: (() -> AnyView)?
     private let plotOutset: CGFloat
 
@@ -19,6 +22,9 @@ struct ChartView: View {
         baseTicker: String,
         selectedPeriod: Binding<ChartPeriod>,
         showHeadline: Bool = true,
+        showsPeriodPicker: Bool = true,
+        changeSuffix: String? = nil,
+        markers: [ChartPoint] = [],
         plotOutset: CGFloat = 0,
         headerTrailing: (() -> AnyView)? = nil
     ) {
@@ -26,6 +32,9 @@ struct ChartView: View {
         self.baseTicker = baseTicker
         _selectedPeriod = selectedPeriod
         self.showHeadline = showHeadline
+        self.showsPeriodPicker = showsPeriodPicker
+        self.changeSuffix = changeSuffix
+        self.markers = markers
         self.plotOutset = plotOutset
         self.headerTrailing = headerTrailing
     }
@@ -33,7 +42,8 @@ struct ChartView: View {
     private var series: ChartSeries {
         seriesCache.series(
             points: periods.first { $0.period == selectedPeriod.rawValue }?.points ?? [],
-            ticker: baseTicker
+            ticker: baseTicker,
+            markers: markers
         )
     }
 
@@ -51,7 +61,7 @@ struct ChartView: View {
     }
 
     private var summary: ChartPointSummary {
-        ChartPointSummary(points: series.points, scrubbedIndex: selection.index)
+        ChartPointSummary(points: series.points, scrubbedIndex: selection.index, scrubbedMarker: selection.marker)
     }
 
     var body: some View {
@@ -67,8 +77,10 @@ struct ChartView: View {
                 .frame(height: 180)
                 .padding(.horizontal, -plotOutset)
                 .accessibilityValue(formatValue(summary.currentValue))
-            periodPicker
-                .padding(.horizontal, -plotOutset)
+            if showsPeriodPicker {
+                periodPicker
+                    .padding(.horizontal, -plotOutset)
+            }
         }
         .sensoryFeedback(.selection, trigger: selection.index) { _, index in index != nil }
         .onChange(of: selectedPeriod) {
@@ -87,7 +99,7 @@ struct ChartView: View {
                     .monospacedDigit()
                     .contentTransition(reduceMotion ? .identity : .numericText())
                     .animation(reduceMotion ? nil : .interactiveSpring(response: 0.16, dampingFraction: 0.9), value: summary.currentValue)
-                Text("\(formatChange(summary.change)) (\(PercentText.format(summary.changeFraction, fractionDigits: 2)))")
+                Text("\(formatChange(summary.change)) (\(PercentText.format(summary.changeFraction, fractionDigits: 2)))\(changeSuffix.map { " \($0)" } ?? "")")
                     .font(.subheadline)
                     .monospacedDigit()
                     .foregroundStyle(summary.isPositive ? Color.gain : Color.loss)
@@ -106,7 +118,10 @@ struct ChartView: View {
     }
 
     private var scrubDateText: String? {
-        summary.scrubbedTimestamp.map { DateText.chartScrubLabel(epochSeconds: $0, intraday: selectedPeriod.isIntraday) }
+        if let marker = selection.marker {
+            return "Valued \(formatValue(marker.value)) · \(DateText.chartScrubLabel(epochSeconds: marker.timestamp, intraday: false))"
+        }
+        return summary.scrubbedTimestamp.map { DateText.chartScrubLabel(epochSeconds: $0, intraday: selectedPeriod.isIntraday) }
     }
 
     @ViewBuilder
@@ -137,6 +152,7 @@ struct ChartView: View {
 
 struct ChartSkeleton: View {
     var showHeadline = true
+    var showsPeriodPicker = true
     var plotOutset: CGFloat = 0
 
     var body: some View {
@@ -150,12 +166,14 @@ struct ChartSkeleton: View {
             }
             SkeletonBlock(height: 180)
                 .padding(.horizontal, -plotOutset)
-            HStack(spacing: 8) {
-                ForEach(ChartPeriod.allCases, id: \.self) { _ in
-                    SkeletonBlock(height: 32)
+            if showsPeriodPicker {
+                HStack(spacing: 8) {
+                    ForEach(ChartPeriod.allCases, id: \.self) { _ in
+                        SkeletonBlock(height: 32)
+                    }
                 }
+                .padding(.horizontal, -plotOutset)
             }
-            .padding(.horizontal, -plotOutset)
         }
         .accessibilityLabel("Loading chart")
     }

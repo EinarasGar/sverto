@@ -9,8 +9,9 @@ import type { AccountRef, AssetRef } from "@/lib/domain/refs"
 import {
   accountLabel,
   assetDisplayName,
-  assetLabel,
   isCurrencyAsset,
+  isPhysicalAssetType,
+  readableAssetLabel,
 } from "@/lib/domain/refs"
 
 export interface HoldingAccountRow {
@@ -18,7 +19,7 @@ export interface HoldingAccountRow {
   accountId: string
   account: AccountRef | null
   label: string
-  units: number
+  units: number | null
   value: number | null
   position: AssetPosition | null
 }
@@ -31,7 +32,7 @@ export interface PortfolioHoldingRow {
   subLabel: string | null
   ticker: string
   isCash: boolean
-  units: number
+  units: number | null
   value: number
   /** Against `holdingsShareBasis`, never net worth. Negative for a balance you owe. */
   share: number
@@ -45,7 +46,7 @@ function subLabelOf(asset: AssetRef | null, accountCount: number): string {
   const account = countOf(accountCount, "account")
   if (asset === null) return account
   const name = assetDisplayName(asset)
-  if (name === assetLabel(asset)) return account
+  if (name === readableAssetLabel(asset)) return account
   return `${name} · ${account}`
 }
 
@@ -75,6 +76,7 @@ export function buildHoldingRows(
 
   return holdings.byAsset.map((entry) => {
     const asset = entry.asset
+    const physical = isPhysicalAssetType(asset?.assetTypeId)
     const positionsByAccount = new Map(
       (overview.assetsById[entry.assetId]?.positions ?? []).map((position) => [
         position.accountId,
@@ -92,7 +94,7 @@ export function buildHoldingRows(
           holding.account === null
             ? "Unknown account"
             : accountLabel(holding.account),
-        units: holding.units,
+        units: physical ? null : holding.units,
         value: holding.value,
         position: positionsByAccount.get(holding.accountId) ?? null,
       }))
@@ -102,11 +104,14 @@ export function buildHoldingRows(
       assetId: entry.assetId,
       asset,
       label:
-        asset === null ? `Asset ${String(entry.assetId)}` : assetLabel(asset),
+        asset === null
+          ? `Asset ${String(entry.assetId)}`
+          : readableAssetLabel(asset),
       subLabel: subLabelOf(asset, entry.accountCount),
-      ticker: asset === null ? String(entry.assetId) : assetLabel(asset),
+      ticker:
+        asset === null ? String(entry.assetId) : readableAssetLabel(asset),
       isCash: asset !== null && isCurrencyAsset(asset),
-      units: entry.units,
+      units: physical ? null : entry.units,
       value: entry.value,
       share: total === 0 ? 0 : entry.value / total,
       ratelessCount: entry.ratelessCount,

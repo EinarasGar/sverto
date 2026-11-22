@@ -27,6 +27,8 @@ private struct PortfolioHoldingRow: View {
 
     private var tint: Color { HoldingAssetType.tint(assetTypeId: holding.assetTypeId) }
 
+    private var isProperty: Bool { HoldingAssetType.isProperty(assetTypeId: holding.assetTypeId) }
+
     private var unitsText: String {
         "\(AssetFormat.units(holding.units)) units"
     }
@@ -44,10 +46,12 @@ private struct PortfolioHoldingRow: View {
                     Text(holding.assetName)
                         .font(.body)
                         .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
-                    Text(holding.ticker)
-                        .font(.subheadline)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    if !isProperty {
+                        Text(holding.ticker)
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
+                    }
                 }
                 .fixedSize(horizontal: false, vertical: true)
                 if !dynamicTypeSize.isAccessibilitySize {
@@ -69,9 +73,11 @@ private struct PortfolioHoldingRow: View {
         VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
             Text(Money.format(holding.value, ticker: baseTicker))
                 .font(.body.weight(.medium))
-            Text(unitsText)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            if !isProperty {
+                Text(unitsText)
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
         }
         .monospacedDigit()
         .fixedSize(horizontal: false, vertical: true)

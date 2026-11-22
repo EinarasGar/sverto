@@ -1,3 +1,4 @@
+import Foundation
 import SvertoCore
 import Testing
 @testable import Sverto
@@ -7,6 +8,24 @@ private func dailyPoints(_ values: [Double]) -> [ChartPoint] {
 }
 
 struct ChartSeriesTests {
+    @Test func scrubbingNearAValuationSnapsToIt() {
+        let valuation = ChartPoint(timestamp: 50 * 86_400, value: 500)
+        let series = ChartSeries(points: dailyPoints(Array(repeating: 100, count: 101)), ticker: "GBP", markers: [valuation])
+
+        #expect(series.nearestMarker(to: Date(timeIntervalSince1970: 52 * 86_400)) == valuation)
+        #expect(series.nearestMarker(to: Date(timeIntervalSince1970: 60 * 86_400)) == nil)
+        #expect(series.domain.range.contains(500))
+    }
+
+    @Test func aScrubbedValuationIsWhatTheHeadlineShows() {
+        let points = dailyPoints([100, 110, 120])
+        let summary = ChartPointSummary(points: points, scrubbedIndex: 1, scrubbedMarker: ChartPoint(timestamp: 86_400, value: 150))
+
+        #expect(summary.currentValue == 150)
+        #expect(summary.change == 50)
+        #expect(summary.scrubbedTimestamp == 86_400)
+    }
+
     @Test func shortSeriesIsPlottedInFull() {
         let points = dailyPoints([3, 1, 2])
         #expect(ChartSeries.plottedIndices(of: points) == [0, 1, 2])

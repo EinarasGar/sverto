@@ -17,10 +17,7 @@ use crate::view_models::{
         asset_type_id::{AssetTypeId, RequiredAssetTypeId},
     },
     categories::base_models::category_type_id::RequiredCategoryTypeId,
-    exports::create_export::{
-        CreateExportRequestViewModel, CreateExportResponseViewModel, ExportFormatViewModel,
-    },
-    exports::get_exports::GetExportsResponseViewModel,
+    properties::base_models::property_id::RequiredPropertyId,
     transactions::base_models::{
         category_id::{CategoryId, RequiredCategoryId},
         entry_id::{EntryId, RequiredEntryId},
@@ -172,6 +169,11 @@ mod modifiers;
         super::handlers::import_session_handler::set_items_verb,
         super::handlers::import_session_handler::apply_import_session,
         super::handlers::import_session_handler::list_pending,
+        super::handlers::property_handler::get_properties,
+        super::handlers::property_handler::create_property,
+        super::handlers::property_handler::update_property,
+        super::handlers::property_handler::link_property_loan,
+        super::handlers::property_handler::unlink_property_loan,
     ),
     components(
         schemas(RequiredEntryId),
@@ -196,6 +198,7 @@ mod modifiers;
         schemas(FieldError),
         schemas(ErrorType),
         schemas(RequiredCategoryTypeId),
+        schemas(RequiredPropertyId),
     ),
     modifiers(
         &SecurityAddon,

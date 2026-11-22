@@ -43,6 +43,7 @@ pub mod ledger_export_service;
 pub mod ledger_matching_service;
 pub mod portfolio_overview_service;
 pub mod portfolio_service;
+pub mod property_service;
 pub mod transaction_group_service;
 pub mod transaction_management_service;
 pub mod transaction_metadata_service;

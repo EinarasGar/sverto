@@ -23,13 +23,18 @@ private struct AccountsList: View {
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        shell.push(.addAccount)
+                    Menu {
+                        Button("Add account", systemImage: "building.columns") {
+                            shell.push(.addAccount)
+                        }
+                        Button("Add property", systemImage: "house") {
+                            shell.push(.addProperty)
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
                     .tint(.primary)
-                    .accessibilityLabel("Add account")
+                    .accessibilityLabel("Add")
                 }
                 ProfileToolbar()
             }
@@ -61,11 +66,15 @@ private struct AccountsList: View {
                 Section(AccountTypeVisuals.label(section.typeId)) {
                     ForEach(section.accounts, id: \.id) { account in
                         AccountCard(account: account, baseTicker: model.state.baseTicker) {
-                            shell.push(.accountDetail(
-                                accountId: account.id,
-                                accountName: account.name,
-                                accountTypeId: account.accountTypeId
-                            ))
+                            if let property = account.property {
+                                shell.push(.propertyDetail(propertyId: property.propertyId, name: account.name))
+                            } else {
+                                shell.push(.accountDetail(
+                                    accountId: account.id,
+                                    accountName: account.name,
+                                    accountTypeId: account.accountTypeId
+                                ))
+                            }
                         }
                     }
                 }

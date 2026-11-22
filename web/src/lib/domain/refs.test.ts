@@ -11,6 +11,8 @@ import {
   CURRENCY_ASSET_TYPE_ID,
   isCurrencyAsset,
   isCurrencyAssetType,
+  isPhysicalAssetType,
+  readableAssetLabel,
   toAccountRef,
   toAssetPairRef,
   toAssetRef,
@@ -59,6 +61,28 @@ describe("asset refs", () => {
       "Pound Sterling"
     )
     expect(assetLabel(unresolvedAssetRef(9))).toBe("Asset 9")
+  })
+
+  it("reads a house or car by name where it is held, but keeps its ticker label", () => {
+    const house = toAssetRef({
+      asset_id: 7,
+      asset_type: 8,
+      name: "Flat 12",
+      ticker: "HOME-30D7F2E7",
+    })
+    const car = toAssetRef({
+      asset_id: 8,
+      asset_type: 9,
+      name: "Golf GTI",
+      ticker: "CAR-A98E8D4C",
+    })
+    expect(readableAssetLabel(house)).toBe("Flat 12")
+    expect(readableAssetLabel(car)).toBe("Golf GTI")
+    expect(readableAssetLabel({ ...car, name: null })).toBe("CAR-A98E8D4C")
+    expect(readableAssetLabel(toAssetRef(gbp))).toBe("GBP")
+    expect(assetLabel(house)).toBe("HOME-30D7F2E7")
+    expect(isPhysicalAssetType(5)).toBe(false)
+    expect(isPhysicalAssetType(null)).toBe(false)
   })
 
   it("decides currency from the seeded asset type alone", () => {

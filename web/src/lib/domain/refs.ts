@@ -16,6 +16,8 @@ import { classifyAccountType, isLiabilityClass } from "./accounts"
 
 /** Seeded asset type 1 is Currencies (`seed_reference_data.sql`). */
 export const CURRENCY_ASSET_TYPE_ID = 1
+const REAL_ESTATE_ASSET_TYPE_ID = 8
+const VEHICLES_ASSET_TYPE_ID = 9
 
 /**
  * The single asset reference for the whole app. Descriptors are nullable because a
@@ -146,8 +148,26 @@ export function isCurrencyAsset(asset: AssetRef): boolean {
   return isCurrencyAssetType(asset.assetTypeId)
 }
 
+export function isPhysicalAssetType(
+  assetTypeId: number | null | undefined
+): boolean {
+  return (
+    assetTypeId === REAL_ESTATE_ASSET_TYPE_ID ||
+    assetTypeId === VEHICLES_ASSET_TYPE_ID
+  )
+}
+
 export function assetLabel(asset: AssetRef): string {
   return asset.ticker ?? asset.name ?? `Asset ${String(asset.assetId)}`
+}
+
+/**
+ * Where an asset is held or moved, a house or car reads by name: it is one unit under a
+ * generated ticker. Screens that manage the asset itself keep `assetLabel`.
+ */
+export function readableAssetLabel(asset: AssetRef): string {
+  if (isPhysicalAssetType(asset.assetTypeId) && asset.name) return asset.name
+  return assetLabel(asset)
 }
 
 /**

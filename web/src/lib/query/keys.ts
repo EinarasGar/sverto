@@ -12,6 +12,7 @@ export type ImportSessionId = string
 export type ConnectionId = string
 export type BindingId = string
 export type ProviderAccountId = string
+export type PropertyId = string
 
 export type PortfolioRange = "1d" | "1w" | "1m" | "3m" | "6m" | "1y" | "all"
 
@@ -145,6 +146,7 @@ export const queryKeys = {
     const connectorsRoot = [...root, "connectors"] as const
     const exportsRoot = [...root, "exports"] as const
     const importsRoot = [...root, "imports"] as const
+    const propertiesRoot = [...root, "properties"] as const
 
     return {
       all: () => root,
@@ -182,6 +184,11 @@ export const queryKeys = {
           ] as const,
       },
 
+      properties: {
+        all: () => propertiesRoot,
+        list: () => [...propertiesRoot, "list"] as const,
+      },
+
       transactions: {
         all: () => transactionsRoot,
         combined: (params: CursorPageParams) =>
@@ -207,6 +214,8 @@ export const queryKeys = {
           assetId: AssetId,
           params: OffsetPageParams & { accountId: AccountId | null }
         ) => [...transactionsRoot, "asset", assetId, params] as const,
+        purchase: (accountId: AccountId, assetId: AssetId) =>
+          [...transactionsRoot, "purchase", accountId, assetId] as const,
       },
 
       portfolio: {
@@ -397,6 +406,7 @@ export const mutationKeys = {
     files: () => ["mutate", "user", userId, "files"] as const,
     exports: () => ["mutate", "user", userId, "exports"] as const,
     imports: () => ["mutate", "user", userId, "imports"] as const,
+    properties: () => ["mutate", "user", userId, "properties"] as const,
     account: () => ["mutate", "user", userId, "account"] as const,
   }),
 } as const

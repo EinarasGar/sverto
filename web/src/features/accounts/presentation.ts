@@ -1,7 +1,7 @@
 import type { AccountIdentifier } from "@/api"
 import type { ShellWidth } from "@/components/layout/breakpoints"
 import type { AccountClass } from "@/lib/domain/accounts"
-import { EM_DASH, formatDateTimeStamp } from "@/lib/format"
+import { countOf, EM_DASH, formatDateTimeStamp } from "@/lib/format"
 import type { MockAccountMetadata } from "@/lib/mock"
 
 import type { AccountConnector, AccountDetail } from "./api"
@@ -62,6 +62,8 @@ export function hasConnectorColumn(width: ShellWidth): boolean {
 export function accountMetaParts(row: AccountIndexRow): string[] {
   const parts = [row.accountTypeName ?? EM_DASH]
   if (row.isLiquid) parts.push("liquid")
+  const loanCount = row.property?.loanAccountIds.length ?? 0
+  if (loanCount > 0) parts.push(`equity after ${countOf(loanCount, "loan")}`)
   if (row.isJoint) {
     parts.push(`your ${String(Math.round(row.ownershipSharePercent))}% share`)
   }

@@ -49,6 +49,7 @@ function row(overrides: Partial<AccountIndexRow> = {}): AccountIndexRow {
     value: 0,
     ratelessCount: 0,
     hasHoldings: true,
+    property: null,
     connector: null,
     unrealisedGains: null,
     ...overrides,
@@ -84,6 +85,27 @@ describe("accountMetaParts", () => {
 
   it("says nothing about a share you own outright", () => {
     expect(accountMetaParts(row()).join(" ")).not.toContain("share")
+  })
+
+  it("says a property row is equity once a loan is linked", () => {
+    const property = {
+      propertyId: "p-1",
+      kind: "real_estate" as const,
+      name: "Flat 12",
+      accountId: "a1",
+      assetId: 9,
+      currencyAssetId: 1,
+      ownershipShare: 1,
+      ownershipSharePercent: 100,
+      isJoint: false,
+      loanAccountIds: ["m1"],
+    }
+    expect(accountMetaParts(row({ property }))).toContain("equity after 1 loan")
+    expect(
+      accountMetaParts(
+        row({ property: { ...property, loanAccountIds: [] } })
+      ).join(" ")
+    ).not.toContain("equity")
   })
 
   it("prints an em dash rather than a blank when the type is unresolved", () => {

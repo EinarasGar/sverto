@@ -106,6 +106,67 @@ pub struct AccountListItem {
     pub unrealized_gain: Option<f64>,
     pub holdings_count: Option<u32>,
     pub suggested_currency: Option<AssetItem>,
+    pub property: Option<PropertySummary>,
+    pub linked_property_id: Option<String>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum PropertyKind {
+    RealEstate,
+    Vehicle,
+}
+
+/// Figures are full amounts except `equity_share`, which applies each account's
+/// ownership share. They stay `None` until balances load.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct PropertySummary {
+    pub property_id: String,
+    pub kind: PropertyKind,
+    pub asset_id: i32,
+    pub currency_asset_id: i32,
+    pub loan_account_ids: Vec<String>,
+    pub value: Option<f64>,
+    pub loan_balance: Option<f64>,
+    pub equity: Option<f64>,
+    pub equity_share: Option<f64>,
+    pub loan_to_value: Option<f64>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct PropertyValueChart {
+    pub line: Vec<ChartPoint>,
+    pub valuations: Vec<ChartPoint>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct PropertyDetail {
+    pub account: AccountListItem,
+    pub summary: PropertySummary,
+    pub loans: Vec<AccountListItem>,
+    pub base_ticker: String,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct PropertyPurchaseInput {
+    pub date: i64,
+    pub price: f64,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct CreatePropertyInput {
+    pub kind: PropertyKind,
+    pub name: String,
+    pub currency_asset_id: i32,
+    pub ownership_share: f64,
+    pub value: f64,
+    pub purchase: Option<PropertyPurchaseInput>,
+    pub loan_account_ids: Vec<String>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct UpdatePropertyInput {
+    pub name: String,
+    pub ownership_share: f64,
 }
 
 #[derive(Debug, Clone, uniffi::Record, serde::Serialize)]
@@ -140,6 +201,7 @@ pub struct AccountEditModel {
     pub liquidity_type_id: i32,
     pub ownership_share: f64,
     pub identifiers: Vec<AccountIdentifier>,
+    pub belongs_to_property: bool,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]

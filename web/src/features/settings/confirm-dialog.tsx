@@ -22,6 +22,7 @@ export function ConfirmDestructive({
   lost,
   survives,
   confirmLabel,
+  cancelLabel = "Keep it",
   pending = false,
   onConfirm,
 }: {
@@ -31,6 +32,7 @@ export function ConfirmDestructive({
   lost: ReactNode
   survives?: ReactNode
   confirmLabel: string
+  cancelLabel?: string
   pending?: boolean
   onConfirm: () => void
 }) {
@@ -51,7 +53,7 @@ export function ConfirmDestructive({
           ) : null}
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>Keep it</AlertDialogCancel>
+          <AlertDialogCancel>{cancelLabel}</AlertDialogCancel>
           <AlertDialogAction
             variant="destructive"
             disabled={pending}

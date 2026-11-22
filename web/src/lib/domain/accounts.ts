@@ -28,9 +28,9 @@ export const ACCOUNT_CLASS_LABELS: Record<AccountClass, string> = {
 }
 
 /**
- * Where an account type we have never seen lands. The eleven seeded types all map
+ * Where an account type we have never seen lands. The twelve seeded types all map
  * to one of the four designed groups; "other" only ever appears if the backend
- * adds a twelfth, which is exactly when a visible group beats a silent guess.
+ * adds another, which is exactly when a visible group beats a silent guess.
  */
 export const UNCLASSIFIED_ACCOUNT_CLASS: AccountClass = "other"
 
@@ -47,7 +47,7 @@ export interface AccountTypeTaxonomy {
   liquid: boolean
 }
 
-/** `GET /api/accounts/types`, seeded by `20260328000000_seed_reference_data.sql:23-35`. */
+/** `GET /api/accounts/types`, seeded by `20260328000000_seed_reference_data.sql:23-35` and `20261121000000_add_properties.sql`. */
 export const SEEDED_ACCOUNT_TYPES: readonly AccountTypeTaxonomy[] = [
   { id: 1, name: "Current", accountClass: "cash", liquid: true },
   { id: 2, name: "Savings", accountClass: "cash", liquid: true },
@@ -70,6 +70,7 @@ export const SEEDED_ACCOUNT_TYPES: readonly AccountTypeTaxonomy[] = [
   { id: 9, name: "Real Estate", accountClass: "property", liquid: false },
   { id: 10, name: "Crypto Wallet", accountClass: "investments", liquid: false },
   { id: 11, name: "Cash", accountClass: "cash", liquid: true },
+  { id: 12, name: "Vehicle", accountClass: "property", liquid: false },
 ]
 
 const BY_ID = new Map<number, AccountTypeTaxonomy>(

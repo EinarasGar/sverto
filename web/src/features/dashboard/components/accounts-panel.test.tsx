@@ -41,6 +41,7 @@ function balance(
     value,
     ratelessCount: 0,
     hasHoldings: true,
+    property: null,
     ...overrides,
   }
 }
@@ -178,6 +179,52 @@ describe("AccountsPanelView", () => {
     await renderPanel({ accounts: [], groups: [] })
     expect(screen.getByText("No accounts yet")).toBeVisible()
     expect(screen.getByRole("link", { name: /add an account/i })).toBeVisible()
+  })
+
+  it("opens a property on its own page and carries its linked loan's sync trouble", async () => {
+    const house = balance("house-account", "Flat 12", "property", 75_000, {
+      property: {
+        propertyId: "p-1",
+        kind: "real_estate",
+        name: "Flat 12",
+        accountId: "house-account",
+        assetId: 9,
+        currencyAssetId: 1,
+        ownershipShare: 1,
+        ownershipSharePercent: 100,
+        isJoint: false,
+        loanAccountIds: ["mortgage"],
+      },
+    })
+    const base = view()
+    await renderInRouter(
+      <AccountsPanelView
+        view={{
+          ...base,
+          accounts: [...base.accounts, house],
+          groups: base.groups.map((group) =>
+            group.accountClass === "property"
+              ? { ...group, accounts: [house] }
+              : group
+          ),
+        }}
+        currency="GBP"
+        sync={{ mortgage: "needsAttention" }}
+      />
+    )
+    const property = groupHeaders().find((header) =>
+      header.textContent?.includes("Property")
+    )
+    expect(property).toBeDefined()
+    if (!property) return
+
+    await userEvent.click(property)
+    const row = screen.getByRole("link", { name: /flat 12/i })
+    expect(row).toHaveAttribute("href", "/properties/p-1")
+    expect(row.querySelector('[data-slot="sync-status"]')).toHaveAttribute(
+      "data-status",
+      "needsAttention"
+    )
   })
 
   it("prints a joint account's own share on its row", async () => {

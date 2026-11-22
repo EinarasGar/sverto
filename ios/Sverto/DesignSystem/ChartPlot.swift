@@ -35,9 +35,19 @@ struct ChartPlot: View, Equatable {
                 .interpolationMethod(.monotone)
                 .foregroundStyle(lineColor)
                 .lineStyle(StrokeStyle(lineWidth: 2.5, lineCap: .round, lineJoin: .round))
+            ForEach(series.markers, id: \.timestamp) { marker in
+                PointMark(
+                    x: .value("Date", DateText.date(fromUnix: marker.timestamp)),
+                    y: .value("Valuation in \(series.ticker)", marker.value)
+                )
+                .foregroundStyle(lineColor)
+                .symbolSize(60)
+                .accessibilityLabel(Text(DateText.date(fromUnix: marker.timestamp), format: .dateTime.year().month().day()))
+                .accessibilityValue(Money.format(marker.value, ticker: series.ticker))
+            }
         }
         .chartYScale(domain: series.domain.range)
-        .chartXScale(range: .plotDimension(padding: 0))
+        .chartXScale(range: .plotDimension(padding: series.markers.isEmpty ? 0 : 6))
         .chartXAxis(.hidden)
         .chartYAxis(.hidden)
         .chartPlotStyle { plotArea in
@@ -50,6 +60,7 @@ struct ChartPlot: View, Equatable {
             set: {
                 selection.date = $0
                 selection.index = series.nearestIndex(to: $0)
+                selection.marker = series.nearestMarker(to: $0)
             }
         ))
         .chartOverlay { proxy in
@@ -84,11 +95,10 @@ private struct ChartSelectionOverlay: View {
 
     var body: some View {
         GeometryReader { geometry in
-            if let index = selection.index,
-               series.points.indices.contains(index),
+            if let point = selection.marker ?? selection.index.flatMap({ series.points.indices.contains($0) ? series.points[$0] : nil }),
                let plotFrame = proxy.plotFrame,
-               let x = proxy.position(forX: DateText.date(fromUnix: series.points[index].timestamp)),
-               let y = proxy.position(forY: series.points[index].value) {
+               let x = proxy.position(forX: DateText.date(fromUnix: point.timestamp)),
+               let y = proxy.position(forY: point.value) {
                 let frame = geometry[plotFrame]
                 Rectangle()
                     .fill(Color.secondary.opacity(0.3))

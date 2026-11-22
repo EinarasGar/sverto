@@ -18,7 +18,6 @@ private struct AddAccountForm: View {
     @State private var isConfirmingDiscard = false
     @FocusState private var isNameFocused: Bool
     @Environment(ShellState.self) private var shell
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     init(store: AppStore, accountId: String?) {
         _model = State(initialValue: AddAccountViewModel(store: store, editingAccountId: accountId))
@@ -126,7 +125,7 @@ private struct AddAccountForm: View {
                         .foregroundStyle(.red)
                 }
             }
-            Section("Account type") {
+            Section {
                 AccountTypePicker(
                     types: model.accountTypes,
                     isLoading: model.isLoadingTypes,
@@ -136,12 +135,19 @@ private struct AddAccountForm: View {
                 ) { typeId in
                     model.selectType(typeId)
                 }
+                .disabled(model.belongsToProperty)
+            } header: {
+                Text("Account type")
+            } footer: {
+                if model.belongsToProperty {
+                    Text("This account belongs to a property, so its type can't be changed.")
+                }
             }
             Section("Liquidity") {
                 liquidityRow
             }
             Section("Ownership") {
-                ownershipControls
+                OwnershipShareSlider(share: $model.ownershipShare)
             }
             AccountIdentifiersSection(
                 identifiers: model.identifiers,
@@ -169,30 +175,6 @@ private struct AddAccountForm: View {
             }
         }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
-    }
-
-    private var ownershipControls: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(model.ownershipPercentLabel)
-                .font(.title2.weight(.semibold))
-                .monospacedDigit()
-                .foregroundStyle(.tint)
-                .contentTransition(reduceMotion ? .identity : .numericText())
-                .animation(reduceMotion ? nil : .snappy, value: model.ownershipShare)
-            Slider(value: $model.ownershipShare, in: 0.1...1.0, step: 0.1) {
-                Text("Ownership share")
-            } minimumValueLabel: {
-                Text("10%")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            } maximumValueLabel: {
-                Text("100%")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
-            .accessibilityValue(model.ownershipPercentLabel)
-        }
-        .padding(.vertical, 4)
     }
 
     private func cancel() {

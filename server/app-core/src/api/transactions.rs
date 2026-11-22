@@ -418,10 +418,27 @@ pub(crate) fn find_asset_display(t: &MetadataLookupTables, id: i32) -> Option<St
         let nm = a.asset.name.as_str();
         if nm.is_empty() {
             tk.to_string()
+        } else if is_physical_asset(a.asset.asset_type.0) {
+            nm.to_string()
         } else {
             format!("{tk} — {nm}")
         }
     })
+}
+
+const REAL_ESTATE: i32 = 8;
+const VEHICLES: i32 = 9;
+
+/// Houses and cars are held as one unit under a generated ticker, so they read by name.
+fn is_physical_asset(asset_type: i32) -> bool {
+    matches!(asset_type, REAL_ESTATE | VEHICLES)
+}
+
+fn entry_display(tables: &MetadataLookupTables, asset_id: i32, amount: f64) -> String {
+    match tables.assets.iter().find(|a| a.asset_id.0 == asset_id) {
+        Some(a) if is_physical_asset(a.asset.asset_type.0) => a.asset.name.as_str().to_string(),
+        _ => fmt(amount, &find_ticker(tables, asset_id)),
+    }
 }
 
 fn find_ticker(t: &MetadataLookupTables, id: i32) -> String {
@@ -451,13 +468,13 @@ pub(crate) fn find_category_icon(t: &MetadataLookupTables, id: i32) -> Option<St
 fn primary_display(entries: &[ET], tables: &MetadataLookupTables) -> String {
     match entries.first() {
         None => String::new(),
-        Some(e) => fmt(e.2, &find_ticker(tables, e.1)),
+        Some(e) => entry_display(tables, e.1, e.2),
     }
 }
 
 /// The incoming leg for two-entry transactions; `None` for single-entry.
 fn secondary_display(entries: &[ET], tables: &MetadataLookupTables) -> Option<String> {
-    entries.get(1).map(|e| fmt(e.2, &find_ticker(tables, e.1)))
+    entries.get(1).map(|e| entry_display(tables, e.1, e.2))
 }
 
 fn type_label(t: &str) -> &str {
@@ -485,6 +502,48 @@ fn fmt(amount: f64, ticker: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn lookup_with_assets(assets: &[(i32, &str, &str, i32)]) -> MetadataLookupTables {
+        use shared::view_models::assets::base_models::{
+            asset::{Asset, IdentifiableAsset},
+            asset_id::RequiredAssetId,
+            asset_name::AssetName,
+            asset_ticker::AssetTicker,
+            asset_type_id::RequiredAssetTypeId,
+        };
+        MetadataLookupTables {
+            assets: assets
+                .iter()
+                .map(|&(id, ticker, name, asset_type)| IdentifiableAsset {
+                    asset_id: RequiredAssetId(id),
+                    asset: Asset {
+                        ticker: AssetTicker::from_trusted(ticker.to_string()),
+                        name: AssetName::from_trusted(name.to_string()),
+                        asset_type: RequiredAssetTypeId(asset_type),
+                    },
+                })
+                .collect(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn houses_and_cars_read_by_name_without_units() {
+        let tables = lookup_with_assets(&[
+            (1, "CAR-A98E8D4C", "Golf GTI", 9),
+            (2, "HOME-30D7F2E7", "Flat 12", 8),
+            (3, "GBP", "Pound Sterling", 1),
+            (4, "VWCE.XETRA", "Vanguard FTSE All-World", 5),
+        ]);
+        assert_eq!(entry_display(&tables, 1, 1.0), "Golf GTI");
+        assert_eq!(entry_display(&tables, 2, 1.0), "Flat 12");
+        assert_eq!(entry_display(&tables, 3, -12.5), "-£12.50");
+        assert_eq!(find_asset_display(&tables, 1).as_deref(), Some("Golf GTI"));
+        assert_eq!(
+            find_asset_display(&tables, 4).as_deref(),
+            Some("VWCE.XETRA — Vanguard FTSE All-World")
+        );
+    }
 
     #[test]
     fn builds_search_path_with_encoded_query() {

@@ -147,7 +147,7 @@ export function HoldingsTable({
                     </div>
                     <Truncate className="block ps-[19px] font-mono text-[11px] leading-[1.4] text-ink-3">
                       {row.subLabel}
-                      {columns.showUnits ? null : (
+                      {columns.showUnits || row.units === null ? null : (
                         <>
                           {" · "}
                           <Figure
@@ -410,7 +410,7 @@ function HoldingDisclosure({
                   text={account.label}
                   className="min-w-0 text-[12.5px] leading-none text-ink-2"
                 />
-                {columns.showUnits ? null : (
+                {columns.showUnits || account.units === null ? null : (
                   <Figure
                     value={account.units}
                     kind="units"

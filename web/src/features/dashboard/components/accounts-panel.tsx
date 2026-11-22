@@ -105,12 +105,26 @@ function AccountsGroup({
       <CollapsibleContent>
         <ul>
           {group.accounts.map((account) => {
-            const status = sync[account.accountId]
+            const status = [
+              account.accountId,
+              ...(account.property?.loanAccountIds ?? []),
+            ]
+              .map((accountId) => sync[accountId])
+              .find(isSyncTrouble)
+            const target =
+              account.property === null
+                ? ({
+                    to: "/accounts/$accountId",
+                    params: { accountId: account.accountId },
+                  } as const)
+                : ({
+                    to: "/properties/$propertyId",
+                    params: { propertyId: account.property.propertyId },
+                  } as const)
             return (
               <li key={account.accountId}>
                 <Link
-                  to="/accounts/$accountId"
-                  params={{ accountId: account.accountId }}
+                  {...target}
                   data-slot="account-row"
                   className={cn(
                     "flex h-[44px] items-center gap-3 border-b border-border px-[18px]",

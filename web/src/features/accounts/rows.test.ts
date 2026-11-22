@@ -32,6 +32,7 @@ function account(overrides: Partial<AccountBalance> = {}): AccountBalance {
     value: 100,
     ratelessCount: 0,
     hasHoldings: true,
+    property: null,
     ...overrides,
   }
 }
@@ -169,6 +170,47 @@ describe("buildAccountIndex", () => {
     expect(view.rows[0]?.connector).toBeNull()
     expect(view.rows[1]?.connector?.bindingId).toBe("b")
     expect(view.connectedCount).toBe(1)
+  })
+
+  it("still counts a linked loan's connection once the loan is folded into its property", () => {
+    const loanConnector = {
+      bindingId: "b",
+      providerAccountId: "pa",
+      connectionId: "c",
+      accountId: "loan",
+      status: "error" as const,
+      statusWord: "needsAttention" as const,
+      createdAt: 0,
+      lastSyncAt: null,
+      lastSyncFailed: true,
+      lastSyncError: "Consent expired",
+      syncedThrough: null,
+      writesPostDirectly: false,
+    }
+    const house = account({
+      accountId: "house",
+      accountClass: "property",
+      property: {
+        propertyId: "p-1",
+        kind: "real_estate",
+        name: "Flat 12",
+        accountId: "house",
+        assetId: 9,
+        currencyAssetId: 1,
+        ownershipShare: 1,
+        ownershipSharePercent: 100,
+        isJoint: false,
+        loanAccountIds: ["loan"],
+      },
+    })
+    const view = buildAccountIndex(balances([house]), overview([]), {
+      connectors: [loanConnector],
+      byAccountId: { loan: loanConnector },
+      count: 1,
+      needsAttentionCount: 1,
+    })
+    expect(view.connectedCount).toBe(1)
+    expect(view.needsAttentionCount).toBe(1)
   })
 
   it("counts joint accounts", () => {

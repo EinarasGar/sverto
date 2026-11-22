@@ -291,7 +291,6 @@ mod tests {
         let txs = txs.as_array().unwrap().iter().collect::<Vec<_>>();
         assert_eq!(txs.len(), 6);
         let mut mapped = 0;
-        let mut skipped = 0;
         for tx in &txs {
             match map_transaction(tx) {
                 MappedTransaction::Provider(p) => {
@@ -313,12 +312,10 @@ mod tests {
                     }
                 }
                 MappedTransaction::Skipped(s) => {
-                    skipped += 1;
                     panic!("unexpected skip: {} — {}", s.external_id, s.reason);
                 }
             }
         }
         assert_eq!(mapped, 6, "all representative transactions must map");
-        assert_eq!(skipped, 0);
     }
 }

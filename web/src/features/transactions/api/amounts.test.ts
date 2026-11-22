@@ -64,6 +64,20 @@ describe("nativeFigureProps", () => {
       ticker: "VUSA.LSE",
     })
   })
+
+  it("renders a house or car by its name alone, without units", () => {
+    const car = {
+      assetId: 9,
+      ticker: "CAR-A98E8D4C",
+      name: "Golf GTI",
+      assetTypeId: 9,
+    }
+    expect(nativeFigureProps(nativeAmount(1, car))).toEqual({
+      value: 1,
+      kind: "units",
+      text: "Golf GTI",
+    })
+  })
 })
 
 describe("legDirection", () => {

@@ -11,9 +11,10 @@ import type { PortfolioLookups } from "./refs"
 import { toPortfolioLookups } from "./refs"
 
 /**
- * `apply_ownership_share` defaults to true server-side (portfolio_handler.rs:83) and
- * the generated client does not expose the parameter, so holdings are ALWAYS the
- * user's share. `GET /accounts/{id}/portfolio/overview` does the opposite — see
+ * `apply_ownership_share` defaults to true server-side (portfolio_handler.rs:83), so
+ * holdings are the user's share unless a caller asks for whole accounts. The generated
+ * client does not expose the parameter, so it travels as a raw query param.
+ * `GET /accounts/{id}/portfolio/overview` never applies it — see
  * `appliesOwnershipShare` on the overview views.
  */
 export const HOLDINGS_APPLY_OWNERSHIP_SHARE = true
@@ -65,7 +66,10 @@ function byValueDesc(a: { value: number }, b: { value: number }): number {
   return b.value - a.value
 }
 
-export function buildHoldingsView(response: GetHoldingsResponse): HoldingsView {
+export function buildHoldingsView(
+  response: GetHoldingsResponse,
+  appliesOwnershipShare: boolean = HOLDINGS_APPLY_OWNERSHIP_SHARE
+): HoldingsView {
   const lookups = toPortfolioLookups(response.lookup_tables)
 
   const holdings: Holding[] = response.holdings.map((row) => ({
@@ -128,7 +132,7 @@ export function buildHoldingsView(response: GetHoldingsResponse): HoldingsView {
     totalValue,
     ratelessCount,
     isDegraded: ratelessCount > 0,
-    appliesOwnershipShare: HOLDINGS_APPLY_OWNERSHIP_SHARE,
+    appliesOwnershipShare,
     lookups,
   }
 }
@@ -136,25 +140,30 @@ export function buildHoldingsView(response: GetHoldingsResponse): HoldingsView {
 export interface HoldingsQueryParams {
   userId: string
   defaultAssetId: number
+  applyOwnershipShare?: boolean
 }
 
 export function holdingsQueryOptions({
   userId,
   defaultAssetId,
+  applyOwnershipShare = HOLDINGS_APPLY_OWNERSHIP_SHARE,
 }: HoldingsQueryParams) {
   return apiQueryOptions({
     queryKey: queryKeys.user(userId).portfolio.holdings({
       defaultAssetId,
-      applyOwnershipShare: HOLDINGS_APPLY_OWNERSHIP_SHARE,
+      applyOwnershipShare,
     }),
     staleTime: STALE_TIMES.short,
     fetch: async ({ signal }): Promise<HoldingsView> => {
       const response = await api(PortfolioApiFactory).getHoldings(
         userId,
         defaultAssetId,
-        { signal }
+        {
+          signal,
+          params: { apply_ownership_share: applyOwnershipShare },
+        }
       )
-      return buildHoldingsView(response.data)
+      return buildHoldingsView(response.data, applyOwnershipShare)
     },
     meta: { errorContext: "Holdings could not be loaded" },
   })

@@ -37,6 +37,12 @@ struct RouteDestination: View {
             AddAccountScreen(accountId: nil)
         case let .editAccount(accountId):
             AddAccountScreen(accountId: accountId)
+        case let .propertyDetail(propertyId, name):
+            PropertyDetailScreen(propertyId: propertyId, name: name)
+        case .addProperty:
+            AddPropertyScreen()
+        case let .propertyValuations(assetId, currencyAssetId, currencyTicker):
+            PropertyValuationsScreen(assetId: assetId, currencyAssetId: currencyAssetId, currencyTicker: currencyTicker)
         case let .assetOverview(assetId, userAsset):
             AssetOverviewScreen(assetId: assetId, userAsset: userAsset)
         case .customAssets:

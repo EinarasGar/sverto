@@ -36,6 +36,7 @@ class AddAccountViewModel(
     val ownershipShare = MutableStateFlow(1.0f)
 
     val identifiers = MutableStateFlow<List<AccountIdentifier>>(emptyList())
+    val belongsToProperty = MutableStateFlow(false)
     private var editingAccountId: String? = null
 
     private val _accountTypes = MutableStateFlow<List<AccountTypeItem>>(emptyList())
@@ -74,6 +75,7 @@ class AddAccountViewModel(
                 selectedLiquidityId.value = model.liquidityTypeId
                 ownershipShare.value = model.ownershipShare.toFloat()
                 identifiers.value = model.identifiers
+                belongsToProperty.value = model.belongsToProperty
             }
         }
     }

@@ -1,7 +1,12 @@
 import { describe, expect, it } from "vitest"
 
-import type { GetAccountsResponse, GetHoldingsResponse } from "@/api"
+import type {
+  GetAccountsResponse,
+  GetHoldingsResponse,
+  GetPropertiesResponse,
+} from "@/api"
 import { buildHoldingsView } from "@/features/portfolio/api"
+import { buildPropertiesView } from "@/features/properties/api"
 
 import { buildAccountsView } from "./accounts"
 import { buildAccountBalances } from "./balances"
@@ -72,9 +77,12 @@ const holdingsResponse: GetHoldingsResponse = {
   },
 }
 
+const noProperties = buildPropertiesView({ properties: [] })
+
 const balances = buildAccountBalances(
   buildAccountsView(accountsResponse),
-  buildHoldingsView(holdingsResponse)
+  buildHoldingsView(holdingsResponse),
+  noProperties
 )
 
 describe("buildAccountBalances", () => {
@@ -128,7 +136,8 @@ describe("buildAccountBalances", () => {
       buildHoldingsView({
         holdings: [],
         lookup_tables: { accounts: [], assets: [] },
-      })
+      }),
+      noProperties
     )
     expect(
       withoutHoldings.accounts.every((account) => account.value === 0)
@@ -137,5 +146,149 @@ describe("buildAccountBalances", () => {
       withoutHoldings.accounts.every((account) => !account.hasHoldings)
     ).toBe(true)
     expect(withoutHoldings.unmatchedValue).toBe(0)
+  })
+})
+
+describe("buildAccountBalances with properties", () => {
+  const HOUSE = "77777777-7777-7777-7777-777777777777"
+  const LOAN = "88888888-8888-8888-8888-888888888888"
+
+  const accounts = buildAccountsView({
+    ...accountsResponse,
+    accounts: [
+      ...accountsResponse.accounts,
+      {
+        account_id: HOUSE,
+        account_type: 9,
+        liquidity_type: 1,
+        name: "Flat 12",
+        ownership_share: 0.5,
+        suggested_currency: null,
+      },
+      {
+        account_id: LOAN,
+        account_type: 8,
+        liquidity_type: 1,
+        name: "Car Loan",
+        ownership_share: 1,
+        suggested_currency: 1,
+      },
+    ],
+    lookup_tables: {
+      ...accountsResponse.lookup_tables,
+      account_types: [
+        ...accountsResponse.lookup_tables.account_types,
+        { id: 8, name: "Loan" },
+        { id: 9, name: "Real Estate" },
+      ],
+    },
+  })
+
+  const holdings = buildHoldingsView({
+    ...holdingsResponse,
+    holdings: [
+      ...holdingsResponse.holdings,
+      { account_id: HOUSE, asset_id: 9, units: 0.5, value: 164000 },
+      { account_id: LOAN, asset_id: 1, units: -5000, value: -5000 },
+    ],
+  })
+
+  const properties: GetPropertiesResponse = {
+    properties: [
+      {
+        property_id: "p-1",
+        kind: "real_estate",
+        name: "Flat 12",
+        account_id: HOUSE,
+        asset_id: 9,
+        currency_asset_id: 1,
+        ownership_share: 0.5,
+        loan_account_ids: [MORTGAGE],
+      },
+    ],
+  }
+
+  const plain = buildAccountBalances(accounts, holdings, noProperties)
+  const folded = buildAccountBalances(
+    accounts,
+    holdings,
+    buildPropertiesView(properties)
+  )
+
+  it("leaves a linked loan off the list and folds it into the property row", () => {
+    expect(folded.accounts.map((account) => account.name)).toEqual([
+      "Lloyds Current",
+      "Trading 212 ISA",
+      "Flat 12",
+      "Car Loan",
+    ])
+    const house = folded.accounts.find((account) => account.accountId === HOUSE)
+    expect(house?.value).toBe(164000 - 144722)
+    expect(house?.property?.propertyId).toBe("p-1")
+  })
+
+  it("keeps an unlinked loan as a normal liability row", () => {
+    const loan = folded.accounts.find((account) => account.accountId === LOAN)
+    expect(loan?.value).toBe(-5000)
+    expect(loan?.property).toBeNull()
+  })
+
+  it("moves the loan between group subtotals without changing the totals", () => {
+    expect(
+      folded.groups.map((group) => [group.accountClass, group.subtotal])
+    ).toEqual([
+      ["cash", 4200],
+      ["investments", 12000],
+      ["property", 164000 - 144722],
+      ["other", 0],
+      ["liabilities", -5000],
+    ])
+    expect(folded.total).toBe(plain.total)
+    expect(folded.netWorth).toBe(plain.netWorth)
+    expect(folded.unmatchedValue).toBe(plain.unmatchedValue)
+  })
+
+  it("does not report a hidden loan as a deactivated account", () => {
+    expect(folded.unmatchedAccountIds).toEqual([DEACTIVATED])
+  })
+
+  it("keeps a loan listed when its property's own account is not in the list", () => {
+    const orphaned = buildAccountBalances(
+      accounts,
+      holdings,
+      buildPropertiesView({
+        properties: [
+          {
+            ...properties.properties[0]!,
+            account_id: DEACTIVATED,
+            loan_account_ids: [LOAN],
+          },
+        ],
+      })
+    )
+    expect(orphaned.accounts.map((account) => account.name)).toContain(
+      "Car Loan"
+    )
+    expect(orphaned.total).toBe(plain.total)
+  })
+
+  it("folds only the loans the list holds, so an unlisted one is counted once", () => {
+    const stale = buildAccountBalances(
+      accounts,
+      holdings,
+      buildPropertiesView({
+        properties: [
+          {
+            ...properties.properties[0]!,
+            loan_account_ids: [MORTGAGE, DEACTIVATED],
+          },
+        ],
+      })
+    )
+    const house = stale.accounts.find((account) => account.accountId === HOUSE)
+    expect(house?.value).toBe(164000 - 144722)
+    expect(house?.property?.loanAccountIds).toEqual([MORTGAGE])
+    expect(stale.unmatchedAccountIds).toEqual([DEACTIVATED])
+    expect(stale.total + stale.unmatchedValue).toBe(stale.netWorth)
   })
 })

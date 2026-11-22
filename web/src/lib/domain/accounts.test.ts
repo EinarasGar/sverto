@@ -28,16 +28,17 @@ const EXPECTED_CLASS_BY_NAME: Record<string, AccountClass> = {
   "Workplace Pension": "investments",
   "Crypto Wallet": "investments",
   "Real Estate": "property",
+  Vehicle: "property",
   Credit: "liabilities",
   Mortgage: "liabilities",
   Loan: "liabilities",
 }
 
 describe("account type taxonomy", () => {
-  it("covers exactly the eleven seeded types", () => {
-    expect(SEEDED_ACCOUNT_TYPES).toHaveLength(11)
+  it("covers exactly the twelve seeded types", () => {
+    expect(SEEDED_ACCOUNT_TYPES).toHaveLength(12)
     expect(SEEDED_ACCOUNT_TYPES.map((entry) => entry.id)).toEqual([
-      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11,
+      1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12,
     ])
   })
 
@@ -66,12 +67,12 @@ describe("account type taxonomy", () => {
   })
 
   it("sends unknown types to the unclassified class instead of guessing", () => {
-    expect(classifyAccountType({ id: 12, name: "Spread Bet" })).toBe(
+    expect(classifyAccountType({ id: 99, name: "Spread Bet" })).toBe(
       UNCLASSIFIED_ACCOUNT_CLASS
     )
     expect(classifyAccountType(null)).toBe(UNCLASSIFIED_ACCOUNT_CLASS)
     expect(classifyAccountType(undefined)).toBe(UNCLASSIFIED_ACCOUNT_CLASS)
-    expect(isKnownAccountType({ id: 12, name: "Spread Bet" })).toBe(false)
+    expect(isKnownAccountType({ id: 99, name: "Spread Bet" })).toBe(false)
     expect(isKnownAccountType({ id: 3 })).toBe(true)
   })
 
@@ -98,12 +99,12 @@ describe("liquidity", () => {
     expect(isLiquidAccountType({ id })).toBe(true)
   })
 
-  it.each([3, 4, 5, 6, 7, 8, 9, 10])("marks type %i illiquid", (id) => {
+  it.each([3, 4, 5, 6, 7, 8, 9, 10, 12])("marks type %i illiquid", (id) => {
     expect(isLiquidAccountType({ id })).toBe(false)
   })
 
   it("never claims an unknown type is liquid", () => {
-    expect(isLiquidAccountType({ id: 12, name: "Spread Bet" })).toBe(false)
+    expect(isLiquidAccountType({ id: 99, name: "Spread Bet" })).toBe(false)
     expect(isLiquidAccountType(null)).toBe(false)
   })
 })
@@ -113,7 +114,7 @@ describe("liabilities", () => {
     expect(isLiabilityAccountType({ id })).toBe(true)
   })
 
-  it.each([1, 2, 3, 5, 6, 9, 10, 11])(
+  it.each([1, 2, 3, 5, 6, 9, 10, 11, 12])(
     "does not treat type %i as a liability",
     (id) => {
       expect(isLiabilityAccountType({ id })).toBe(false)

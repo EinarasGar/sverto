@@ -1,5 +1,10 @@
 import { Figure } from "@/components/figure"
-import { assetLabel, accountLabel, isCurrencyAsset } from "@/lib/domain/refs"
+import {
+  assetLabel,
+  accountLabel,
+  isCurrencyAsset,
+  readableAssetLabel,
+} from "@/lib/domain/refs"
 import { impliedUnitPrice } from "@/lib/domain/transaction-types"
 import { formatDateStamp } from "@/lib/format"
 import { InlineRowAction, StatusChip } from "@/components/primitives"
@@ -137,7 +142,7 @@ export function DrawerEntries({ row }: { row: LedgerTransactionRow }) {
           >
             <span className="min-w-0">
               <span className="block truncate text-[12.5px] leading-[1.3] font-medium">
-                {assetLabel(leg.amount.asset)}
+                {readableAssetLabel(leg.amount.asset)}
               </span>
               <span className="block truncate text-[11px] leading-[1.5] text-ink-3">
                 {accountLabel(leg.account)} · {leg.label}
@@ -157,7 +162,7 @@ export function DrawerEntries({ row }: { row: LedgerTransactionRow }) {
           >
             <span className="min-w-0">
               <span className="block truncate text-[12.5px] leading-[1.3] font-medium">
-                {assetLabel(fee.amount.asset)}
+                {readableAssetLabel(fee.amount.asset)}
               </span>
               <span className="block truncate text-[11px] leading-[1.5] text-ink-3">
                 {accountLabel(fee.account)} · fee

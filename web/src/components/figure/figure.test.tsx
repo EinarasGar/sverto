@@ -134,6 +134,13 @@ describe("Figure values", () => {
     expect(figure.textContent).toBe(`2.0000${NBSP}BTC`)
   })
 
+  it("shows the given text in place of the number", () => {
+    const figure = renderFigure(
+      <Figure data-testid="figure" value={1} kind="units" text="Golf GTI" />
+    )
+    expect(figure.textContent).toBe("Golf GTI")
+  })
+
   it("renders percentages and rates", () => {
     expect(
       renderFigure(<Figure data-testid="figure" value={36.7} kind="percent" />)

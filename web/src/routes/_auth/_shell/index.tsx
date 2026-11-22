@@ -16,6 +16,7 @@ import {
   portfolioHistoryQueryOptions,
   portfolioOverviewQueryOptions,
 } from "@/features/portfolio/api"
+import { propertiesQueryOptions } from "@/features/properties/api"
 import { warm } from "@/lib/query"
 
 import { optionalEnum } from "../../-search"
@@ -50,6 +51,7 @@ export const Route = createFileRoute("/_auth/_shell/")({
       ),
       queryClient.ensureQueryData(accountsQueryOptions(userId)),
       queryClient.ensureQueryData(accountConnectorsQueryOptions(userId)),
+      queryClient.ensureQueryData(propertiesQueryOptions(userId)),
     ])
   },
   component: DashboardScreen,

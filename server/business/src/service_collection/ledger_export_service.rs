@@ -31,7 +31,6 @@ fn convert_provider_error(err: anyhow::Error) -> anyhow::Error {
 }
 
 pub struct LedgerExportService {
-    providers: super::ServiceProviders,
     db: MyraDb,
     file_provider: Arc<dyn FileProvider>,
     users_service: UsersService,
@@ -41,7 +40,6 @@ pub struct LedgerExportService {
 impl LedgerExportService {
     pub fn new(providers: &super::ServiceProviders) -> Self {
         Self {
-            providers: providers.clone(),
             db: providers.db.clone(),
             file_provider: providers.file_provider.clone(),
             users_service: UsersService::new(providers),

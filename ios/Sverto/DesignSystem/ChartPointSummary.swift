@@ -9,8 +9,8 @@ struct ChartPointSummary: Equatable {
 
     var isPositive: Bool { change >= 0 }
 
-    nonisolated init(points: [ChartPoint], scrubbedIndex: Int?) {
-        let scrubbed = scrubbedIndex.flatMap { points.indices.contains($0) ? points[$0] : nil }
+    nonisolated init(points: [ChartPoint], scrubbedIndex: Int?, scrubbedMarker: ChartPoint? = nil) {
+        let scrubbed = scrubbedMarker ?? scrubbedIndex.flatMap { points.indices.contains($0) ? points[$0] : nil }
         let current = scrubbed?.value ?? points.last?.value ?? 0
         let start = points.first?.value ?? 0
         currentValue = current

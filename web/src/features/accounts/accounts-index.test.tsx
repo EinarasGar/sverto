@@ -54,6 +54,7 @@ function account(overrides: Partial<AccountBalance>): AccountBalance {
     value: 100,
     ratelessCount: 0,
     hasHoldings: true,
+    property: null,
     ...overrides,
   }
 }

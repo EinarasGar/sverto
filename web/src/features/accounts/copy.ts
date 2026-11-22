@@ -13,6 +13,13 @@ export const TYPE_LABEL = "Account type"
 export const TYPE_HINT =
   "The type decides which group the account is listed under and whether it counts as spendable today. Sverto reads it; it does not store a group."
 
+export const LOCKED_BY_PROPERTY =
+  "This account holds a property, so its name and type follow the property. Rename it with Edit on the property page."
+
+export function typeLockedByLoan(propertyName: string): string {
+  return `This loan is linked to ${propertyName}, so its type stays as it is. Unlink it on the property page to change it.`
+}
+
 export const LIQUIDITY_LABEL = "Liquidity"
 export const LIQUIDITY_HINT =
   "Only one liquidity type is seeded, so this rarely changes anything today. Create and edit both require it."

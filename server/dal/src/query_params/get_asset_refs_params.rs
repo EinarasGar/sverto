@@ -32,6 +32,10 @@ impl GetAssetRefsParams {
         }
     }
 
+    pub fn by_ids(user_id: Uuid, ids: Vec<i32>) -> Self {
+        Self::by_tickers_symbols_isins_or_ids(user_id, vec![], ids)
+    }
+
     pub fn with_asset_type(mut self, asset_type: i32) -> Self {
         self.asset_type = Some(asset_type);
         self

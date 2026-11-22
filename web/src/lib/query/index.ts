@@ -14,6 +14,7 @@ export type {
   FileId,
   ImportSessionId,
   PortfolioRange,
+  PropertyId,
   QuickUploadId,
   TransactionGroupId,
   TransactionId,

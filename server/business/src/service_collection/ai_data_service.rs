@@ -694,7 +694,7 @@ impl AiDataService {
         if rates.is_empty() && asset_id != quote_id {
             let base_id = self
                 .assets_service
-                .get_asset_with_metadata(asset_id)
+                .get_asset_with_metadata(user_id, asset_id)
                 .await?
                 .base_asset_id
                 .map(|b| b.0);

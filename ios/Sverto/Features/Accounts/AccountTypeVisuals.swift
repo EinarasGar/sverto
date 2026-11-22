@@ -12,10 +12,11 @@ enum AccountType: Int32, CaseIterable {
     case realEstate = 9
     case cryptoWallet = 10
     case cash = 11
+    case vehicle = 12
 
     nonisolated static let displayOrder: [AccountType] = [
         .current, .cash, .savings, .investment, .personalPension, .workplacePension,
-        .realEstate, .cryptoWallet, .credit, .mortgage, .loan,
+        .realEstate, .vehicle, .cryptoWallet, .credit, .mortgage, .loan,
     ]
 
     nonisolated var isInvestment: Bool {
@@ -38,6 +39,7 @@ enum AccountType: Int32, CaseIterable {
         case .realEstate: "Real Estate"
         case .cryptoWallet: "Crypto Wallet"
         case .cash: "Cash"
+        case .vehicle: "Vehicle"
         }
     }
 
@@ -54,6 +56,7 @@ enum AccountType: Int32, CaseIterable {
         case .realEstate: "building.2"
         case .cryptoWallet: "bitcoinsign.circle"
         case .cash: "banknote"
+        case .vehicle: "car"
         }
     }
 
@@ -61,7 +64,7 @@ enum AccountType: Int32, CaseIterable {
         switch self {
         case .current, .cash: .blue
         case .savings: .teal
-        case .investment, .personalPension, .workplacePension, .realEstate, .cryptoWallet: .indigo
+        case .investment, .personalPension, .workplacePension, .realEstate, .vehicle, .cryptoWallet: .indigo
         case .credit, .mortgage, .loan: .orange
         }
     }

@@ -1,5 +1,5 @@
-import { useMemo } from "react"
-import { PlusIcon } from "lucide-react"
+import { useMemo, useState } from "react"
+import { House, PlusIcon } from "lucide-react"
 
 import { useUserId } from "@/auth"
 import { Figure } from "@/components/figure"
@@ -13,6 +13,7 @@ import {
   usePortfolioOverviewSuspense,
   useRequiredBaseAssetId,
 } from "@/features/portfolio/api"
+import { ADD_PROPERTY, PropertyCreateSheet } from "@/features/properties"
 
 import { AccountEditor } from "./account-editor"
 import { AccountGroup } from "./account-group"
@@ -119,6 +120,7 @@ function AccountsGroups({ onAddAccount }: { onAddAccount: () => void }) {
 export function AccountsIndex() {
   const userId = useUserId()
   const editor = useAccountEditor()
+  const [addingProperty, setAddingProperty] = useState(false)
 
   return (
     <>
@@ -127,15 +129,27 @@ export function AccountsIndex() {
         title="Accounts"
         meta={<AccountsMeta />}
         actions={
-          <Button
-            size="lg"
-            onClick={() => {
-              editor.openCreate()
-            }}
-          >
-            <PlusIcon aria-hidden data-icon="inline-start" />
-            {NEW_ACCOUNT}
-          </Button>
+          <>
+            <Button
+              variant="outline"
+              size="lg"
+              onClick={() => {
+                setAddingProperty(true)
+              }}
+            >
+              <House aria-hidden data-icon="inline-start" />
+              {ADD_PROPERTY}
+            </Button>
+            <Button
+              size="lg"
+              onClick={() => {
+                editor.openCreate()
+              }}
+            >
+              <PlusIcon aria-hidden data-icon="inline-start" />
+              {NEW_ACCOUNT}
+            </Button>
+          </>
         }
       />
       <div className="flex flex-col gap-[26px]">
@@ -155,6 +169,10 @@ export function AccountsIndex() {
         mode={editor.mode}
         open={editor.open}
         onOpenChange={editor.setOpen}
+      />
+      <PropertyCreateSheet
+        open={addingProperty}
+        onOpenChange={setAddingProperty}
       />
     </>
   )

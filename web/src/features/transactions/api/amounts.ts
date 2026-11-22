@@ -1,5 +1,10 @@
 import type { AssetRef } from "@/lib/domain/refs"
-import { assetLabel, isCurrencyAsset } from "@/lib/domain/refs"
+import {
+  assetLabel,
+  isCurrencyAsset,
+  isPhysicalAssetType,
+  readableAssetLabel,
+} from "@/lib/domain/refs"
 import type { AssetId } from "@/lib/query"
 
 import type { LegDirection, NativeAmount } from "./types"
@@ -22,6 +27,7 @@ export type NativeFigureProps =
       readonly currency: string
     }
   | { readonly value: number; readonly kind: "units"; readonly ticker: string }
+  | { readonly value: number; readonly kind: "units"; readonly text: string }
 
 /**
  * The only supported way to hand a ledger amount to `<Figure>`: money keeps the asset's
@@ -32,6 +38,9 @@ export function nativeFigureProps(amount: NativeAmount): NativeFigureProps {
   const value = assetUnitsOf(amount)
   if (isCurrencyAsset(amount.asset)) {
     return { value, kind: "money", currency: label }
+  }
+  if (isPhysicalAssetType(amount.asset.assetTypeId)) {
+    return { value, kind: "units", text: readableAssetLabel(amount.asset) }
   }
   return { value, kind: "units", ticker: label }
 }

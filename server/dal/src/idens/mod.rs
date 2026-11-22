@@ -9,6 +9,7 @@ pub mod connector_idens;
 pub mod entries_idens;
 pub(crate) mod file_idens;
 pub mod import_idens;
+pub mod property_idens;
 pub mod rate_limit_idens;
 pub(crate) mod transaction_idens;
 pub(crate) mod user_idens;

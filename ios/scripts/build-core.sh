@@ -12,7 +12,10 @@ PACKAGE_DIR="$IOS_DIR/SvertoCore"
 XCFRAMEWORK="$PACKAGE_DIR/Frameworks/SvertoCoreFFI.xcframework"
 SWIFT_OUT="$PACKAGE_DIR/Sources/SvertoCore"
 STAGING="$SERVER_DIR/target/ios-bindings"
+# Prefer rustup's cargo: Xcode and Gradle run this with a PATH that lacks ~/.cargo/bin. CI images
+# can ship rustup elsewhere (Homebrew), so fall back to whatever cargo is on PATH.
 CARGO="${CARGO_HOME:-$HOME/.cargo}/bin/cargo"
+[ -x "$CARGO" ] || CARGO="$(command -v cargo)" || { echo "cargo not found" >&2; exit 127; }
 export IPHONEOS_DEPLOYMENT_TARGET="${IPHONEOS_DEPLOYMENT_TARGET:-26.0}"
 export PATH="$PATH:/usr/bin:/bin:/usr/sbin:/sbin"
 

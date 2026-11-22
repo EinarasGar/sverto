@@ -28,6 +28,7 @@ import {
   hasPlottableSeries,
   indexAtRatio,
   pointStamp,
+  ratioAtTime,
   resolvePoints,
   spanInDays,
   valueOffsetRatio,
@@ -137,6 +138,21 @@ export function HeroChart({
     [points]
   )
 
+  const markerSpots = useMemo(
+    () =>
+      (markers ?? []).flatMap((marker) => {
+        const at = toDate(marker.date)
+        const ratio = at === null ? null : ratioAtTime(points, at.getTime())
+        if (marker.label === undefined || ratio === null) return []
+        return [{ marker, ratio, index: indexAtRatio(points, ratio) }]
+      }),
+    [markers, points]
+  )
+  const activeMarkers = scrubbing
+    ? markerSpots.filter((spot) => spot.index === activeIndex)
+    : []
+  const anchorMarker = activeMarkers.at(-1)
+
   const headlineValue = scrubbing
     ? (activePoint?.value ?? null)
     : (value ?? lastValue)
@@ -179,7 +195,10 @@ export function HeroChart({
 
   const scrubValueText = () => {
     if (!activePoint) return undefined
-    const stamp = pointStamp(points, activeIndex ?? 0, locale)
+    const stamp = [
+      pointStamp(points, activeIndex ?? 0, locale),
+      ...activeMarkers.map((spot) => spot.marker.label),
+    ].join(", ")
     if (activePoint.value === null) return stamp
     if (kind === "money" && currency) {
       return `${stamp}, ${formatMoney(activePoint.value, { currency, locale })}`
@@ -363,6 +382,38 @@ export function HeroChart({
               </AreaChart>
             </ChartContainer>
           </div>
+
+          {anchorMarker === undefined ? null : (
+            <div
+              data-slot="hero-chart-marker-label"
+              className={cn(
+                "pointer-events-none absolute flex -translate-y-[calc(100%+10px)] flex-col gap-[5px] rounded-md bg-foreground px-[9px] py-[5px] text-[11px] leading-none whitespace-nowrap text-background",
+                anchorMarker.ratio < 0.15
+                  ? "translate-x-0"
+                  : anchorMarker.ratio > 0.85
+                    ? "-translate-x-full"
+                    : "-translate-x-1/2"
+              )}
+              style={{
+                left: `${anchorMarker.ratio * 100}%`,
+                top:
+                  PLOT_MARGIN.top +
+                  (height - PLOT_MARGIN.top) *
+                    valueOffsetRatio(
+                      Math.max(
+                        ...activeMarkers.map((spot) => spot.marker.value)
+                      ),
+                      domain
+                    ),
+              }}
+            >
+              {activeMarkers.map((spot) => (
+                <span key={`${spot.ratio}-${spot.marker.value}`}>
+                  {spot.marker.label}
+                </span>
+              ))}
+            </div>
+          )}
 
           {referenceLine?.label === undefined ? null : (
             <div

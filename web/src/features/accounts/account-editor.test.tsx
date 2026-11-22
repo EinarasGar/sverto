@@ -9,6 +9,7 @@ const getAccountLiquidityTypes = vi.fn()
 const addAccount = vi.fn()
 const updateAccount = vi.fn()
 const deleteAccount = vi.fn()
+const getProperties = vi.fn()
 
 const ENDPOINTS: Record<string, unknown> = {
   getAccounts,
@@ -18,6 +19,7 @@ const ENDPOINTS: Record<string, unknown> = {
   addAccount,
   updateAccount,
   deleteAccount,
+  getProperties,
 }
 
 vi.mock("@/lib/api", () => ({
@@ -86,6 +88,7 @@ beforeEach(() => {
   addAccount.mockResolvedValue({ data: { account_id: "new-1" } })
   updateAccount.mockResolvedValue({ data: {} })
   deleteAccount.mockResolvedValue({ data: undefined })
+  getProperties.mockResolvedValue({ data: { properties: [] } })
 })
 
 afterEach(() => {
@@ -322,6 +325,86 @@ describe("editing an account", () => {
     expect(
       await within(dialog).findByText("Must be between 1 and 200 characters.")
     ).toBeInTheDocument()
+  })
+})
+
+describe("editing an account a property uses", () => {
+  it("keeps a linked loan's type fixed and says why", async () => {
+    getProperties.mockResolvedValue({
+      data: {
+        properties: [
+          {
+            property_id: "p-1",
+            kind: "real_estate",
+            name: "Flat 12",
+            account_id: "house",
+            asset_id: 9,
+            currency_asset_id: 1,
+            ownership_share: 1,
+            loan_account_ids: ["a1"],
+          },
+        ],
+      },
+    })
+    const dialog = await renderEdit()
+
+    expect(await within(dialog).findByLabelText("Account type")).toBeDisabled()
+    expect(
+      within(dialog).getByText(/linked to Flat 12, so its type stays/i)
+    ).toBeVisible()
+  })
+
+  it("keeps a linked loan renamable", async () => {
+    getProperties.mockResolvedValue({
+      data: {
+        properties: [
+          {
+            property_id: "p-1",
+            kind: "real_estate",
+            name: "Flat 12",
+            account_id: "house",
+            asset_id: 9,
+            currency_asset_id: 1,
+            ownership_share: 1,
+            loan_account_ids: ["a1"],
+          },
+        ],
+      },
+    })
+    const dialog = await renderEdit()
+    await within(dialog).findByText(/linked to Flat 12/i)
+    expect(within(dialog).getByLabelText("Name")).toBeEnabled()
+  })
+
+  it("locks the name and type of a property's own account and points to the property's Edit", async () => {
+    getProperties.mockResolvedValue({
+      data: {
+        properties: [
+          {
+            property_id: "p-1",
+            kind: "real_estate",
+            name: "Flat 12",
+            account_id: "a1",
+            asset_id: 9,
+            currency_asset_id: 1,
+            ownership_share: 1,
+            loan_account_ids: [],
+          },
+        ],
+      },
+    })
+    const dialog = await renderEdit()
+
+    expect(await within(dialog).findByLabelText("Name")).toBeDisabled()
+    expect(within(dialog).getByLabelText("Account type")).toBeDisabled()
+    expect(
+      within(dialog).getByText(/rename it with edit on the property page/i)
+    ).toBeVisible()
+  })
+
+  it("leaves the type editable on an account no property uses", async () => {
+    const dialog = await renderEdit()
+    expect(await within(dialog).findByLabelText("Account type")).toBeEnabled()
   })
 })
 

@@ -16,6 +16,7 @@ use dal::{
 #[mockall_double::double]
 use dal::database_context::MyraDb;
 
+use itertools::Itertools;
 use mockall::automock;
 use uuid::Uuid;
 
@@ -35,6 +36,7 @@ use crate::dtos::{
         update_asset_dto::UpdateAssetDto,
     },
     conflict_error_dto::BusinessConflictError,
+    not_found_error_dto::BusinessNotFoundError,
     page_of_results_dto::PageOfResultsDto,
     paging_dto::PagingDto,
 };
@@ -53,35 +55,39 @@ impl AssetsService {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, fields(asset_id = %id))]
-    pub async fn get_asset_with_metadata(&self, id: i32) -> anyhow::Result<FullAssetDto> {
-        let query = asset_queries::get_asset_with_metadata(GetAssetsParams::by_id(id));
-        let model = self.db.fetch_optional::<AssetWithMetadata>(query).await?;
-
-        if let Some(model) = model {
-            return Ok(model.into());
-        } else {
-            return Err(anyhow::anyhow!("Asset not found"));
-        }
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, asset_id = %id))]
+    pub async fn get_asset_with_metadata(
+        &self,
+        user_id: Uuid,
+        id: i32,
+    ) -> anyhow::Result<FullAssetDto> {
+        let query =
+            asset_queries::get_asset_with_metadata(GetAssetsParams::by_id(id).visible_to(user_id));
+        let model = self
+            .db
+            .fetch_optional::<AssetWithMetadata>(query)
+            .await?
+            .ok_or_else(|| BusinessNotFoundError {
+                message: "Asset not found.".to_string(),
+            })?;
+        Ok(model.into())
     }
 
-    #[tracing::instrument(level = "debug", skip_all)]
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
     pub async fn search_assets(
         &self,
+        user_id: Uuid,
         paging: PagingDto,
         query: Option<String>,
         asset_type: Option<i32>,
     ) -> anyhow::Result<PageOfResultsDto<asset_dto::AssetDto>> {
-        let query = if let Some(query) = query {
-            asset_queries::get_asset_with_metadata(
-                GetAssetsParams::by_query(query, paging.start, paging.count)
-                    .with_asset_type(asset_type),
-            )
-        } else {
-            asset_queries::get_asset_with_metadata(
-                GetAssetsParams::all(paging.start, paging.count).with_asset_type(asset_type),
-            )
+        let params = match query {
+            Some(query) => GetAssetsParams::by_query(query, paging.start, paging.count),
+            None => GetAssetsParams::all(paging.start, paging.count),
         };
+        let query = asset_queries::get_asset_with_metadata(
+            params.with_asset_type(asset_type).visible_to(user_id),
+        );
 
         let counted_models = self.db.fetch_all::<TotalCount<Asset>>(query).await?;
 
@@ -100,6 +106,16 @@ impl AssetsService {
                 total_results: 0,
             })
         }
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, asset_id))]
+    pub async fn is_visible_currency(&self, user_id: Uuid, asset_id: i32) -> anyhow::Result<bool> {
+        let query = asset_queries::get_asset_refs(
+            GetAssetRefsParams::by_ids(user_id, vec![asset_id])
+                .with_asset_type(asset_type_ids::CURRENCY),
+        );
+        let rows = self.db.fetch_all::<AssetRefModel>(query).await?;
+        Ok(!rows.is_empty())
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(pair1, pair2))]
@@ -237,13 +253,15 @@ impl AssetsService {
         user_id: Uuid,
         asset_ids: Vec<i32>,
     ) -> anyhow::Result<()> {
+        let asset_ids: Vec<i32> = asset_ids.into_iter().unique().collect();
         let nums = asset_ids.len() as i64;
         let query = asset_queries::assets_count_by_ids_and_access(asset_ids, user_id);
         let models = self.db.fetch_one::<Count>(query).await?;
         if models.count != nums {
-            return Err(anyhow::anyhow!(
-                "Not all assets found or no permission fot them"
-            ));
+            return Err(BusinessNotFoundError {
+                message: "Asset not found.".to_string(),
+            }
+            .into());
         }
 
         Ok(())
@@ -280,35 +298,11 @@ impl AssetsService {
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %asset_dto.user_id))]
     pub async fn add_custom_asset(&self, asset_dto: AddCustomAssetDto) -> anyhow::Result<AssetDto> {
         self.db.start_transaction().await?;
-
-        let asset_insert = AssetInsertDto {
-            name: asset_dto.name.clone(),
-            ticker: asset_dto.ticker.clone(),
-            asset_type: asset_dto.asset_type,
-            base_pair_id: Some(asset_dto.base_pair_id),
-            user_id: Some(asset_dto.user_id),
-        };
-
-        let asset_id = self.insert_asset(asset_insert).await?;
-
-        let asset_pair_insert = AssetPairInsertDto {
-            pair1: asset_id,
-            pair2: asset_dto.base_pair_id,
-        };
-
-        self.insert_asset_pair(asset_pair_insert).await?;
-
+        let inserted = self.add_custom_asset_inner(asset_dto).await?;
         //TODO: We have most of the information, except for type string,
         //so in the future we could improve this by not doing a sperate query
-        let ret = self.get_asset(asset_id).await?;
-
+        let ret = self.get_asset(inserted.new_asset_id).await?;
         self.db.commit_transaction().await?;
-
-        let embed_text = format!("Asset: {} | Ticker: {}", asset_dto.name, asset_dto.ticker);
-        self.embedding_service
-            .enqueue_embed_asset(asset_dto.user_id, asset_id, embed_text)
-            .await?;
-
         Ok(ret)
     }
 
@@ -509,5 +503,39 @@ impl AssetsService {
             })
             .collect();
         Ok(ret)
+    }
+}
+
+impl AssetsService {
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %asset_dto.user_id))]
+    pub(crate) async fn add_custom_asset_inner(
+        &self,
+        asset_dto: AddCustomAssetDto,
+    ) -> anyhow::Result<InsertAssetResultDto> {
+        let asset_id = self
+            .insert_asset(AssetInsertDto {
+                name: asset_dto.name.clone(),
+                ticker: asset_dto.ticker.clone(),
+                asset_type: asset_dto.asset_type,
+                base_pair_id: Some(asset_dto.base_pair_id),
+                user_id: Some(asset_dto.user_id),
+            })
+            .await?;
+        let pair_id = self
+            .insert_asset_pair(AssetPairInsertDto {
+                pair1: asset_id,
+                pair2: asset_dto.base_pair_id,
+            })
+            .await?;
+
+        let embed_text = format!("Asset: {} | Ticker: {}", asset_dto.name, asset_dto.ticker);
+        self.embedding_service
+            .enqueue_embed_asset(asset_dto.user_id, asset_id, embed_text)
+            .await?;
+
+        Ok(InsertAssetResultDto {
+            new_asset_id: asset_id,
+            new_asset_pair_id: Some(pair_id),
+        })
     }
 }

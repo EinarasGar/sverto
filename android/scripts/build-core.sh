@@ -8,7 +8,10 @@ CORE_DIR="$REPO_ROOT/server/app-core"
 TARGET_DIR="$REPO_ROOT/server/target"
 JNI_LIBS="$REPO_ROOT/android/app/src/main/jniLibs"
 BINDINGS="$REPO_ROOT/android/app/src/main/java"
+# Prefer rustup's cargo: Xcode and Gradle run this with a PATH that lacks ~/.cargo/bin. CI images
+# can ship rustup elsewhere (Homebrew), so fall back to whatever cargo is on PATH.
 CARGO="${CARGO_HOME:-$HOME/.cargo}/bin/cargo"
+[ -x "$CARGO" ] || CARGO="$(command -v cargo)" || { echo "cargo not found" >&2; exit 127; }
 
 ABIS=("$@")
 [ ${#ABIS[@]} -gt 0 ] || ABIS=(arm64-v8a armeabi-v7a x86_64 x86)

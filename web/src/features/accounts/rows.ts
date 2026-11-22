@@ -85,15 +85,19 @@ export function buildAccountIndex(
     }))
 
   const rows = groups.flatMap((group) => group.accounts)
+  const rowConnectors = rows
+    .flatMap((row) => [row.accountId, ...(row.property?.loanAccountIds ?? [])])
+    .map((accountId) => connectors.byAccountId[accountId])
+    .filter((connector) => connector !== undefined)
 
   return {
     groups,
     rows,
     count: rows.length,
     jointCount: rows.filter((row) => row.isJoint).length,
-    connectedCount: rows.filter((row) => row.connector !== null).length,
-    needsAttentionCount: rows.filter(
-      (row) => row.connector?.statusWord === "needsAttention"
+    connectedCount: rowConnectors.length,
+    needsAttentionCount: rowConnectors.filter(
+      (connector) => connector.statusWord === "needsAttention"
     ).length,
   }
 }

@@ -7,9 +7,11 @@ use business::dtos::{
     paging_dto::PagingDto,
 };
 use business::service_collection::asset_service::AssetsService;
+use uuid::Uuid;
 
 use crate::view_models::assets::get_asset_types::GetAssetTypesResponseViewModel;
 use crate::{
+    auth::AuthenticatedUser,
     errors::ApiError,
     extractors::ValidatedQuery,
     states::{AssetRatesServiceState, AssetsServiceState},
@@ -58,8 +60,9 @@ use crate::{
     )
 
 )]
-#[tracing::instrument(level = "info", skip_all)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id))]
 pub async fn search_assets(
+    AuthenticatedUser { user_id, .. }: AuthenticatedUser,
     ValidatedQuery(query_params): ValidatedQuery<GetAssetsRequestParams>,
     AssetsServiceState(assets_service): AssetsServiceState,
 ) -> Result<Json<AssetsPage>, ApiError> {
@@ -70,6 +73,7 @@ pub async fn search_assets(
 
     let page = assets_service
         .search_assets(
+            user_id,
             paging_dto,
             query_params.query.clone(),
             query_params.asset_type,
@@ -121,20 +125,25 @@ pub async fn search_assets(
     )
 
 )]
-#[tracing::instrument(level = "info", skip_all, fields(asset_id = %id))]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, asset_id = %id))]
 pub async fn get_asset(
+    AuthenticatedUser { user_id, .. }: AuthenticatedUser,
     Path(id): Path<i32>,
     AssetsServiceState(assets_service): AssetsServiceState,
 ) -> Result<Json<GetAssetResponseViewModel>, ApiError> {
-    let ret = fetch_asset_response(&assets_service, id).await?;
+    let ret = fetch_asset_response(&assets_service, user_id, id).await?;
     Ok(ret.into())
 }
 
 pub(crate) async fn fetch_asset_response(
     assets_service: &AssetsService,
+    user_id: Uuid,
     id: i32,
 ) -> Result<GetAssetResponseViewModel, ApiError> {
-    let asset_dto = assets_service.get_asset_with_metadata(id).await?;
+    let asset_dto = assets_service
+        .get_asset_with_metadata(user_id, id)
+        .await
+        .map_err(ApiError::from_anyhow)?;
 
     let base_asset_id: Option<i32> = asset_dto.base_asset_id.map(|x| x.0);
     let pair_ids: Vec<i32> = asset_dto
@@ -206,12 +215,17 @@ pub(crate) async fn fetch_asset_response(
     )
 
 )]
-#[tracing::instrument(level = "info", skip_all, fields(asset_id = %id, reference_id = %reference_id))]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, asset_id = %id, reference_id = %reference_id))]
 pub async fn get_asset_pair(
+    AuthenticatedUser { user_id, .. }: AuthenticatedUser,
     Path((id, reference_id)): Path<(i32, i32)>,
     AssetsServiceState(assets_service): AssetsServiceState,
     AssetRatesServiceState(asset_rates_service): AssetRatesServiceState,
 ) -> Result<Json<GetAssetPairResponseViewModel>, ApiError> {
+    assets_service
+        .check_assets_access(user_id, vec![id, reference_id])
+        .await
+        .map_err(ApiError::from_anyhow)?;
     let (pair_dtos, latest_rate, shared_metadata) = tokio::try_join!(
         assets_service.get_asset_pair(id, reference_id),
         asset_rates_service.get_pair_latest_direct(AssetPairIdsDto::new(
@@ -257,12 +271,18 @@ pub async fn get_asset_pair(
     )
 
 )]
-#[tracing::instrument(level = "info", skip_all, fields(asset_id = %id, reference_id = %reference_id))]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, asset_id = %id, reference_id = %reference_id))]
 pub async fn get_asset_pair_rates(
+    AuthenticatedUser { user_id, .. }: AuthenticatedUser,
     Path((id, reference_id)): Path<(i32, i32)>,
     ValidatedQuery(query_params): ValidatedQuery<GetAssetPairRatesRequestParams>,
+    AssetsServiceState(assets_service): AssetsServiceState,
     AssetRatesServiceState(asset_rates_service): AssetRatesServiceState,
 ) -> Result<Json<GetAssetPairRatesResponseViewModel>, ApiError> {
+    assets_service
+        .check_assets_access(user_id, vec![id, reference_id])
+        .await
+        .map_err(ApiError::from_anyhow)?;
     let range = RangeDto::StringBased(query_params.range.clone());
     let rates = asset_rates_service
         .get_market_pair_rates_by_range(
@@ -298,11 +318,17 @@ pub async fn get_asset_pair_rates(
         ("auth_token" = [])
     )
 )]
-#[tracing::instrument(level = "info", skip_all, fields(asset_id = %id, reference_id = %reference_id))]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, asset_id = %id, reference_id = %reference_id))]
 pub async fn get_asset_pair_converted(
+    AuthenticatedUser { user_id, .. }: AuthenticatedUser,
     Path((id, reference_id)): Path<(i32, i32)>,
+    AssetsServiceState(assets_service): AssetsServiceState,
     AssetRatesServiceState(asset_rates_service): AssetRatesServiceState,
 ) -> Result<Json<GetConvertedAssetPairResponseViewModel>, ApiError> {
+    assets_service
+        .check_assets_access(user_id, vec![id, reference_id])
+        .await
+        .map_err(ApiError::from_anyhow)?;
     let latest = asset_rates_service
         .get_pair_latest_converted(AssetIdDto(id), AssetIdDto(reference_id))
         .await?;
@@ -336,12 +362,18 @@ pub async fn get_asset_pair_converted(
         ("auth_token" = [])
     )
 )]
-#[tracing::instrument(level = "info", skip_all, fields(asset_id = %id, reference_id = %reference_id))]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, asset_id = %id, reference_id = %reference_id))]
 pub async fn get_asset_pair_converted_rates(
+    AuthenticatedUser { user_id, .. }: AuthenticatedUser,
     Path((id, reference_id)): Path<(i32, i32)>,
     ValidatedQuery(query_params): ValidatedQuery<GetAssetPairRatesRequestParams>,
+    AssetsServiceState(assets_service): AssetsServiceState,
     AssetRatesServiceState(asset_rates_service): AssetRatesServiceState,
 ) -> Result<Json<GetAssetPairRatesResponseViewModel>, ApiError> {
+    assets_service
+        .check_assets_access(user_id, vec![id, reference_id])
+        .await
+        .map_err(ApiError::from_anyhow)?;
     let range = RangeDto::StringBased(query_params.range.clone());
     let rates = asset_rates_service
         .get_market_pair_rates_by_range_converted(

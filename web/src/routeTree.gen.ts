@@ -24,6 +24,8 @@ import { Route as AuthShellImportsIndexRouteImport } from './routes/_auth/_shell
 import { Route as AuthShellImportsSessionIdRouteImport } from './routes/_auth/_shell/imports.$sessionId'
 import { Route as AuthShellPortfolioIndexRouteImport } from './routes/_auth/_shell/portfolio.index'
 import { Route as AuthShellPortfolioAssetIdRouteImport } from './routes/_auth/_shell/portfolio.$assetId'
+import { Route as AuthShellPropertiesPropertyIdRouteImport } from './routes/_auth/_shell/properties.$propertyId'
+import { Route as AuthShellPropertiesPropertyIdValuationsRouteImport } from './routes/_auth/_shell/properties.$propertyId_.valuations'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/_auth',
@@ -101,6 +103,18 @@ const AuthShellPortfolioAssetIdRoute =
     path: '/portfolio/$assetId',
     getParentRoute: () => AuthShellRoute,
   } as any)
+const AuthShellPropertiesPropertyIdRoute =
+  AuthShellPropertiesPropertyIdRouteImport.update({
+    id: '/properties/$propertyId',
+    path: '/properties/$propertyId',
+    getParentRoute: () => AuthShellRoute,
+  } as any)
+const AuthShellPropertiesPropertyIdValuationsRoute =
+  AuthShellPropertiesPropertyIdValuationsRouteImport.update({
+    id: '/properties/$propertyId_/valuations',
+    path: '/properties/$propertyId/valuations',
+    getParentRoute: () => AuthShellRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AuthShellIndexRoute
@@ -113,9 +127,11 @@ export interface FileRoutesByFullPath {
   '/accounts/$accountId': typeof AuthShellAccountsAccountIdRoute
   '/imports/$sessionId': typeof AuthShellImportsSessionIdRoute
   '/portfolio/$assetId': typeof AuthShellPortfolioAssetIdRoute
+  '/properties/$propertyId': typeof AuthShellPropertiesPropertyIdRoute
   '/accounts/': typeof AuthShellAccountsIndexRoute
   '/imports/': typeof AuthShellImportsIndexRoute
   '/portfolio/': typeof AuthShellPortfolioIndexRoute
+  '/properties/$propertyId/valuations': typeof AuthShellPropertiesPropertyIdValuationsRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AuthShellIndexRoute
@@ -128,9 +144,11 @@ export interface FileRoutesByTo {
   '/accounts/$accountId': typeof AuthShellAccountsAccountIdRoute
   '/imports/$sessionId': typeof AuthShellImportsSessionIdRoute
   '/portfolio/$assetId': typeof AuthShellPortfolioAssetIdRoute
+  '/properties/$propertyId': typeof AuthShellPropertiesPropertyIdRoute
   '/accounts': typeof AuthShellAccountsIndexRoute
   '/imports': typeof AuthShellImportsIndexRoute
   '/portfolio': typeof AuthShellPortfolioIndexRoute
+  '/properties/$propertyId/valuations': typeof AuthShellPropertiesPropertyIdValuationsRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -146,9 +164,11 @@ export interface FileRoutesById {
   '/_auth/_shell/accounts/$accountId': typeof AuthShellAccountsAccountIdRoute
   '/_auth/_shell/imports/$sessionId': typeof AuthShellImportsSessionIdRoute
   '/_auth/_shell/portfolio/$assetId': typeof AuthShellPortfolioAssetIdRoute
+  '/_auth/_shell/properties/$propertyId': typeof AuthShellPropertiesPropertyIdRoute
   '/_auth/_shell/accounts/': typeof AuthShellAccountsIndexRoute
   '/_auth/_shell/imports/': typeof AuthShellImportsIndexRoute
   '/_auth/_shell/portfolio/': typeof AuthShellPortfolioIndexRoute
+  '/_auth/_shell/properties/$propertyId_/valuations': typeof AuthShellPropertiesPropertyIdValuationsRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -163,9 +183,11 @@ export interface FileRouteTypes {
     | '/accounts/$accountId'
     | '/imports/$sessionId'
     | '/portfolio/$assetId'
+    | '/properties/$propertyId'
     | '/accounts/'
     | '/imports/'
     | '/portfolio/'
+    | '/properties/$propertyId/valuations'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -178,9 +200,11 @@ export interface FileRouteTypes {
     | '/accounts/$accountId'
     | '/imports/$sessionId'
     | '/portfolio/$assetId'
+    | '/properties/$propertyId'
     | '/accounts'
     | '/imports'
     | '/portfolio'
+    | '/properties/$propertyId/valuations'
   id:
     | '__root__'
     | '/_auth'
@@ -195,9 +219,11 @@ export interface FileRouteTypes {
     | '/_auth/_shell/accounts/$accountId'
     | '/_auth/_shell/imports/$sessionId'
     | '/_auth/_shell/portfolio/$assetId'
+    | '/_auth/_shell/properties/$propertyId'
     | '/_auth/_shell/accounts/'
     | '/_auth/_shell/imports/'
     | '/_auth/_shell/portfolio/'
+    | '/_auth/_shell/properties/$propertyId_/valuations'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -313,6 +339,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthShellPortfolioAssetIdRouteImport
       parentRoute: typeof AuthShellRoute
     }
+    '/_auth/_shell/properties/$propertyId': {
+      id: '/_auth/_shell/properties/$propertyId'
+      path: '/properties/$propertyId'
+      fullPath: '/properties/$propertyId'
+      preLoaderRoute: typeof AuthShellPropertiesPropertyIdRouteImport
+      parentRoute: typeof AuthShellRoute
+    }
+    '/_auth/_shell/properties/$propertyId_/valuations': {
+      id: '/_auth/_shell/properties/$propertyId_/valuations'
+      path: '/properties/$propertyId/valuations'
+      fullPath: '/properties/$propertyId/valuations'
+      preLoaderRoute: typeof AuthShellPropertiesPropertyIdValuationsRouteImport
+      parentRoute: typeof AuthShellRoute
+    }
   }
 }
 
@@ -324,9 +364,11 @@ interface AuthShellRouteChildren {
   AuthShellAccountsAccountIdRoute: typeof AuthShellAccountsAccountIdRoute
   AuthShellImportsSessionIdRoute: typeof AuthShellImportsSessionIdRoute
   AuthShellPortfolioAssetIdRoute: typeof AuthShellPortfolioAssetIdRoute
+  AuthShellPropertiesPropertyIdRoute: typeof AuthShellPropertiesPropertyIdRoute
   AuthShellAccountsIndexRoute: typeof AuthShellAccountsIndexRoute
   AuthShellImportsIndexRoute: typeof AuthShellImportsIndexRoute
   AuthShellPortfolioIndexRoute: typeof AuthShellPortfolioIndexRoute
+  AuthShellPropertiesPropertyIdValuationsRoute: typeof AuthShellPropertiesPropertyIdValuationsRoute
 }
 
 const AuthShellRouteChildren: AuthShellRouteChildren = {
@@ -337,9 +379,12 @@ const AuthShellRouteChildren: AuthShellRouteChildren = {
   AuthShellAccountsAccountIdRoute: AuthShellAccountsAccountIdRoute,
   AuthShellImportsSessionIdRoute: AuthShellImportsSessionIdRoute,
   AuthShellPortfolioAssetIdRoute: AuthShellPortfolioAssetIdRoute,
+  AuthShellPropertiesPropertyIdRoute: AuthShellPropertiesPropertyIdRoute,
   AuthShellAccountsIndexRoute: AuthShellAccountsIndexRoute,
   AuthShellImportsIndexRoute: AuthShellImportsIndexRoute,
   AuthShellPortfolioIndexRoute: AuthShellPortfolioIndexRoute,
+  AuthShellPropertiesPropertyIdValuationsRoute:
+    AuthShellPropertiesPropertyIdValuationsRoute,
 }
 
 const AuthShellRouteWithChildren = AuthShellRoute._addFileChildren(

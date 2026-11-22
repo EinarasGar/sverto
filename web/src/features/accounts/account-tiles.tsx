@@ -19,7 +19,7 @@ import {
 
 const METADATA_MOCK = "accounts.financial-metadata"
 
-function Tile({
+export function Tile({
   label,
   note,
   mocked = false,

@@ -114,6 +114,7 @@ function accountRow(overrides: Partial<AccountIndexRow> = {}): AccountIndexRow {
     value: 4183.06,
     ratelessCount: 0,
     hasHoldings: true,
+    property: null,
     connector: {
       bindingId: "b1",
       connectionId: "c1",

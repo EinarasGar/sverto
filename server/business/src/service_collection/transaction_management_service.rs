@@ -45,12 +45,14 @@ use crate::{
 };
 
 use super::{
-    entries_service::EntriesService, transaction_metadata_service::TransactionMetadataService,
+    asset_service::AssetsService, entries_service::EntriesService,
+    transaction_metadata_service::TransactionMetadataService,
     transaction_service::TransactionService,
 };
 
 pub struct TransactionManagementService {
     db: MyraDb,
+    assets_service: AssetsService,
     transaction_service: TransactionService,
     transaction_metadata_service: TransactionMetadataService,
     entries_service: EntriesService,
@@ -61,6 +63,7 @@ impl TransactionManagementService {
     pub fn new(providers: &super::ServiceProviders) -> Self {
         Self {
             entries_service: EntriesService::new(providers),
+            assets_service: AssetsService::new(providers),
             transaction_metadata_service: TransactionMetadataService::new(providers),
             transaction_service: TransactionService::new(providers),
             db: providers.db.clone(),
@@ -226,6 +229,19 @@ impl TransactionManagementService {
         &self,
         transaction_refs: &mut [Transaction],
     ) -> anyhow::Result<()> {
+        let mut assets_by_user: HashMap<Uuid, Vec<i32>> = HashMap::new();
+        for transaction in transaction_refs.iter() {
+            assets_by_user
+                .entry(transaction.get_user_id())
+                .or_default()
+                .extend(transaction.get_entries().iter().map(|entry| entry.asset_id));
+        }
+        for (user_id, asset_ids) in assets_by_user {
+            self.assets_service
+                .check_assets_access(user_id, asset_ids)
+                .await?;
+        }
+
         self.transaction_service
             .add_transactions_info(transaction_refs)
             .await?;
@@ -602,6 +618,16 @@ impl TransactionManagementService {
         // Step 3: Build NEW transaction entity from DTO
         let mut new_transaction = create_transaction_from_dto(transaction_dto, user_id)?;
         new_transaction.set_transaction_id(transaction_id);
+        self.assets_service
+            .check_assets_access(
+                user_id,
+                new_transaction
+                    .get_entries()
+                    .iter()
+                    .map(|entry| entry.asset_id)
+                    .collect(),
+            )
+            .await?;
 
         // Step 4: Diff and apply
         self.transaction_service

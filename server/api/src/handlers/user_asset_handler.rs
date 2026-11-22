@@ -97,7 +97,7 @@ pub async fn get_user_asset(
         return Err(AuthError::Unauthorized.into());
     }
 
-    let ret = super::asset_handler::fetch_asset_response(&assets_service, id).await?;
+    let ret = super::asset_handler::fetch_asset_response(&assets_service, user_id, id).await?;
     Ok(ret.into())
 }
 

@@ -34,7 +34,7 @@ export interface DeleteAccountVariables {
 
 function accountInvalidations(userId: UserId) {
   const keys = queryKeys.user(userId)
-  return [keys.accounts.all(), keys.portfolio.all()]
+  return [keys.accounts.all(), keys.portfolio.all(), keys.properties.all()]
 }
 
 function summaryFrom(

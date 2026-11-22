@@ -8,6 +8,7 @@ import androidx.compose.material.icons.outlined.Apartment
 import androidx.compose.material.icons.outlined.BusinessCenter
 import androidx.compose.material.icons.outlined.CreditCard
 import androidx.compose.material.icons.outlined.CurrencyBitcoin
+import androidx.compose.material.icons.outlined.DirectionsCar
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Money
 import androidx.compose.material.icons.outlined.Payments
@@ -31,12 +32,12 @@ private enum class AccountTone { Banking, Savings, Asset, Liability }
  * Order account-type sections appear in the accounts list: assets first (banking, savings,
  * investments, pensions, property, crypto), liabilities last. Unknown ids fall to the end.
  */
-val accountTypeDisplayOrder: List<Int> = listOf(1, 11, 2, 3, 5, 6, 9, 10, 4, 7, 8)
+val accountTypeDisplayOrder: List<Int> = listOf(1, 11, 2, 3, 5, 6, 9, 12, 10, 4, 7, 8)
 
 private fun accountTone(accountTypeId: Int): AccountTone =
     when (accountTypeId) {
         2 -> AccountTone.Savings
-        3, 5, 6, 9, 10 -> AccountTone.Asset
+        3, 5, 6, 9, 10, 12 -> AccountTone.Asset
         4, 7, 8 -> AccountTone.Liability
         else -> AccountTone.Banking
     }
@@ -60,6 +61,7 @@ fun accountTypeLabel(accountTypeId: Int): String =
         9 -> "Real Estate"
         10 -> "Crypto Wallet"
         11 -> "Cash"
+        12 -> "Vehicle"
         else -> "Account"
     }
 
@@ -76,6 +78,7 @@ fun accountTypeIcon(accountTypeId: Int): ImageVector =
         9 -> Icons.Outlined.Apartment
         10 -> Icons.Outlined.CurrencyBitcoin
         11 -> Icons.Outlined.Money
+        12 -> Icons.Outlined.DirectionsCar
         else -> Icons.Outlined.AccountBalance
     }
 

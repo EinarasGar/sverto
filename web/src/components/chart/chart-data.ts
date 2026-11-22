@@ -153,6 +153,19 @@ export function indexAtRatio(
   return best
 }
 
+export function ratioAtTime(
+  points: readonly ResolvedPoint[],
+  t: number
+): number | null {
+  const bounds = edges(points)
+  if (!bounds) return null
+  if (bounds.last === bounds.first) return 0
+  return Math.min(
+    1,
+    Math.max(0, (t - bounds.first) / (bounds.last - bounds.first))
+  )
+}
+
 export function ratioAtIndex(
   points: readonly ResolvedPoint[],
   index: number

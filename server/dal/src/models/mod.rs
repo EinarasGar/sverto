@@ -11,6 +11,7 @@ pub mod file_models;
 pub mod import_models;
 pub mod ledger_matching_models;
 pub mod portfolio_models;
+pub mod property_models;
 pub mod rate_limit_models;
 pub mod transaction_models;
 pub mod user_models;

@@ -16,6 +16,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sverto.app.core.Money
+import com.sverto.app.feature.portfolio.isPropertyAssetType
 import uniffi.sverto_core.AccountHoldingItem
 
 @Composable
@@ -28,6 +29,8 @@ fun HoldingRow(
     val gainPercent = if (holding.costBasis != 0.0) holding.unrealizedGains / holding.costBasis * 100 else 0.0
     val gainColor = if (gainPercent >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
     val gainSign = if (gainPercent >= 0) "+" else "-"
+    val isProperty = isPropertyAssetType(holding.assetTypeId)
+    val title = if (isProperty) holding.name else holding.ticker
 
     ListItem(
         modifier = modifier.clickable(onClick = onClick),
@@ -47,7 +50,7 @@ fun HoldingRow(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = holding.ticker.firstOrNull()?.toString() ?: "?",
+                    text = title.firstOrNull()?.toString() ?: "?",
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Medium,
                     color = MaterialTheme.colorScheme.tertiary,
@@ -56,18 +59,23 @@ fun HoldingRow(
         },
         headlineContent = {
             Text(
-                text = holding.ticker,
+                text = title,
                 style = MaterialTheme.typography.bodyLarge,
                 fontWeight = FontWeight.Medium,
             )
         },
-        supportingContent = {
-            Text(
-                text = "%.4f units".format(holding.units),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        },
+        supportingContent =
+            if (isProperty) {
+                null
+            } else {
+                {
+                    Text(
+                        text = "%.4f units".format(holding.units),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
         trailingContent = {
             Column(horizontalAlignment = Alignment.End) {
                 Text(

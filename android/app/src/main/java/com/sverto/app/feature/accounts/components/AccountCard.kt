@@ -100,7 +100,8 @@ fun AccountCard(
                 Spacer(modifier = Modifier.width(12.dp))
 
                 Column(horizontalAlignment = Alignment.End) {
-                    val balance = account.balance
+                    val property = account.property
+                    val balance = if (property != null) property.equityShare else account.balance
                     if (balance != null) {
                         Text(
                             text = Money.format(balance, baseTicker),

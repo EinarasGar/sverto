@@ -62,6 +62,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
@@ -85,6 +86,8 @@ private const val ACCOUNT_TYPE_MAX_COLUMNS = 4
 
 private const val LIQUIDITY_LIQUID_ID = 1
 
+private const val LOCKED_TILE_ALPHA = 0.38f
+
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class,
@@ -102,6 +105,7 @@ fun AddAccountScreen(
     val selectedLiquidityId by viewModel.selectedLiquidityId.collectAsStateWithLifecycle()
     val ownershipShare by viewModel.ownershipShare.collectAsStateWithLifecycle()
     val identifiers by viewModel.identifiers.collectAsStateWithLifecycle()
+    val belongsToProperty by viewModel.belongsToProperty.collectAsStateWithLifecycle()
     val accountTypes by viewModel.accountTypes.collectAsStateWithLifecycle()
     val typesLoading by viewModel.typesLoading.collectAsStateWithLifecycle()
     val submitState by viewModel.submitState.collectAsStateWithLifecycle()
@@ -151,6 +155,7 @@ fun AddAccountScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) },
         bottomBar = {
             SaveBar(
+                label = "Save account",
                 isLoading = isLoading,
                 enabled = isValid && !isLoading,
                 onSave = { viewModel.save(onSuccess) },
@@ -197,11 +202,19 @@ fun AddAccountScreen(
                     loading = typesLoading,
                     selectedTypeId = selectedTypeId,
                     enabled = !isLoading,
+                    locked = belongsToProperty,
                     onSelect = { typeId ->
                         viewModel.selectedTypeId.value =
                             if (selectedTypeId == typeId) null else typeId
                     },
                 )
+                if (belongsToProperty) {
+                    Text(
+                        text = "This account belongs to a property, so its type can't change.",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
 
             FieldSection(title = "Liquidity") {
@@ -233,7 +246,7 @@ fun AddAccountScreen(
 }
 
 @Composable
-private fun FieldSection(
+internal fun FieldSection(
     title: String,
     content: @Composable () -> Unit,
 ) {
@@ -254,6 +267,7 @@ private fun AccountTypePicker(
     loading: Boolean,
     selectedTypeId: Int?,
     enabled: Boolean,
+    locked: Boolean,
     onSelect: (Int) -> Unit,
 ) {
     when {
@@ -295,6 +309,7 @@ private fun AccountTypePicker(
                                     label = type.name,
                                     selected = selectedTypeId == type.id,
                                     enabled = enabled,
+                                    locked = locked,
                                     onClick = { onSelect(type.id) },
                                     modifier = Modifier.weight(1f),
                                 )
@@ -318,6 +333,7 @@ private fun AccountTypeCard(
     label: String,
     selected: Boolean,
     enabled: Boolean,
+    locked: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -344,11 +360,11 @@ private fun AccountTypeCard(
 
     Surface(
         onClick = onClick,
-        enabled = enabled,
+        enabled = enabled && !locked,
         shape = RoundedCornerShape(cornerRadius),
         color = containerColor,
         border = border,
-        modifier = modifier,
+        modifier = modifier.alpha(if (locked && !selected) LOCKED_TILE_ALPHA else 1f),
     ) {
         Column(
             modifier =
@@ -406,7 +422,7 @@ private fun LiquiditySelector(
 }
 
 @Composable
-private fun OwnershipSection(
+internal fun OwnershipSection(
     ownershipShare: Float,
     enabled: Boolean,
     onChange: (Float) -> Unit,
@@ -571,7 +587,8 @@ private fun AddIdentifierDialog(
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-private fun SaveBar(
+internal fun SaveBar(
+    label: String,
     isLoading: Boolean,
     enabled: Boolean,
     onSave: () -> Unit,
@@ -592,7 +609,7 @@ private fun SaveBar(
                 LoadingIndicator(color = MaterialTheme.colorScheme.onPrimary)
             } else {
                 Text(
-                    text = "Save account",
+                    text = label,
                     style = MaterialTheme.typography.titleMedium,
                 )
             }

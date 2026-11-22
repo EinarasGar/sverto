@@ -22,6 +22,9 @@ import com.sverto.app.feature.connectors.ConnectorsViewModel
 import com.sverto.app.feature.connectors.ProviderAccountDetailViewModel
 import com.sverto.app.feature.onboarding.OnboardingViewModel
 import com.sverto.app.feature.portfolio.HomeViewModel
+import com.sverto.app.feature.properties.AddPropertyViewModel
+import com.sverto.app.feature.properties.PropertyDetailViewModel
+import com.sverto.app.feature.properties.PropertyValuationsViewModel
 import com.sverto.app.feature.settings.AiUsageViewModel
 import com.sverto.app.feature.settings.ExportsViewModel
 import com.sverto.app.feature.transactions.ScopedTransactionsViewModel
@@ -33,7 +36,7 @@ import com.sverto.app.feature.transactions.quickupload.QuickUploadViewModel
 import com.sverto.app.feature.assets.AssetDetailViewModel as MarketAssetDetailViewModel
 
 object SvertoViewModelFactory : ViewModelProvider.Factory {
-    @Suppress("UNCHECKED_CAST")
+    @Suppress("UNCHECKED_CAST", "CyclomaticComplexMethod")
     override fun <T : ViewModel> create(
         modelClass: Class<T>,
         extras: CreationExtras,
@@ -67,6 +70,12 @@ object SvertoViewModelFactory : ViewModelProvider.Factory {
                 AiChatViewModel(appStore) as T
             modelClass.isAssignableFrom(AddAccountViewModel::class.java) ->
                 AddAccountViewModel(appStore) as T
+            modelClass.isAssignableFrom(PropertyDetailViewModel::class.java) ->
+                PropertyDetailViewModel(appStore) as T
+            modelClass.isAssignableFrom(AddPropertyViewModel::class.java) ->
+                AddPropertyViewModel(appStore) as T
+            modelClass.isAssignableFrom(PropertyValuationsViewModel::class.java) ->
+                PropertyValuationsViewModel(appStore) as T
             modelClass.isAssignableFrom(MarketsListViewModel::class.java) ->
                 MarketsListViewModel(appStore) as T
             modelClass.isAssignableFrom(MarketAssetDetailViewModel::class.java) ->

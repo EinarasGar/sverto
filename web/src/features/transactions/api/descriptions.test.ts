@@ -126,6 +126,25 @@ describe("describeTransaction", () => {
     )
   })
 
+  it("names a house by its name rather than its generated ticker", () => {
+    const withHouse = toLookupIndex({
+      ...lookupTables,
+      assets: [
+        ...lookupTables.assets,
+        { asset_id: 77, asset_type: 8, name: "Flat 12", ticker: "HOME-30D7" },
+      ],
+    })
+    const transferIn = {
+      type: "asset_transfer_in",
+      transaction_id: "tx-house",
+      date: DAY,
+      entry: entry(ACCOUNT_ISA, 77, 1),
+    } as RequiredIdentifiableTransaction
+    expect(describeTransaction(transferIn, withHouse).primary).toBe(
+      "Transfer in Flat 12"
+    )
+  })
+
   it("degrades to an asset id when the lookup table is missing the asset", () => {
     const unknownAsset = assetPurchase({
       purchase_change: entry(ACCOUNT_ISA, 999, 2),

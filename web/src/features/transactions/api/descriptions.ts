@@ -2,7 +2,7 @@ import type {
   GroupTransactionItem,
   RequiredIdentifiableTransaction,
 } from "@/api"
-import { accountLabel, assetLabel } from "@/lib/domain/refs"
+import { accountLabel, readableAssetLabel } from "@/lib/domain/refs"
 import { impliedUnitPrice } from "@/lib/domain/transaction-types"
 import { formatMoney, formatUnits, pluralise } from "@/lib/format"
 
@@ -54,11 +54,11 @@ export function describeTransaction(
         transaction.cash_outgoings_change.asset_id
       )
       return synthesised(
-        `Buy ${assetLabel(asset)}`,
+        `Buy ${readableAssetLabel(asset)}`,
         quantityAt(
           transaction.purchase_change.amount,
           transaction.cash_outgoings_change.amount,
-          assetLabel(cash)
+          readableAssetLabel(cash)
         )
       )
     }
@@ -66,11 +66,11 @@ export function describeTransaction(
       const asset = resolveAsset(lookup, transaction.sale_entry.asset_id)
       const cash = resolveAsset(lookup, transaction.proceeds_entry.asset_id)
       return synthesised(
-        `Sell ${assetLabel(asset)}`,
+        `Sell ${readableAssetLabel(asset)}`,
         quantityAt(
           transaction.sale_entry.amount,
           transaction.proceeds_entry.amount,
-          assetLabel(cash)
+          readableAssetLabel(cash)
         )
       )
     }
@@ -78,13 +78,13 @@ export function describeTransaction(
       const outgoing = resolveAsset(lookup, transaction.outgoing_entry.asset_id)
       const incoming = resolveAsset(lookup, transaction.incoming_entry.asset_id)
       return synthesised(
-        `Trade ${assetLabel(outgoing)} ${ARROW} ${assetLabel(incoming)}`,
+        `Trade ${readableAssetLabel(outgoing)} ${ARROW} ${readableAssetLabel(incoming)}`,
         `${formatUnits(Math.abs(transaction.outgoing_entry.amount), {
-          ticker: assetLabel(outgoing),
+          ticker: readableAssetLabel(outgoing),
         })} ${ARROW} ${formatUnits(
           Math.abs(transaction.incoming_entry.amount),
           {
-            ticker: assetLabel(incoming),
+            ticker: readableAssetLabel(incoming),
           }
         )}`
       )
@@ -98,25 +98,25 @@ export function describeTransaction(
       )
       const to = resolveAccount(lookup, transaction.incoming_change.account_id)
       return synthesised(
-        `Move ${assetLabel(asset)}`,
+        `Move ${readableAssetLabel(asset)}`,
         `${accountLabel(from)} ${ARROW} ${accountLabel(to)}`
       )
     }
     case "cash_dividend": {
       const origin = resolveAsset(lookup, transaction.origin_asset_id)
-      return synthesised(`Dividend from ${assetLabel(origin)}`, null)
+      return synthesised(`Dividend from ${readableAssetLabel(origin)}`, null)
     }
     case "asset_dividend": {
       const asset = resolveAsset(lookup, transaction.entry.asset_id)
-      return synthesised(`Dividend in ${assetLabel(asset)}`, null)
+      return synthesised(`Dividend in ${readableAssetLabel(asset)}`, null)
     }
     case "asset_transfer_in": {
       const asset = resolveAsset(lookup, transaction.entry.asset_id)
-      return synthesised(`Transfer in ${assetLabel(asset)}`, null)
+      return synthesised(`Transfer in ${readableAssetLabel(asset)}`, null)
     }
     case "asset_transfer_out": {
       const asset = resolveAsset(lookup, transaction.entry.asset_id)
-      return synthesised(`Transfer out ${assetLabel(asset)}`, null)
+      return synthesised(`Transfer out ${readableAssetLabel(asset)}`, null)
     }
     case "cash_transfer_in":
       return synthesised("Money in", null)

@@ -44,6 +44,7 @@ pub mod not_found_error_dto;
 pub mod page_of_results_dto;
 pub mod paging_dto;
 pub mod portfolio;
+pub mod properties;
 
 pub mod rate_limit_error_dto;
 pub mod refresh_token_error_dto;

@@ -10,6 +10,7 @@ pub mod get_category_count_params;
 pub mod get_category_types_params;
 pub mod get_combined_transactions_params;
 pub mod get_files_params;
+pub mod get_properties_params;
 pub mod get_rates_params;
 pub mod get_transaction_groups_params;
 pub mod get_transaction_with_entries_params;

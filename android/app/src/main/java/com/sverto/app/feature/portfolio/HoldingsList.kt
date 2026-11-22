@@ -75,6 +75,7 @@ private fun HoldingRow(
 ) {
     val icon = holdingIcon(holding.assetTypeId)
     val iconTint = holdingIconTint(holding.assetTypeId)
+    val isProperty = isPropertyAssetType(holding.assetTypeId)
 
     ListItem(
         modifier = Modifier.clickable(onClick = onClick),
@@ -109,14 +110,19 @@ private fun HoldingRow(
                 overflow = TextOverflow.Ellipsis,
             )
         },
-        supportingContent = {
-            Text(
-                text = holding.ticker,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                maxLines = 1,
-            )
-        },
+        supportingContent =
+            if (isProperty) {
+                null
+            } else {
+                {
+                    Text(
+                        text = holding.ticker,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
+            },
         trailingContent = {
             Column(horizontalAlignment = Alignment.End) {
                 Text(
@@ -125,12 +131,14 @@ private fun HoldingRow(
                     color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                 )
-                Text(
-                    text = formatUnits(holding.units) + " units",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    maxLines = 1,
-                )
+                if (!isProperty) {
+                    Text(
+                        text = formatUnits(holding.units) + " units",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                    )
+                }
             }
         },
     )
@@ -144,6 +152,10 @@ private const val ASSET_TYPE_ETFS = 5
 private const val ASSET_TYPE_ETCS = 6
 private const val ASSET_TYPE_CRYPTO = 7
 private const val ASSET_TYPE_REAL_ESTATE = 8
+private const val ASSET_TYPE_VEHICLES = 9
+
+// A property is one unit with a generated ticker, so its rows show the name and no units.
+internal fun isPropertyAssetType(assetTypeId: Int) = assetTypeId == ASSET_TYPE_REAL_ESTATE || assetTypeId == ASSET_TYPE_VEHICLES
 
 private fun holdingIcon(assetTypeId: Int): ImageVector =
     when (assetTypeId) {

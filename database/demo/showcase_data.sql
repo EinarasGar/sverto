@@ -361,6 +361,7 @@ DECLARE
     salary numeric; contrib numeric; isa_amt numeric; sav_amt numeric;
     principal numeric; interest numeric;
     bad boolean;
+    prop_home uuid;
 BEGIN
     IF EXISTS (SELECT 1 FROM account WHERE user_id = v_user) THEN
         RAISE NOTICE 'Showcase data already present for default user, skipping.';
@@ -427,7 +428,7 @@ BEGIN
         (acc_ledger,  v_user, 'Ledger Cold Wallet',       10, 1, 1.0),
         (acc_amex,    v_user, 'Amex Credit Card',          4, 1, 1.0),
         (acc_mort,    v_user, 'Halifax Mortgage',          7, 1, 0.5),
-        (acc_home,    v_user, 'Home',                      9, 1, 0.5),
+        (acc_home,    v_user, 'Flat 12, Wren House E17',   9, 1, 0.5),
         (acc_cash,    v_user, 'Cash Wallet',              11, 1, 1.0);
 
     -- Custom income categories (built-in Income type ships empty), custom expense categories, and a
@@ -558,6 +559,8 @@ BEGIN
     PERFORM _cashin(v_user, acc_ib,      usd, 1200, v_day0, 'Opening balance');
     PERFORM _cashout(v_user, acc_mort,   gbp, 178000, v_day0, 'Mortgage principal at purchase');
     PERFORM _xferin(v_user, acc_home, flat, 1, v_day0, 'Flat 12, Wren House - 50/50 with Sam');
+    INSERT INTO property (account_id, asset_id, kind) VALUES (acc_home, flat, 'real_estate') RETURNING id INTO prop_home;
+    INSERT INTO property_loan (account_id, property_id) VALUES (acc_mort, prop_home);
     PERFORM _xferin(v_user, acc_pension, avgg, 8055.5560, v_day0, 'Transfer from previous employer scheme');
     bal_cur := 2000; bal_sav := 22500; bal_joint := 2600; bal_cashgbp := 120; ib_usd := 1200;
 

@@ -4,6 +4,7 @@ use sea_query::*;
 use sea_query_sqlx::SqlxBinder;
 use uuid::Uuid;
 
+use super::property_queries::is_property_asset;
 use crate::idens::account_idens::{AccountIden, AccountLiquidityTypesIden, AccountTypesIden};
 use crate::idens::asset_idens::{AssetTypesIden, AssetsIden};
 use crate::idens::entries_idens::EntryIden;
@@ -578,7 +579,8 @@ pub fn search_assets(params: &SearchAssetsParams) -> DbQueryWithValues {
             Expr::col((AssetsIden::Table, AssetsIden::UserId))
                 .eq(params.user_id)
                 .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).is_null()),
-        );
+        )
+        .and_where(is_property_asset().not());
 
     if let Some(ref q) = params.query {
         let pattern = escape_ilike_pattern(q);

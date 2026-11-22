@@ -17,6 +17,7 @@ final class AddAccountViewModel {
     var selectedLiquidityId: Int32? = liquidLiquidityId
     var ownershipShare = 1.0
     private(set) var identifiers: [AccountIdentifier] = []
+    private(set) var belongsToProperty = false
     private(set) var accountTypes: [AccountTypeItem] = []
     private(set) var isLoading = true
     private(set) var isLoadingTypes = true
@@ -53,10 +54,6 @@ final class AddAccountViewModel {
 
     var showsNameError: Bool {
         !name.isEmpty && trimmedName.isEmpty
-    }
-
-    var ownershipPercentLabel: String {
-        "\(Int((ownershipShare * 100).rounded()))%"
     }
 
     private var trimmedName: String {
@@ -180,6 +177,7 @@ final class AddAccountViewModel {
             selectedLiquidityId = account.liquidityTypeId
             ownershipShare = account.ownershipShare
             identifiers = account.identifiers
+            belongsToProperty = account.belongsToProperty
         } catch {
             editLoadError = error.friendlyMessage
         }

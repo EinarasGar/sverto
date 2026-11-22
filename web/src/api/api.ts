@@ -4792,6 +4792,57 @@ export interface CreateOAuthSessionResponse {
 /**
  * 
  * @export
+ * @interface CreatePropertyRequest
+ */
+export interface CreatePropertyRequest {
+    /**
+     * 
+     * @type {number}
+     * @memberof CreatePropertyRequest
+     */
+    'currency_asset_id': number;
+    /**
+     * 
+     * @type {PropertyKind}
+     * @memberof CreatePropertyRequest
+     */
+    'kind': PropertyKind;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof CreatePropertyRequest
+     */
+    'loan_account_ids'?: Array<string>;
+    /**
+     * Account name
+     * @type {string}
+     * @memberof CreatePropertyRequest
+     */
+    'name': string;
+    /**
+     * Ownership share. Must be > 0 and <= 1.
+     * @type {number}
+     * @memberof CreatePropertyRequest
+     */
+    'ownership_share': number;
+    /**
+     * 
+     * @type {PropertyPurchase}
+     * @memberof CreatePropertyRequest
+     */
+    'purchase'?: PropertyPurchase | null;
+    /**
+     * Positive rate (e.g. exchange rate). Must be strictly greater than zero.
+     * @type {number}
+     * @memberof CreatePropertyRequest
+     */
+    'value': number;
+}
+
+
+/**
+ * 
+ * @export
  * @interface CreateQuickUploadRequest
  */
 export interface CreateQuickUploadRequest {
@@ -5364,6 +5415,19 @@ export interface GetPortfolioOverview {
 /**
  * 
  * @export
+ * @interface GetPropertiesResponse
+ */
+export interface GetPropertiesResponse {
+    /**
+     * 
+     * @type {Array<IdentifiableProperty>}
+     * @memberof GetPropertiesResponse
+     */
+    'properties': Array<IdentifiableProperty>;
+}
+/**
+ * 
+ * @export
  * @interface GetSyncCheckpointResponse
  */
 export interface GetSyncCheckpointResponse {
@@ -5795,6 +5859,63 @@ export interface IdentifiableMessageResponse {
      */
     'role': string;
 }
+/**
+ * 
+ * @export
+ * @interface IdentifiableProperty
+ */
+export interface IdentifiableProperty {
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableProperty
+     */
+    'account_id': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof IdentifiableProperty
+     */
+    'asset_id': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof IdentifiableProperty
+     */
+    'currency_asset_id': number;
+    /**
+     * 
+     * @type {PropertyKind}
+     * @memberof IdentifiableProperty
+     */
+    'kind': PropertyKind;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof IdentifiableProperty
+     */
+    'loan_account_ids': Array<string>;
+    /**
+     * Account name
+     * @type {string}
+     * @memberof IdentifiableProperty
+     */
+    'name': string;
+    /**
+     * Ownership share. Must be > 0 and <= 1.
+     * @type {number}
+     * @memberof IdentifiableProperty
+     */
+    'ownership_share': number;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableProperty
+     */
+    'property_id': string;
+}
+
+
 /**
  * 
  * @export
@@ -7080,6 +7201,39 @@ export interface PortfolioOverview {
 /**
  * 
  * @export
+ * @enum {string}
+ */
+
+export const PropertyKind = {
+    RealEstate: 'real_estate',
+    Vehicle: 'vehicle'
+} as const;
+
+export type PropertyKind = typeof PropertyKind[keyof typeof PropertyKind];
+
+
+/**
+ * 
+ * @export
+ * @interface PropertyPurchase
+ */
+export interface PropertyPurchase {
+    /**
+     * 
+     * @type {number}
+     * @memberof PropertyPurchase
+     */
+    'date': number;
+    /**
+     * Positive rate (e.g. exchange rate). Must be strictly greater than zero.
+     * @type {number}
+     * @memberof PropertyPurchase
+     */
+    'price': number;
+}
+/**
+ * 
+ * @export
  * @interface ProviderAccount
  */
 export interface ProviderAccount {
@@ -8350,6 +8504,25 @@ export interface UpdateBindingRequest {
 }
 
 
+/**
+ * 
+ * @export
+ * @interface UpdateProperty
+ */
+export interface UpdateProperty {
+    /**
+     * Account name
+     * @type {string}
+     * @memberof UpdateProperty
+     */
+    'name': string;
+    /**
+     * Ownership share. Must be > 0 and <= 1.
+     * @type {number}
+     * @memberof UpdateProperty
+     */
+    'ownership_share': number;
+}
 /**
  * 
  * @export
@@ -16865,6 +17038,528 @@ export class PortfolioApi extends BaseAPI implements PortfolioApiInterface {
      */
     public getPortfolioOverview(userId: string, defaultAssetId?: number, options?: RawAxiosRequestConfig) {
         return PortfolioApiFp(this.configuration).getPortfolioOverview(userId, defaultAssetId, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
+ * PropertiesApi - axios parameter creator
+ * @export
+ */
+export const PropertiesApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Creates a property: its hidden asset priced at the given value, an account holding it, the transfer that brings it in, and links to existing loan accounts.
+         * @summary Create Property
+         * @param {string} userId 
+         * @param {CreatePropertyRequest} createPropertyRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createProperty: async (userId: string, createPropertyRequest: CreatePropertyRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('createProperty', 'userId', userId)
+            // verify required parameter 'createPropertyRequest' is not null or undefined
+            assertParamExists('createProperty', 'createPropertyRequest', createPropertyRequest)
+            const localVarPath = `/api/users/{user_id}/properties`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createPropertyRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Gets the user\'s properties (real estate and vehicles) with their linked loan accounts.
+         * @summary Get Properties
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getProperties: async (userId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('getProperties', 'userId', userId)
+            const localVarPath = `/api/users/{user_id}/properties`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Links one of the user\'s loan accounts to a property. A loan finances at most one property.
+         * @summary Link Property Loan
+         * @param {string} accountId 
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        linkPropertyLoan: async (accountId: string, userId: string, propertyId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'accountId' is not null or undefined
+            assertParamExists('linkPropertyLoan', 'accountId', accountId)
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('linkPropertyLoan', 'userId', userId)
+            // verify required parameter 'propertyId' is not null or undefined
+            assertParamExists('linkPropertyLoan', 'propertyId', propertyId)
+            const localVarPath = `/api/users/{user_id}/properties/{property_id}/loans/{account_id}`
+                .replace(`{${"account_id"}}`, encodeURIComponent(String(accountId)))
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"property_id"}}`, encodeURIComponent(String(propertyId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Unlinks a loan account from a property. The account itself is unchanged.
+         * @summary Unlink Property Loan
+         * @param {string} accountId 
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        unlinkPropertyLoan: async (accountId: string, userId: string, propertyId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'accountId' is not null or undefined
+            assertParamExists('unlinkPropertyLoan', 'accountId', accountId)
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('unlinkPropertyLoan', 'userId', userId)
+            // verify required parameter 'propertyId' is not null or undefined
+            assertParamExists('unlinkPropertyLoan', 'propertyId', propertyId)
+            const localVarPath = `/api/users/{user_id}/properties/{property_id}/loans/{account_id}`
+                .replace(`{${"account_id"}}`, encodeURIComponent(String(accountId)))
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"property_id"}}`, encodeURIComponent(String(propertyId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'DELETE', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Renames a property (its account and asset together) and changes the user\'s ownership share.
+         * @summary Update Property
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {UpdateProperty} updateProperty 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateProperty: async (userId: string, propertyId: string, updateProperty: UpdateProperty, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('updateProperty', 'userId', userId)
+            // verify required parameter 'propertyId' is not null or undefined
+            assertParamExists('updateProperty', 'propertyId', propertyId)
+            // verify required parameter 'updateProperty' is not null or undefined
+            assertParamExists('updateProperty', 'updateProperty', updateProperty)
+            const localVarPath = `/api/users/{user_id}/properties/{property_id}`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"property_id"}}`, encodeURIComponent(String(propertyId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'PUT', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(updateProperty, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * PropertiesApi - functional programming interface
+ * @export
+ */
+export const PropertiesApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = PropertiesApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Creates a property: its hidden asset priced at the given value, an account holding it, the transfer that brings it in, and links to existing loan accounts.
+         * @summary Create Property
+         * @param {string} userId 
+         * @param {CreatePropertyRequest} createPropertyRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createProperty(userId: string, createPropertyRequest: CreatePropertyRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<IdentifiableProperty>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createProperty(userId, createPropertyRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['PropertiesApi.createProperty']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Gets the user\'s properties (real estate and vehicles) with their linked loan accounts.
+         * @summary Get Properties
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getProperties(userId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GetPropertiesResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getProperties(userId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['PropertiesApi.getProperties']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Links one of the user\'s loan accounts to a property. A loan finances at most one property.
+         * @summary Link Property Loan
+         * @param {string} accountId 
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async linkPropertyLoan(accountId: string, userId: string, propertyId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.linkPropertyLoan(accountId, userId, propertyId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['PropertiesApi.linkPropertyLoan']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Unlinks a loan account from a property. The account itself is unchanged.
+         * @summary Unlink Property Loan
+         * @param {string} accountId 
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async unlinkPropertyLoan(accountId: string, userId: string, propertyId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.unlinkPropertyLoan(accountId, userId, propertyId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['PropertiesApi.unlinkPropertyLoan']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Renames a property (its account and asset together) and changes the user\'s ownership share.
+         * @summary Update Property
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {UpdateProperty} updateProperty 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async updateProperty(userId: string, propertyId: string, updateProperty: UpdateProperty, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<UpdateProperty>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.updateProperty(userId, propertyId, updateProperty, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['PropertiesApi.updateProperty']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * PropertiesApi - factory interface
+ * @export
+ */
+export const PropertiesApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = PropertiesApiFp(configuration)
+    return {
+        /**
+         * Creates a property: its hidden asset priced at the given value, an account holding it, the transfer that brings it in, and links to existing loan accounts.
+         * @summary Create Property
+         * @param {string} userId 
+         * @param {CreatePropertyRequest} createPropertyRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createProperty(userId: string, createPropertyRequest: CreatePropertyRequest, options?: RawAxiosRequestConfig): AxiosPromise<IdentifiableProperty> {
+            return localVarFp.createProperty(userId, createPropertyRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Gets the user\'s properties (real estate and vehicles) with their linked loan accounts.
+         * @summary Get Properties
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getProperties(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<GetPropertiesResponse> {
+            return localVarFp.getProperties(userId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Links one of the user\'s loan accounts to a property. A loan finances at most one property.
+         * @summary Link Property Loan
+         * @param {string} accountId 
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        linkPropertyLoan(accountId: string, userId: string, propertyId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.linkPropertyLoan(accountId, userId, propertyId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Unlinks a loan account from a property. The account itself is unchanged.
+         * @summary Unlink Property Loan
+         * @param {string} accountId 
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        unlinkPropertyLoan(accountId: string, userId: string, propertyId: string, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.unlinkPropertyLoan(accountId, userId, propertyId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Renames a property (its account and asset together) and changes the user\'s ownership share.
+         * @summary Update Property
+         * @param {string} userId 
+         * @param {string} propertyId 
+         * @param {UpdateProperty} updateProperty 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        updateProperty(userId: string, propertyId: string, updateProperty: UpdateProperty, options?: RawAxiosRequestConfig): AxiosPromise<UpdateProperty> {
+            return localVarFp.updateProperty(userId, propertyId, updateProperty, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * PropertiesApi - interface
+ * @export
+ * @interface PropertiesApi
+ */
+export interface PropertiesApiInterface {
+    /**
+     * Creates a property: its hidden asset priced at the given value, an account holding it, the transfer that brings it in, and links to existing loan accounts.
+     * @summary Create Property
+     * @param {string} userId 
+     * @param {CreatePropertyRequest} createPropertyRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApiInterface
+     */
+    createProperty(userId: string, createPropertyRequest: CreatePropertyRequest, options?: RawAxiosRequestConfig): AxiosPromise<IdentifiableProperty>;
+
+    /**
+     * Gets the user\'s properties (real estate and vehicles) with their linked loan accounts.
+     * @summary Get Properties
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApiInterface
+     */
+    getProperties(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<GetPropertiesResponse>;
+
+    /**
+     * Links one of the user\'s loan accounts to a property. A loan finances at most one property.
+     * @summary Link Property Loan
+     * @param {string} accountId 
+     * @param {string} userId 
+     * @param {string} propertyId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApiInterface
+     */
+    linkPropertyLoan(accountId: string, userId: string, propertyId: string, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Unlinks a loan account from a property. The account itself is unchanged.
+     * @summary Unlink Property Loan
+     * @param {string} accountId 
+     * @param {string} userId 
+     * @param {string} propertyId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApiInterface
+     */
+    unlinkPropertyLoan(accountId: string, userId: string, propertyId: string, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Renames a property (its account and asset together) and changes the user\'s ownership share.
+     * @summary Update Property
+     * @param {string} userId 
+     * @param {string} propertyId 
+     * @param {UpdateProperty} updateProperty 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApiInterface
+     */
+    updateProperty(userId: string, propertyId: string, updateProperty: UpdateProperty, options?: RawAxiosRequestConfig): AxiosPromise<UpdateProperty>;
+
+}
+
+/**
+ * PropertiesApi - object-oriented interface
+ * @export
+ * @class PropertiesApi
+ * @extends {BaseAPI}
+ */
+export class PropertiesApi extends BaseAPI implements PropertiesApiInterface {
+    /**
+     * Creates a property: its hidden asset priced at the given value, an account holding it, the transfer that brings it in, and links to existing loan accounts.
+     * @summary Create Property
+     * @param {string} userId 
+     * @param {CreatePropertyRequest} createPropertyRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApi
+     */
+    public createProperty(userId: string, createPropertyRequest: CreatePropertyRequest, options?: RawAxiosRequestConfig) {
+        return PropertiesApiFp(this.configuration).createProperty(userId, createPropertyRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Gets the user\'s properties (real estate and vehicles) with their linked loan accounts.
+     * @summary Get Properties
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApi
+     */
+    public getProperties(userId: string, options?: RawAxiosRequestConfig) {
+        return PropertiesApiFp(this.configuration).getProperties(userId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Links one of the user\'s loan accounts to a property. A loan finances at most one property.
+     * @summary Link Property Loan
+     * @param {string} accountId 
+     * @param {string} userId 
+     * @param {string} propertyId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApi
+     */
+    public linkPropertyLoan(accountId: string, userId: string, propertyId: string, options?: RawAxiosRequestConfig) {
+        return PropertiesApiFp(this.configuration).linkPropertyLoan(accountId, userId, propertyId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Unlinks a loan account from a property. The account itself is unchanged.
+     * @summary Unlink Property Loan
+     * @param {string} accountId 
+     * @param {string} userId 
+     * @param {string} propertyId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApi
+     */
+    public unlinkPropertyLoan(accountId: string, userId: string, propertyId: string, options?: RawAxiosRequestConfig) {
+        return PropertiesApiFp(this.configuration).unlinkPropertyLoan(accountId, userId, propertyId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Renames a property (its account and asset together) and changes the user\'s ownership share.
+     * @summary Update Property
+     * @param {string} userId 
+     * @param {string} propertyId 
+     * @param {UpdateProperty} updateProperty 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PropertiesApi
+     */
+    public updateProperty(userId: string, propertyId: string, updateProperty: UpdateProperty, options?: RawAxiosRequestConfig) {
+        return PropertiesApiFp(this.configuration).updateProperty(userId, propertyId, updateProperty, options).then((request) => request(this.axios, this.basePath));
     }
 }
 

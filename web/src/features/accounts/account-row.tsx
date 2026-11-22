@@ -28,6 +28,11 @@ export function AccountRow({
   const connectorColumn = hasConnectorColumn(width)
   const meta = accountMetaParts(row).join(" · ")
   const saving = row.accountId === PENDING_ACCOUNT_ID
+  const linkClass = cn(
+    "min-w-0 truncate text-[13.5px] leading-[1.3] font-medium outline-none",
+    "after:absolute after:inset-0 after:z-10 after:content-['']",
+    focusRing.row
+  )
 
   return (
     <DataRow
@@ -45,15 +50,19 @@ export function AccountRow({
                   text={row.name}
                   className="min-w-0 text-[13.5px] leading-[1.3] font-medium text-ink-2"
                 />
-              ) : (
+              ) : row.property === null ? (
                 <Link
                   to="/accounts/$accountId"
                   params={{ accountId: row.accountId }}
-                  className={cn(
-                    "min-w-0 truncate text-[13.5px] leading-[1.3] font-medium outline-none",
-                    "after:absolute after:inset-0 after:z-10 after:content-['']",
-                    focusRing.row
-                  )}
+                  className={linkClass}
+                >
+                  <Truncate text={row.name} className="block" />
+                </Link>
+              ) : (
+                <Link
+                  to="/properties/$propertyId"
+                  params={{ propertyId: row.property.propertyId }}
+                  className={linkClass}
                 >
                   <Truncate text={row.name} className="block" />
                 </Link>

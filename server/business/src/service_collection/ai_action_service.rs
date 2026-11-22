@@ -461,7 +461,7 @@ impl AiActionService {
             None => {
                 let full = self
                     .asset_service
-                    .get_asset_with_metadata(params.asset_id)
+                    .get_asset_with_metadata(user_id, params.asset_id)
                     .await?;
                 let currency_id = full.base_asset_id.map(|b| b.0).ok_or_else(|| {
                     anyhow::anyhow!("Asset has no denominating currency; pass currency_asset_id")

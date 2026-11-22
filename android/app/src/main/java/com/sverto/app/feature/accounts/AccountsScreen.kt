@@ -1,5 +1,6 @@
 package com.sverto.app.feature.accounts
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
@@ -18,24 +19,34 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.Warning
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.FloatingActionButtonMenu
+import androidx.compose.material3.FloatingActionButtonMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -53,6 +64,7 @@ import uniffi.sverto_core.AccountsState
 fun AccountsScreen(
     onAccountClick: (AccountListItem) -> Unit,
     onAddAccount: () -> Unit,
+    onAddProperty: () -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
@@ -60,6 +72,8 @@ fun AccountsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
+    var addMenuExpanded by rememberSaveable { mutableStateOf(false) }
+    BackHandler(addMenuExpanded) { addMenuExpanded = false }
 
     val pullToRefreshState = rememberPullToRefreshState()
 
@@ -69,15 +83,11 @@ fun AccountsScreen(
         // surfaceBright account cards keep their contrast.
         containerColor = Color.Transparent,
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onAddAccount,
-                text = { Text("Add account") },
-                icon = {
-                    Icon(
-                        imageVector = Icons.Filled.Add,
-                        contentDescription = null,
-                    )
-                },
+            AddMenu(
+                expanded = addMenuExpanded,
+                onToggle = { addMenuExpanded = !addMenuExpanded },
+                onAddAccount = onAddAccount,
+                onAddProperty = onAddProperty,
             )
         },
     ) { padding ->
@@ -133,6 +143,50 @@ fun AccountsScreen(
     }
 }
 
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun AddMenu(
+    expanded: Boolean,
+    onToggle: () -> Unit,
+    onAddAccount: () -> Unit,
+    onAddProperty: () -> Unit,
+) {
+    FloatingActionButtonMenu(
+        expanded = expanded,
+        button = {
+            ToggleFloatingActionButton(
+                checked = expanded,
+                onCheckedChange = { onToggle() },
+            ) {
+                val imageVector by remember {
+                    derivedStateOf { if (checkedProgress > 0.5f) Icons.Filled.Close else Icons.Filled.Add }
+                }
+                Icon(
+                    painter = rememberVectorPainter(imageVector),
+                    contentDescription = if (expanded) "Close menu" else "Add",
+                )
+            }
+        },
+    ) {
+        FloatingActionButtonMenuItem(
+            onClick = {
+                onToggle()
+                onAddProperty()
+            },
+            icon = { Icon(Icons.Outlined.Home, contentDescription = null) },
+            text = { Text("Add property") },
+        )
+        FloatingActionButtonMenuItem(
+            onClick = {
+                onToggle()
+                onAddAccount()
+            },
+            icon = { Icon(Icons.Outlined.AccountBalance, contentDescription = null) },
+            text = { Text("Add account") },
+        )
+    }
+}
+
 @Composable
 private fun ErrorState(
     message: String,
@@ -184,7 +238,10 @@ private fun AccountsContent(
 ) {
     val sections =
         remember(state.accounts) {
-            val grouped = state.accounts.groupBy { it.accountTypeId }
+            val grouped =
+                state.accounts
+                    .filter { it.linkedPropertyId == null }
+                    .groupBy { it.accountTypeId }
             val orderedTypeIds =
                 accountTypeDisplayOrder.filter(grouped::containsKey) +
                     grouped.keys.filterNot(accountTypeDisplayOrder::contains)

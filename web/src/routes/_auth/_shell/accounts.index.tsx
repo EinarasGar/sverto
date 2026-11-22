@@ -17,6 +17,7 @@ import {
   portfolioHistoryQueryOptions,
   portfolioOverviewQueryOptions,
 } from "@/features/portfolio/api"
+import { propertiesQueryOptions } from "@/features/properties/api"
 import { warm } from "@/lib/query"
 
 import { warmScope } from "../../-warm"
@@ -42,6 +43,7 @@ export const Route = createFileRoute("/_auth/_shell/accounts/")({
         })
       ),
       queryClient.ensureQueryData(accountConnectorsQueryOptions(userId)),
+      queryClient.ensureQueryData(propertiesQueryOptions(userId)),
       queryClient.ensureQueryData(accountTypesQueryOptions()),
       queryClient.ensureQueryData(accountLiquidityTypesQueryOptions()),
     ])

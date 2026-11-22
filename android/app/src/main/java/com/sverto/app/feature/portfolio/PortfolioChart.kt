@@ -52,6 +52,8 @@ import com.sverto.app.core.Money
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import kotlin.math.abs
+import kotlin.math.sign
 
 data class ChartPoint(
     val date: Long,
@@ -80,6 +82,9 @@ fun PortfolioChart(
     selectedPeriod: TimePeriod? = null,
     onPeriodSelect: ((TimePeriod) -> Unit)? = null,
     headerTrailing: (@Composable () -> Unit)? = null,
+    showPeriodSelector: Boolean = true,
+    changeSuffix: String = "",
+    markers: List<ChartPoint> = emptyList(),
 ) {
     var internalPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
     val activePeriod = selectedPeriod ?: internalPeriod
@@ -98,13 +103,20 @@ fun PortfolioChart(
         }
 
     val scrubbedPoint = scrubIdx?.let { points[it] }
-    val currentValue = scrubbedPoint?.value ?: points.lastOrNull()?.value ?: 0.0
+    val scrubbedMarker = scrubPosition.value?.let { snappedMarker(points, markers, it) }
+    val currentValue = scrubbedMarker?.value ?: scrubbedPoint?.value ?: points.lastOrNull()?.value ?: 0.0
     val startValue = points.firstOrNull()?.value ?: 0.0
     val changeAmount = currentValue - startValue
     val changePercent = if (startValue != 0.0) (changeAmount / startValue) * 100 else 0.0
     val isPositive = changeAmount >= 0
 
-    val scrubDate = scrubbedPoint?.let { dateFormat.format(Date(it.date * 1000)) }
+    val scrubDate =
+        when {
+            scrubbedMarker != null ->
+                "Valued ${Money.format(scrubbedMarker.value, currencyTicker)} · ${dateFormat.format(Date(scrubbedMarker.date * 1000))}"
+            scrubbedPoint != null -> dateFormat.format(Date(scrubbedPoint.date * 1000))
+            else -> null
+        }
 
     val lineColor =
         if (isPositive) {
@@ -144,7 +156,7 @@ fun PortfolioChart(
                 val pctText = String.format(Locale.US, "%.2f", changePercent)
                 val pctSign = if (isPositive) "+" else ""
                 Text(
-                    text = "$changeText ($pctSign$pctText%)",
+                    text = "$changeText ($pctSign$pctText%)$changeSuffix",
                     style = MaterialTheme.typography.bodyMedium,
                     color = changeColor,
                 )
@@ -168,6 +180,7 @@ fun PortfolioChart(
         key(activePeriod) {
             PortfolioLineCanvas(
                 points = points,
+                markers = markers,
                 progress = animationProgress.asState(),
                 scrubPosition = scrubPosition,
                 lineColor = lineColor,
@@ -180,6 +193,7 @@ fun PortfolioChart(
             )
         }
 
+        if (!showPeriodSelector) return@Column
         Spacer(Modifier.height(16.dp))
 
         Row(
@@ -254,6 +268,7 @@ private fun ChartHeadlineValue(text: String) {
 @Composable
 private fun PortfolioLineCanvas(
     points: List<ChartPoint>,
+    markers: List<ChartPoint>,
     progress: State<Float>,
     scrubPosition: State<Float?>,
     lineColor: Color,
@@ -288,12 +303,12 @@ private fun PortfolioLineCanvas(
             }
         }
     val chartDrawing =
-        remember(points, progress, scrubPosition) {
+        remember(points, markers, progress, scrubPosition) {
             Modifier.drawWithCache {
                 if (points.size < 2) return@drawWithCache onDrawBehind {}
 
-                val maxVal = points.maxOf { it.value }
-                val minVal = points.minOf { it.value }
+                val maxVal = maxOf(points.maxOf { it.value }, markers.maxOfOrNull { it.value } ?: Double.NEGATIVE_INFINITY)
+                val minVal = minOf(points.minOf { it.value }, markers.minOfOrNull { it.value } ?: Double.POSITIVE_INFINITY)
                 val dataRange = maxVal - minVal
                 val midVal = (maxVal + minVal) / 2.0
                 val minRange = kotlin.math.abs(midVal) * 0.02
@@ -303,14 +318,15 @@ private fun PortfolioLineCanvas(
                 val chartHeight = size.height - topPad - 8.dp.toPx()
                 val startDate = points.first().date
                 val duration = (points.last().date - startDate).toDouble().coerceAtLeast(1.0)
-                val coords =
-                    points.map { point ->
-                        Offset(
-                            x = ((point.date - startDate) / duration).toFloat() * size.width,
-                            y = topPad + chartHeight * (1f - ((point.value - chartMin) / range).toFloat()),
-                        )
-                    }
-                val linePath = buildSmoothPath(coords)
+
+                fun offsetOf(point: ChartPoint) =
+                    Offset(
+                        x = ((point.date - startDate) / duration).toFloat() * size.width,
+                        y = topPad + chartHeight * (1f - ((point.value - chartMin) / range).toFloat()),
+                    )
+                val coords = points.map(::offsetOf)
+                val markerCoords = markers.map(::offsetOf)
+                val linePath = buildMonotonePath(coords)
                 val fillPath =
                     Path().apply {
                         addPath(linePath)
@@ -336,13 +352,18 @@ private fun PortfolioLineCanvas(
                     clipRect(right = size.width * progress.value.coerceIn(0f, 1f)) {
                         fillBrush?.let { drawPath(path = fillPath, brush = it) }
                         drawPath(path = linePath, color = currentLineColor.value, style = stroke)
+                        markerCoords.forEach { center ->
+                            drawCircle(color = Color.White, radius = 5.dp.toPx(), center = center)
+                            drawCircle(color = currentLineColor.value, radius = 3.5.dp.toPx(), center = center)
+                        }
                     }
 
                     val opacity = scrubOpacity.value
                     if (opacity > 0f) {
                         val position = scrubPosition.value ?: lastScrubPosition.floatValue
                         val idx = nearestChartPointIndex(points, position) ?: return@onDrawBehind
-                        val center = coords[idx]
+                        val marker = snappedMarker(points, markers, position)
+                        val center = if (marker != null) markerCoords[markers.indexOf(marker)] else coords[idx]
                         drawLine(
                             color = scrubLineColor.value,
                             start = Offset(center.x, topPad),
@@ -418,20 +439,57 @@ private fun nearestChartPointIndex(
     }
 }
 
-private fun buildSmoothPath(points: List<Offset>): Path {
+// A marker within this fraction of the chart width of the scrub position takes over the readout.
+private const val MARKER_SNAP_DISTANCE = 0.04
+
+private fun snappedMarker(
+    points: List<ChartPoint>,
+    markers: List<ChartPoint>,
+    position: Float,
+): ChartPoint? {
+    if (points.size < 2) return null
+    val startDate = points.first().date
+    val duration = (points.last().date - startDate).toDouble().coerceAtLeast(1.0)
+
+    fun distance(marker: ChartPoint) = abs((marker.date - startDate) / duration - position)
+    return markers.minByOrNull(::distance)?.takeIf { distance(it) <= MARKER_SNAP_DISTANCE }
+}
+
+// Monotone cubic Hermite curve (Steffen 1990, as d3/recharts `monotoneX`): never overshoots the data
+// and stays straight on steady slopes, unlike an S-curve that flattens at every point.
+private fun buildMonotonePath(points: List<Offset>): Path {
     val path = Path()
     if (points.isEmpty()) return path
-
     path.moveTo(points[0].x, points[0].y)
-    for (i in 1 until points.size) {
-        val prev = points[i - 1]
-        val curr = points[i]
-        val cpx = (prev.x + curr.x) / 2f
-        if (points.size == 2) {
-            path.lineTo(curr.x, curr.y)
-        } else {
-            path.cubicTo(cpx, prev.y, cpx, curr.y, curr.x, curr.y)
+    if (points.size == 2) {
+        path.lineTo(points[1].x, points[1].y)
+        return path
+    }
+
+    val last = points.lastIndex
+    val secants =
+        FloatArray(last) { i ->
+            val dx = points[i + 1].x - points[i].x
+            if (dx == 0f) 0f else (points[i + 1].y - points[i].y) / dx
         }
+    val tangents = FloatArray(points.size)
+    for (i in 1 until last) {
+        val h0 = points[i].x - points[i - 1].x
+        val h1 = points[i + 1].x - points[i].x
+        val s0 = secants[i - 1]
+        val s1 = secants[i]
+        val weighted = if (h0 + h1 == 0f) 0f else (s0 * h1 + s1 * h0) / (h0 + h1)
+        tangents[i] =
+            if (s0 * s1 <= 0f) 0f else 2f * sign(s0) * minOf(abs(s0), abs(s1), 0.5f * abs(weighted))
+    }
+    tangents[0] = (3f * secants[0] - tangents[1]) / 2f
+    tangents[last] = (3f * secants[last - 1] - tangents[last - 1]) / 2f
+
+    for (i in 0 until last) {
+        val p0 = points[i]
+        val p1 = points[i + 1]
+        val third = (p1.x - p0.x) / 3f
+        path.cubicTo(p0.x + third, p0.y + third * tangents[i], p1.x - third, p1.y - third * tangents[i + 1], p1.x, p1.y)
     }
     return path
 }

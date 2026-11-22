@@ -106,6 +106,9 @@ import com.sverto.app.feature.connectors.ConnectorDetailScreen
 import com.sverto.app.feature.connectors.ConnectorsScreen
 import com.sverto.app.feature.connectors.ProviderAccountDetailScreen
 import com.sverto.app.feature.portfolio.PortfolioScreen
+import com.sverto.app.feature.properties.AddPropertyScreen
+import com.sverto.app.feature.properties.PropertyDetailScreen
+import com.sverto.app.feature.properties.PropertyValuationsScreen
 import com.sverto.app.feature.server.AppSessionViewModel
 import com.sverto.app.feature.settings.SettingsScreen
 import com.sverto.app.feature.transactions.ScopedTransactionsScreen
@@ -145,6 +148,9 @@ private const val ASSET_TRANSACTIONS_ROUTE =
     "assetTransactions/{assetId}?accountId={accountId}&accountName={accountName}&title={title}"
 private const val ADD_ACCOUNT_ROUTE = "addAccount"
 private const val EDIT_ACCOUNT_ROUTE = "editAccount/{accountId}"
+private const val ADD_PROPERTY_ROUTE = "addProperty"
+private const val PROPERTY_DETAIL_ROUTE = "property/{propertyId}/{assetId}"
+private const val PROPERTY_VALUATIONS_ROUTE = "propertyValuations/{assetId}/{currencyAssetId}"
 private const val MARKET_ASSET_DETAIL_ROUTE = "asset/{assetId}?userAsset={userAsset}"
 private const val ASSET_OVERVIEW_ROUTE = "assetOverview/{assetId}?userAsset={userAsset}"
 private const val CUSTOM_ASSETS_ROUTE = "customAssets"
@@ -605,9 +611,15 @@ private fun MainNavGraph(
         composable(TopLevelRoute.Accounts.route) {
             AccountsScreen(
                 onAccountClick = { account ->
-                    navController.navigate("accountDetail/${account.id}/${account.name}/${account.accountTypeId}")
+                    val property = account.property
+                    if (property != null) {
+                        navController.navigate("property/${property.propertyId}/${property.assetId}")
+                    } else {
+                        navController.navigate("accountDetail/${account.id}/${account.name}/${account.accountTypeId}")
+                    }
                 },
                 onAddAccount = { navController.navigate(ADD_ACCOUNT_ROUTE) },
+                onAddProperty = { navController.navigate(ADD_PROPERTY_ROUTE) },
                 sharedTransitionScope = sharedScope,
                 animatedVisibilityScope = this@composable,
                 modifier =
@@ -645,6 +657,54 @@ private fun MainNavGraph(
                 onBack = { navController.popBackStack() },
                 onSuccess = { navController.popBackStack() },
                 accountId = accountId,
+            )
+        }
+        composable(ADD_PROPERTY_ROUTE) {
+            AddPropertyScreen(
+                onBack = { navController.popBackStack() },
+                onSuccess = { navController.popBackStack() },
+            )
+        }
+        composable(
+            route = PROPERTY_DETAIL_ROUTE,
+            arguments =
+                listOf(
+                    navArgument("propertyId") { type = NavType.StringType },
+                    navArgument("assetId") { type = NavType.IntType },
+                ),
+        ) { backStackEntry ->
+            val propertyId = backStackEntry.arguments?.getString("propertyId") ?: return@composable
+            val assetId = backStackEntry.arguments?.getInt("assetId") ?: return@composable
+            PropertyDetailScreen(
+                propertyId = propertyId,
+                assetId = assetId,
+                onBack = { navController.popBackStack() },
+                onViewLoan = { loan ->
+                    navController.navigate(
+                        "accountDetail/${loan.id}/${Uri.encode(loan.name)}/${loan.accountTypeId}",
+                    )
+                },
+                onOpenValuations = { valuedAssetId, currencyAssetId ->
+                    navController.navigate("propertyValuations/$valuedAssetId/$currencyAssetId")
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        composable(
+            route = PROPERTY_VALUATIONS_ROUTE,
+            arguments =
+                listOf(
+                    navArgument("assetId") { type = NavType.IntType },
+                    navArgument("currencyAssetId") { type = NavType.IntType },
+                ),
+        ) { backStackEntry ->
+            val assetId = backStackEntry.arguments?.getInt("assetId") ?: return@composable
+            val currencyAssetId = backStackEntry.arguments?.getInt("currencyAssetId") ?: return@composable
+            PropertyValuationsScreen(
+                assetId = assetId,
+                currencyAssetId = currencyAssetId,
+                onBack = { navController.popBackStack() },
+                modifier = Modifier.fillMaxSize(),
             )
         }
         composable(

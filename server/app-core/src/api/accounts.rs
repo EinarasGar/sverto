@@ -49,6 +49,8 @@ pub fn extract_accounts(body: &str) -> Result<Vec<AccountListItem>, String> {
                 .suggested_currency
                 .0
                 .and_then(|id| currencies.get(&id).cloned()),
+            property: None,
+            linked_property_id: None,
         })
         .collect();
     items.sort_by(|a, b| a.name.to_lowercase().cmp(&b.name.to_lowercase()));
@@ -90,6 +92,7 @@ pub fn extract_account_edit(account_id: &str, body: &str) -> Result<AccountEditM
                 value: i.value,
             })
             .collect(),
+        belongs_to_property: false,
     })
 }
 

@@ -166,35 +166,8 @@ impl AccountsService {
         account_id: Uuid,
         amendment: AccountAmendmentDto,
     ) -> anyhow::Result<()> {
-        self.check_identifier_conflicts(user_id, Some(account_id), &amendment.identifiers)
-            .await?;
-
-        let model = AccountUpdateModel {
-            account_id,
-            user_id,
-            account_name: amendment.account_name,
-            account_type: amendment.account_type,
-            liquidity_type: amendment.account_liquidity_type,
-            ownership_share: amendment.ownership_share,
-        };
-
         self.db.start_transaction().await?;
-        let rows = self
-            .db
-            .execute_with_rows_affected(account_queries::update_account(model))
-            .await?;
-        if rows == 0 {
-            return Err(crate::dtos::not_found_error_dto::BusinessNotFoundError {
-                message: "Account not found.".to_string(),
-            }
-            .into());
-        }
-        self.db
-            .execute(account_identifier_queries::delete_account_identifiers(
-                account_id,
-            ))
-            .await?;
-        self.insert_identifiers(account_id, amendment.identifiers)
+        self.update_user_account_inner(user_id, account_id, amendment)
             .await?;
         self.db.commit_transaction().await?;
         Ok(())
@@ -206,22 +179,8 @@ impl AccountsService {
         user_id: Uuid,
         amendment: AccountAmendmentDto,
     ) -> anyhow::Result<Uuid> {
-        self.check_identifier_conflicts(user_id, None, &amendment.identifiers)
-            .await?;
-
-        let model = AccountCreationModel {
-            user_id,
-            account_name: amendment.account_name,
-            account_type: amendment.account_type,
-            liquidity_type: amendment.account_liquidity_type,
-            ownership_share: amendment.ownership_share,
-        };
-
         self.db.start_transaction().await?;
-        let query = account_queries::insert_account(model);
-        let new_id: Uuid = self.db.fetch_one_scalar(query).await?;
-        self.insert_identifiers(new_id, amendment.identifiers)
-            .await?;
+        let new_id = self.add_user_account_inner(user_id, amendment).await?;
         self.db.commit_transaction().await?;
         Ok(new_id)
     }
@@ -271,5 +230,95 @@ impl AccountsService {
             .await?;
         let return_models = models.into_iter().map_into().collect();
         Ok(return_models)
+    }
+}
+
+impl AccountsService {
+    pub(crate) async fn update_user_account_inner(
+        &self,
+        user_id: Uuid,
+        account_id: Uuid,
+        amendment: AccountAmendmentDto,
+    ) -> anyhow::Result<()> {
+        self.check_identifier_conflicts(user_id, Some(account_id), &amendment.identifiers)
+            .await?;
+
+        let account_name = amendment.account_name.clone();
+        let model = AccountUpdateModel {
+            account_id,
+            user_id,
+            account_name: amendment.account_name,
+            account_type: amendment.account_type,
+            liquidity_type: amendment.account_liquidity_type,
+            ownership_share: amendment.ownership_share,
+        };
+
+        let rows = self
+            .db
+            .execute_with_rows_affected(account_queries::update_account(model))
+            .await
+            .map_err(|e| {
+                if e.as_database_error()
+                    .is_some_and(|d| d.is_unique_violation())
+                {
+                    anyhow::Error::new(crate::dtos::conflict_error_dto::BusinessConflictError {
+                        message: format!("An account named {} already exists.", account_name),
+                    })
+                } else {
+                    anyhow::Error::new(e)
+                }
+            })?;
+        if rows == 0 {
+            return Err(crate::dtos::not_found_error_dto::BusinessNotFoundError {
+                message: "Account not found.".to_string(),
+            }
+            .into());
+        }
+        self.db
+            .execute(account_identifier_queries::delete_account_identifiers(
+                account_id,
+            ))
+            .await?;
+        self.insert_identifiers(account_id, amendment.identifiers)
+            .await
+    }
+
+    pub(crate) async fn add_user_account_inner(
+        &self,
+        user_id: Uuid,
+        amendment: AccountAmendmentDto,
+    ) -> anyhow::Result<Uuid> {
+        self.check_identifier_conflicts(user_id, None, &amendment.identifiers)
+            .await?;
+
+        let model = AccountCreationModel {
+            user_id,
+            account_name: amendment.account_name.clone(),
+            account_type: amendment.account_type,
+            liquidity_type: amendment.account_liquidity_type,
+            ownership_share: amendment.ownership_share,
+        };
+
+        let new_id: Uuid = self
+            .db
+            .fetch_one_scalar(account_queries::insert_account(model))
+            .await
+            .map_err(|e| {
+                if e.as_database_error()
+                    .is_some_and(|d| d.is_unique_violation())
+                {
+                    anyhow::Error::new(crate::dtos::conflict_error_dto::BusinessConflictError {
+                        message: format!(
+                            "An account named {} already exists.",
+                            amendment.account_name
+                        ),
+                    })
+                } else {
+                    anyhow::Error::new(e)
+                }
+            })?;
+        self.insert_identifiers(new_id, amendment.identifiers)
+            .await?;
+        Ok(new_id)
     }
 }

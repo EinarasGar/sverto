@@ -56,9 +56,16 @@ struct AccountCard: View {
             .accessibilityHidden(true)
     }
 
+    private var amount: Double? {
+        if let property = account.property {
+            return property.equityShare
+        }
+        return account.balance
+    }
+
     @ViewBuilder
     private var trailing: some View {
-        if let balance = account.balance {
+        if let balance = amount {
             VStack(alignment: dynamicTypeSize.isAccessibilitySize ? .leading : .trailing, spacing: 2) {
                 Text(Money.format(balance, ticker: baseTicker))
                     .font(.body.weight(.semibold))
@@ -66,7 +73,11 @@ struct AccountCard: View {
                     .foregroundStyle(Color.primary)
                     .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 1)
                     .fixedSize(horizontal: !dynamicTypeSize.isAccessibilitySize, vertical: true)
-                if AccountTypeVisuals.isInvestment(account.accountTypeId), let gain = account.unrealizedGain {
+                if account.property != nil {
+                    Text("Equity")
+                        .font(.caption)
+                        .foregroundStyle(Color.secondary)
+                } else if AccountTypeVisuals.isInvestment(account.accountTypeId), let gain = account.unrealizedGain {
                     Text(gainText(gain: gain, balance: balance))
                         .font(.caption)
                         .monospacedDigit()

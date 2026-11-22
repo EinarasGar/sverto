@@ -10,6 +10,7 @@ use sea_query_sqlx::SqlxBinder;
 use sqlx::types::{time::OffsetDateTime, Uuid};
 use time::Duration;
 
+use super::property_queries::is_property_asset;
 use crate::{
     idens::{
         asset_idens::{
@@ -70,6 +71,7 @@ pub fn search_visible_assets(user_id: Uuid, search: String, limit: u64) -> DbQue
                 .is_null()
                 .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(user_id)),
         )
+        .and_where(is_property_asset().not())
         .order_by_expr(
             Expr::cust_with_values(
                 "CASE \
@@ -126,6 +128,7 @@ pub fn get_users_assets(user_id: Uuid) -> DbQueryWithValues {
                 .equals((AssetTypesIden::Table, AssetTypesIden::Id)),
         )
         .and_where(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(user_id))
+        .and_where(is_property_asset().not())
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }
@@ -195,9 +198,13 @@ pub fn get_asset_with_metadata(params: GetAssetsParams) -> DbQueryWithValues {
                     .or(Expr::col((AssetsIden::Table, AssetsIden::Id)).eq(pair2)),
             );
         }
-        GetAssetsParamsSeachType::All => {}
+        GetAssetsParamsSeachType::All => {
+            get_assets_builder.and_where(is_property_asset().not());
+        }
         GetAssetsParamsSeachType::ByQuery(ref query) => {
             let query_lower = query.to_lowercase();
+
+            get_assets_builder.and_where(is_property_asset().not());
 
             get_assets_builder.and_where(
                 Expr::cust_with_values("LOWER(assets.ticker) = $1", [query_lower.clone()])
@@ -233,6 +240,14 @@ pub fn get_asset_with_metadata(params: GetAssetsParams) -> DbQueryWithValues {
     if let Some(asset_type) = params.asset_type {
         get_assets_builder
             .and_where(Expr::col((AssetsIden::Table, AssetsIden::AssetType)).eq(asset_type));
+    }
+
+    if let Some(user_id) = params.visible_to {
+        get_assets_builder.and_where(
+            Expr::col((AssetsIden::Table, AssetsIden::UserId))
+                .is_null()
+                .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(user_id)),
+        );
     }
 
     if let Some(paging) = params.paging {

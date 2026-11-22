@@ -34,7 +34,8 @@ final class AccountsViewModel {
     }
 
     var sections: [AccountTypeSection] {
-        let grouped = Dictionary(grouping: state.accounts, by: \.accountTypeId)
+        let listed = state.accounts.filter { $0.linkedPropertyId == nil }
+        let grouped = Dictionary(grouping: listed, by: \.accountTypeId)
         return AccountTypeVisuals.orderedTypeIds(grouped.keys).compactMap { typeId in
             grouped[typeId].map { AccountTypeSection(typeId: typeId, accounts: $0) }
         }

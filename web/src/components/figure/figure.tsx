@@ -43,6 +43,7 @@ export interface FigureProps extends Omit<
   compact?: boolean
   arrow?: boolean
   emptyLabel?: string
+  text?: string
 }
 
 type FigureViewProps = Omit<FigureProps, "currency" | "kind"> & {
@@ -108,6 +109,7 @@ function FigureView({
   compact,
   arrow = false,
   emptyLabel = "Not applicable",
+  text,
   className,
   ...props
 }: FigureViewProps) {
@@ -157,7 +159,7 @@ function FigureView({
           {arrowGlyph}
         </span>
       ) : null}
-      {formatFigure(value, { ...format, sign: resolvedSign })}
+      {text ?? formatFigure(value, { ...format, sign: resolvedSign })}
     </span>
   )
 }

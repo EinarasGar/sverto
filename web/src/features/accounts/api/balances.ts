@@ -2,6 +2,8 @@ import { useMemo } from "react"
 
 import type { HoldingsView } from "@/features/portfolio/api"
 import { useHoldingsSuspense } from "@/features/portfolio/api"
+import type { PropertiesView, Property } from "@/features/properties/api"
+import { usePropertiesSuspense } from "@/features/properties/api"
 import type { AccountClass } from "@/lib/domain/accounts"
 import {
   ACCOUNT_CLASS_LABELS,
@@ -18,6 +20,11 @@ export interface AccountBalance extends AccountSummary {
   /** Holdings on this account with no rate path, so `value` is short by that much. */
   ratelessCount: number
   hasHoldings: boolean
+  /**
+   * Set on a property's own account. Its `loanAccountIds` keep only the loans this list
+   * holds, and `value` includes them.
+   */
+  property: Property | null
 }
 
 export interface AccountClassBalanceGroup {
@@ -52,17 +59,40 @@ export interface AccountBalancesView {
 
 export function buildAccountBalances(
   accountsView: AccountsView,
-  holdingsView: HoldingsView
+  holdingsView: HoldingsView,
+  propertiesView: PropertiesView
 ): AccountBalancesView {
-  const accounts: AccountBalance[] = accountsView.accounts.map((account) => {
-    const holdings = holdingsView.byAccountId[account.accountId]
-    return {
-      ...account,
-      value: holdings?.value ?? 0,
-      ratelessCount: holdings?.ratelessCount ?? 0,
-      hasHoldings: holdings !== undefined,
-    }
-  })
+  const isListed = (accountId: string) =>
+    accountsView.byId[accountId] !== undefined
+
+  const accounts: AccountBalance[] = accountsView.accounts
+    .filter((account) => {
+      const owner = propertiesView.byLoanAccountId.get(account.accountId)
+      return owner === undefined || !isListed(owner.accountId)
+    })
+    .map((account) => {
+      const linked = propertiesView.byAccountId.get(account.accountId)
+      const property =
+        linked === undefined
+          ? null
+          : {
+              ...linked,
+              loanAccountIds: linked.loanAccountIds.filter(isListed),
+            }
+      const holdings = [account.accountId, ...(property?.loanAccountIds ?? [])]
+        .map((accountId) => holdingsView.byAccountId[accountId])
+        .filter((entry) => entry !== undefined)
+      return {
+        ...account,
+        value: holdings.reduce((sum, entry) => sum + entry.value, 0),
+        ratelessCount: holdings.reduce(
+          (sum, entry) => sum + entry.ratelessCount,
+          0
+        ),
+        hasHoldings: holdings.length > 0,
+        property,
+      }
+    })
 
   const unmatchedAccountIds = holdingsView.byAccount
     .filter((entry) => accountsView.byId[entry.accountId] === undefined)
@@ -120,8 +150,9 @@ export function useAccountBalancesSuspense({
 }: AccountBalancesQueryParams): AccountBalancesView {
   const accountsView = useAccountsSuspense(userId)
   const holdingsView = useHoldingsSuspense({ userId, defaultAssetId })
+  const propertiesView = usePropertiesSuspense(userId)
   return useMemo(
-    () => buildAccountBalances(accountsView, holdingsView),
-    [accountsView, holdingsView]
+    () => buildAccountBalances(accountsView, holdingsView, propertiesView),
+    [accountsView, holdingsView, propertiesView]
   )
 }

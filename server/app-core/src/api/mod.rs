@@ -15,6 +15,7 @@ mod entry_helpers;
 pub(crate) mod exports;
 pub(crate) mod get_transaction;
 pub(crate) mod holdings;
+pub(crate) mod properties;
 pub(crate) mod quick_upload;
 pub(crate) mod transactions;
 pub(crate) mod update_transaction;

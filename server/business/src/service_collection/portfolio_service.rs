@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 #[mockall_double::double]
 use dal::database_context::MyraDb;
 use uuid::Uuid;
@@ -63,16 +65,19 @@ impl PortfolioService {
         }
 
         let asset_first_occurances = net_worth_history.get_asset_first_occurance_dates();
-        let asset_rate_queues = self
-            .asset_rates_service
-            .get_assets_rates_default_from_date(
-                reference_asset,
+        let held_assets: HashSet<AssetIdDto> = asset_first_occurances.keys().cloned().collect();
+        let (asset_rate_queues, current_rates) = tokio::try_join!(
+            self.asset_rates_service.get_assets_rates_default_from_date(
+                reference_asset.clone(),
                 asset_first_occurances,
                 range.interval(),
-            )
-            .await?;
+            ),
+            self.asset_rates_service
+                .get_pairs_latest_converted(held_assets, reference_asset),
+        )?;
 
         net_worth_history.add_asset_rates(asset_rate_queues);
+        net_worth_history.add_current_rates(current_rates);
 
         let history = net_worth_history.calculate_networth_history();
 

@@ -200,6 +200,7 @@ function accountRow(overrides: Partial<AccountIndexRow> = {}): AccountIndexRow {
     value: 4183.06,
     ratelessCount: 0,
     hasHoldings: true,
+    property: null,
     connector: null,
     unrealisedGains: 1447.2,
     ...overrides,

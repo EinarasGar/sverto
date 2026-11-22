@@ -13,6 +13,7 @@ pub mod file_handler;
 pub mod import_session_handler;
 pub mod individual_transactions;
 pub mod portfolio_handler;
+pub mod property_handler;
 pub mod transaction_groups;
 pub mod transactions;
 pub mod user_asset_handler;

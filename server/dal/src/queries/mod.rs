@@ -15,6 +15,7 @@ pub mod entries_queries;
 pub mod file_queries;
 pub mod import_queries;
 pub mod ledger_matching_queries;
+pub mod property_queries;
 pub mod rate_limit_queries;
 pub mod rate_limit_redis_queries;
 pub mod transaction_categories_queries;

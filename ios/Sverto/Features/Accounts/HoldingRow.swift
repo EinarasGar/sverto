@@ -11,8 +11,12 @@ struct HoldingRow: View {
         holding.costBasis != 0 ? holding.unrealizedGains / holding.costBasis : 0
     }
 
+    private var isProperty: Bool { HoldingAssetType.isProperty(assetTypeId: holding.assetTypeId) }
+
+    private var title: String { isProperty ? holding.name : holding.ticker }
+
     private var monogramText: String {
-        holding.ticker.isEmpty ? "?" : String(holding.ticker.prefix(1))
+        title.isEmpty ? "?" : String(title.prefix(1))
     }
 
     var body: some View {
@@ -21,14 +25,16 @@ struct HoldingRow: View {
                 HStack(spacing: Layout.rowSpacing) {
                     Monogram(text: monogramText, size: 36)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(holding.ticker)
+                        Text(title)
                             .font(.body.weight(.medium))
                             .foregroundStyle(.primary)
                             .lineLimit(dynamicTypeSize.isAccessibilitySize ? nil : 2)
-                        Text("\(AssetFormat.units(holding.units)) units")
-                            .font(.subheadline)
-                            .monospacedDigit()
-                            .foregroundStyle(.secondary)
+                        if !isProperty {
+                            Text("\(AssetFormat.units(holding.units)) units")
+                                .font(.subheadline)
+                                .monospacedDigit()
+                                .foregroundStyle(.secondary)
+                        }
                     }
                     .fixedSize(horizontal: false, vertical: true)
                     Spacer(minLength: 8)

@@ -1,5 +1,7 @@
 use std::collections::HashSet;
 
+use sqlx::types::Uuid;
+
 use super::paging_params::PagingParams;
 
 pub struct GetAssetsParams {
@@ -7,6 +9,7 @@ pub struct GetAssetsParams {
     pub include_metadata: bool,
     pub paging: Option<PagingParams>,
     pub asset_type: Option<i32>,
+    pub visible_to: Option<Uuid>,
 }
 
 impl GetAssetsParams {
@@ -16,6 +19,7 @@ impl GetAssetsParams {
             paging: None,
             include_metadata: true,
             asset_type: None,
+            visible_to: None,
         }
     }
 
@@ -25,6 +29,7 @@ impl GetAssetsParams {
             paging: None,
             include_metadata: false,
             asset_type: None,
+            visible_to: None,
         }
     }
 
@@ -34,6 +39,7 @@ impl GetAssetsParams {
             paging: None,
             include_metadata: false,
             asset_type: None,
+            visible_to: None,
         }
     }
 
@@ -43,6 +49,7 @@ impl GetAssetsParams {
             paging: Some(PagingParams { start, count }),
             include_metadata: false,
             asset_type: None,
+            visible_to: None,
         }
     }
 
@@ -52,11 +59,17 @@ impl GetAssetsParams {
             paging: Some(PagingParams { start, count }),
             include_metadata: false,
             asset_type: None,
+            visible_to: None,
         }
     }
 
     pub fn with_asset_type(mut self, asset_type: Option<i32>) -> Self {
         self.asset_type = asset_type;
+        self
+    }
+
+    pub fn visible_to(mut self, user_id: Uuid) -> Self {
+        self.visible_to = Some(user_id);
         self
     }
 }

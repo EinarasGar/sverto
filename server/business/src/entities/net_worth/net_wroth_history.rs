@@ -28,6 +28,7 @@ pub struct NetWorthHistory {
     asset_pair_rates: HashMap<(i32, i32), VecDeque<AssetRateDto>>,
 
     last_rates: HashMap<(i32, i32), AssetRateDto>,
+    current_rates: HashMap<(i32, i32), AssetRateDto>,
     cumulative_sum: HashMap<i32, Decimal>,
 }
 
@@ -42,6 +43,7 @@ impl NetWorthHistory {
             asset_pair_rates: HashMap::default(),
             entries_queue: VecDeque::default(),
             last_rates: HashMap::default(),
+            current_rates: HashMap::default(),
             cumulative_sum: HashMap::default(),
         }
     }
@@ -76,6 +78,15 @@ impl NetWorthHistory {
             .collect();
     }
 
+    /// Bucket rates are averages, so the final point (the present moment) takes these latest
+    /// converted rates instead, or it would disagree with current holdings.
+    pub fn add_current_rates(&mut self, rates: HashMap<AssetPairIdsDto, AssetRateDto>) {
+        self.current_rates = rates
+            .into_iter()
+            .map(|(k, v)| ((k.pair1.0, k.pair2.0), v))
+            .collect();
+    }
+
     pub fn get_asset_first_occurance_dates(&self) -> HashMap<AssetIdDto, OffsetDateTime> {
         self.asset_first_occurances.clone()
     }
@@ -100,6 +111,10 @@ impl NetWorthHistory {
             self.update_rates_for_new_tiemstamp(iter_date);
             self.update_rates_interpolation(iter_date);
             self.update_rates_with_base_rate();
+            if iter_date == self.end_time {
+                self.last_rates
+                    .extend(std::mem::take(&mut self.current_rates));
+            }
 
             history.push(AssetRateDto {
                 rate: self.get_todays_sum(),
@@ -281,6 +296,59 @@ mod tests {
         assert_eq!(result[1].date, datetime!(2023-03-22 12:59:00 UTC));
         assert_eq!(result[2].date, datetime!(2023-03-22 13:59:00 UTC));
         assert_eq!(result[3].date, datetime!(2023-03-22 14:58:00 UTC));
+    }
+
+    #[test]
+    fn final_point_uses_current_rates_not_the_bucket_average() {
+        let mut net_worth_history = NetWorthHistory::new(
+            AssetIdDto(2),
+            RangeDto::Custom(
+                Some(datetime!(2023-03-22 00:00:00 UTC)),
+                Some(datetime!(2023-03-24 12:00:00 UTC)),
+                Some(Duration::days(1)),
+            )
+            .try_into()
+            .unwrap(),
+        );
+        net_worth_history.add_entries(
+            vec![EntriesIntervalSumDto {
+                asset_id: 1,
+                quantity: dec!(2),
+                time: datetime!(2023-03-22 00:00:00 UTC),
+            }]
+            .into_iter(),
+        );
+        let pair = AssetPairIdsDto::new(AssetIdDto(1), AssetIdDto(2));
+        net_worth_history.add_asset_rates(HashMap::from([(
+            pair.clone(),
+            VecDeque::from([
+                AssetRateDto {
+                    rate: dec!(100),
+                    date: datetime!(2023-03-22 00:00:00 UTC),
+                },
+                AssetRateDto {
+                    rate: dec!(115),
+                    date: datetime!(2023-03-24 00:00:00 UTC),
+                },
+            ]),
+        )]));
+        net_worth_history.add_current_rates(HashMap::from([(
+            pair,
+            AssetRateDto {
+                rate: dec!(120),
+                date: datetime!(2023-03-24 11:00:00 UTC),
+            },
+        )]));
+
+        let result = net_worth_history.calculate_networth_history();
+
+        assert_eq!(result[0].rate, dec!(200));
+        assert_eq!(result[2].rate, dec!(230));
+        assert_eq!(
+            result.last().unwrap().date,
+            datetime!(2023-03-24 12:00:00 UTC)
+        );
+        assert_eq!(result.last().unwrap().rate, dec!(240));
     }
 
     #[test]

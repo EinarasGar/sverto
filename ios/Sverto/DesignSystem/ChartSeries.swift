@@ -14,11 +14,11 @@ struct ChartSample {
 final class ChartSeriesCache {
     private var current: ChartSeries?
 
-    func series(points: [ChartPoint], ticker: String) -> ChartSeries {
-        if let current, current.ticker == ticker, current.points == points {
+    func series(points: [ChartPoint], ticker: String, markers: [ChartPoint] = []) -> ChartSeries {
+        if let current, current.ticker == ticker, current.points == points, current.markers == markers {
             return current
         }
-        let series = ChartSeries(points: points, ticker: ticker)
+        let series = ChartSeries(points: points, ticker: ticker, markers: markers)
         current = series
         return series
     }
@@ -26,15 +26,18 @@ final class ChartSeriesCache {
 
 final class ChartSeries {
     let points: [ChartPoint]
+    let markers: [ChartPoint]
     let samples: [ChartSample]
     let domain: ChartYDomain
     let ticker: String
     private let chronologicalSamples: [ChartSample]
 
     nonisolated static let maxPlottedSamples = 600
+    nonisolated static let markerReachFraction = 0.03
 
-    init(points: [ChartPoint], ticker: String) {
+    init(points: [ChartPoint], ticker: String, markers: [ChartPoint] = []) {
         self.points = points
+        self.markers = markers.sorted { $0.timestamp < $1.timestamp }
         self.ticker = ticker
         samples = Self.plottedIndices(of: points).map { index in
             let point = points[index]
@@ -48,7 +51,7 @@ final class ChartSeries {
             )
         }
         chronologicalSamples = samples
-        domain = ChartYDomain(values: points.map(\.value))
+        domain = ChartYDomain(values: points.map(\.value) + markers.map(\.value))
     }
 
     // Swift Charts re-renders every mark on each scrub update, so plotting thousands of points
@@ -82,6 +85,15 @@ final class ChartSeries {
         return plotted
     }
 
+    func nearestMarker(to date: Date?) -> ChartPoint? {
+        let timestamps = points.map(\.timestamp)
+        guard let date, let first = timestamps.min(), let last = timestamps.max(), last > first else { return nil }
+        let reach = Double(last - first) * Self.markerReachFraction
+        let seconds = date.timeIntervalSince1970
+        let distance = { (marker: ChartPoint) in abs(Double(marker.timestamp) - seconds) }
+        return markers.filter { distance($0) <= reach }.min { distance($0) < distance($1) }
+    }
+
     func nearestIndex(to date: Date?) -> Int? {
         guard let date, chronologicalSamples.count >= 2 else { return nil }
         var lower = 0
@@ -106,9 +118,11 @@ final class ChartSeries {
 final class ChartSelection {
     var date: Date?
     var index: Int?
+    var marker: ChartPoint?
 
     func clear() {
         date = nil
         index = nil
+        marker = nil
     }
 }

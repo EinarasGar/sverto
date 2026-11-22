@@ -108,3 +108,6 @@ use business::service_collection::connector_service::ConnectorService;
 service_state!(ConnectorService);
 use business::service_collection::connector_sync_service::ConnectorSyncService;
 service_state!(ConnectorSyncService);
+
+use business::service_collection::property_service::PropertyService;
+service_state!(PropertyService);

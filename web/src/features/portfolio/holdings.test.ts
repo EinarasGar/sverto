@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest"
 
+import { buildHoldingsView } from "@/features/portfolio/api"
+
 import {
   BTC,
   CURRENT,
   GBP,
   holdingsFixture,
+  holdingsResponse,
   IBKR,
   ISA,
   overviewFixture,
@@ -59,6 +62,36 @@ describe("buildHoldingRows", () => {
 
   it("falls back to a stated placeholder when the lookup table omitted the asset", () => {
     expect(byKey.get(UNPRICED)?.label).toBe(`Asset ${String(UNPRICED)}`)
+  })
+
+  it("names a house without units, while other assets keep theirs", () => {
+    const HOUSE = 11
+    const withHouse = buildHoldingsView({
+      holdings: [
+        ...holdingsResponse.holdings,
+        { account_id: CURRENT, asset_id: HOUSE, units: 1, value: 328000 },
+      ],
+      lookup_tables: {
+        ...holdingsResponse.lookup_tables,
+        assets: [
+          ...holdingsResponse.lookup_tables.assets,
+          {
+            asset_id: HOUSE,
+            asset_type: 8,
+            name: "Flat 12",
+            ticker: "HOME-30D7F2E7",
+          },
+        ],
+      },
+    })
+    const house = buildHoldingRows(withHouse, overview).find(
+      (row) => row.assetId === HOUSE
+    )
+    expect(house?.label).toBe("Flat 12")
+    expect(house?.subLabel).toBe("1 account")
+    expect(house?.units).toBeNull()
+    expect(house?.accounts[0]?.units).toBeNull()
+    expect(byKey.get(VWRP)?.units).toBe(38)
   })
 })
 

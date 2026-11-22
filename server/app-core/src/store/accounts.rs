@@ -3,6 +3,7 @@ use std::sync::Mutex;
 use super::infra::SharedInfra;
 use crate::api::accounts::{extract_account_edit, extract_account_types, extract_accounts};
 use crate::api::holdings::extract_account_balances;
+use crate::api::properties::{attach_properties, extract_properties, fill_property_figures};
 use crate::error::{server_error, ApiError};
 use crate::models::{
     AccountEditModel, AccountTypeItem, AccountsState, CreateAccountInput, UpdateAccountInput,
@@ -106,6 +107,18 @@ pub async fn load_accounts(
         }
     };
 
+    // A failed properties call degrades to plain accounts: linked loans show as ordinary rows.
+    let mut accounts = accounts;
+    let properties_path = format!("/api/users/{user_id}/properties");
+    if let Some(properties) = infra
+        .get(&properties_path, auth_token)
+        .await
+        .ok()
+        .and_then(|resp| extract_properties(&resp.body).ok())
+    {
+        attach_properties(&mut accounts, properties);
+    }
+
     // Emit accounts with balance=None, start loading balances
     {
         let mut m = module.lock().unwrap();
@@ -130,6 +143,7 @@ pub async fn load_accounts(
         for account in updated_accounts.iter_mut() {
             account.balance = Some(balances.get(&account.id).copied().unwrap_or(0.0));
         }
+        fill_property_figures(&mut updated_accounts);
     }
 
     // Emit final state
@@ -153,6 +167,8 @@ pub async fn refresh_accounts(
     };
 
     infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts", user_id));
+    infra.evict_memory_cache_prefix(&format!("/api/users/{}/properties", user_id));
+    infra.evict_memory_cache_prefix(&format!("/api/users/{}/portfolio/holdings", user_id));
     load_accounts(infra, module, auth_token).await;
 }
 
@@ -263,5 +279,20 @@ pub async fn get_account(
     if resp.status >= 400 {
         return Err(server_error(resp.status, &resp.body));
     }
-    extract_account_edit(account_id, &resp.body).map_err(|e| ApiError::Parse { reason: e })
+    let mut account =
+        extract_account_edit(account_id, &resp.body).map_err(|e| ApiError::Parse { reason: e })?;
+
+    // The flag only locks the type picker, so a failed properties call must not block editing.
+    account.belongs_to_property = infra
+        .get(&format!("/api/users/{user_id}/properties"), auth_token)
+        .await
+        .ok()
+        .and_then(|resp| extract_properties(&resp.body).ok())
+        .is_some_and(|properties| {
+            properties.iter().any(|(property_account_id, property)| {
+                property_account_id == account_id
+                    || property.loan_account_ids.iter().any(|id| id == account_id)
+            })
+        });
+    Ok(account)
 }

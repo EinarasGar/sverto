@@ -153,6 +153,29 @@ describe("AccountHoldings grid", () => {
     expect(screen.getByText("£9,240.50")).toBeInTheDocument()
   })
 
+  it("names a car once and shows no units for it", async () => {
+    stubViewport(VIEWPORTS.full)
+    await renderAccounts(
+      <AccountHoldings
+        overview={overview([
+          holding({
+            asset: {
+              assetId: 7,
+              ticker: "CAR-A98E8D4C",
+              name: "Golf GTI",
+              assetTypeId: 9,
+            },
+            unitsRemaining: 1,
+          }),
+        ])}
+      />
+    )
+    expect(screen.getAllByText("Golf GTI")).toHaveLength(1)
+    expect(screen.queryByText("CAR-A98E8D4C")).toBeNull()
+    expect(screen.queryByText("1.0000")).toBeNull()
+    expect(screen.getByLabelText("Not applicable")).toBeInTheDocument()
+  })
+
   it("totals the account under the rows it drew", async () => {
     await renderHoldings("full")
     expect(screen.getByText("Total")).toBeInTheDocument()

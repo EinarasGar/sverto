@@ -15,6 +15,7 @@ export {
   indexAtRatio,
   pointStamp,
   ratioAtIndex,
+  ratioAtTime,
   resolvePoints,
   spanInDays,
   stampFormatterFor,

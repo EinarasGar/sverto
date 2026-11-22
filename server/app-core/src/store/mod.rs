@@ -13,6 +13,7 @@ pub mod exports;
 pub mod infra;
 pub mod onboarding;
 pub mod portfolio;
+pub mod properties;
 pub mod quick_uploads;
 pub mod scoped_transactions;
 pub mod sse;
@@ -449,6 +450,192 @@ impl AppStore {
     ) -> Result<crate::models::AccountEditModel, crate::error::ApiError> {
         let token = self.get_auth_token().await;
         accounts::get_account(&self.infra, &account_id, token.as_deref()).await
+    }
+
+    // ── Properties ───────────────────────────────────────────────────
+
+    pub async fn create_property(
+        &self,
+        input: crate::models::CreatePropertyInput,
+    ) -> Result<String, ApiError> {
+        let token = self.get_auth_token().await;
+        properties::create_property(&self.infra, &self.accounts, input, token.as_deref()).await
+    }
+
+    pub async fn get_property_detail(
+        &self,
+        property_id: String,
+    ) -> Result<crate::models::PropertyDetail, ApiError> {
+        let token = self.get_auth_token().await;
+        properties::get_property_detail(&self.infra, &property_id, token.as_deref()).await
+    }
+
+    pub async fn refresh_property(&self, asset_id: i32) {
+        let token = self.get_auth_token().await;
+        properties::refresh_property(&self.infra, &self.accounts, asset_id, token.as_deref()).await;
+    }
+
+    pub async fn get_property_value_chart(
+        &self,
+        asset_id: i32,
+        currency_asset_id: i32,
+        current_value: Option<f64>,
+    ) -> Result<crate::models::PropertyValueChart, ApiError> {
+        let token = self.get_auth_token().await;
+        properties::get_property_value_chart(
+            &self.infra,
+            asset_id,
+            currency_asset_id,
+            current_value,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn get_loan_candidates(
+        &self,
+    ) -> Result<Vec<crate::models::AccountListItem>, ApiError> {
+        let token = self.get_auth_token().await;
+        properties::get_loan_candidates(&self.infra, token.as_deref()).await
+    }
+
+    pub async fn update_property(
+        &self,
+        property_id: String,
+        input: crate::models::UpdatePropertyInput,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        properties::update_property(
+            &self.infra,
+            &self.accounts,
+            &property_id,
+            input,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn link_property_loan(
+        &self,
+        property_id: String,
+        account_id: String,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        properties::link_property_loan(
+            &self.infra,
+            &self.accounts,
+            &property_id,
+            &account_id,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn unlink_property_loan(
+        &self,
+        property_id: String,
+        account_id: String,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        properties::unlink_property_loan(
+            &self.infra,
+            &self.accounts,
+            &property_id,
+            &account_id,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn add_property_valuation(
+        &self,
+        asset_id: i32,
+        currency_asset_id: i32,
+        date: i64,
+        value: f64,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        properties::add_property_valuation(
+            &self.infra,
+            &self.accounts,
+            asset_id,
+            currency_asset_id,
+            date,
+            value,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn edit_property_valuation(
+        &self,
+        asset_id: i32,
+        currency_asset_id: i32,
+        old_date: i64,
+        new_date: i64,
+        value: f64,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        properties::edit_property_valuation(
+            &self.infra,
+            &self.accounts,
+            asset_id,
+            currency_asset_id,
+            old_date,
+            new_date,
+            value,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn get_property_purchase_date(
+        &self,
+        account_id: String,
+        asset_id: i32,
+    ) -> Result<i64, ApiError> {
+        let token = self.get_auth_token().await;
+        properties::get_property_purchase_date(&self.infra, &account_id, asset_id, token.as_deref())
+            .await
+    }
+
+    pub async fn set_property_purchase_date(
+        &self,
+        account_id: String,
+        asset_id: i32,
+        currency_asset_id: i32,
+        date: i64,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        properties::set_property_purchase_date(
+            &self.infra,
+            &self.accounts,
+            &self.transactions,
+            &account_id,
+            asset_id,
+            currency_asset_id,
+            date,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn delete_property_valuation(
+        &self,
+        asset_id: i32,
+        currency_asset_id: i32,
+        date: i64,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        properties::delete_property_valuation(
+            &self.infra,
+            &self.accounts,
+            asset_id,
+            currency_asset_id,
+            date,
+            token.as_deref(),
+        )
+        .await
     }
 
     // ── Account Detail ───────────────────────────────────────────────

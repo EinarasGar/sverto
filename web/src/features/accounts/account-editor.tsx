@@ -17,6 +17,8 @@ import {
 } from "@/components/ui/field"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
+import type { PropertiesView } from "@/features/properties/api"
+import { propertiesQueryOptions } from "@/features/properties/api"
 
 import type { AccountFieldErrors, AccountFormState } from "./account-form"
 import {
@@ -69,6 +71,8 @@ import {
   sharedConsequence,
   TYPE_HINT,
   TYPE_LABEL,
+  LOCKED_BY_PROPERTY,
+  typeLockedByLoan,
 } from "./copy"
 import { IdentifiersEditor } from "./identifiers-editor"
 
@@ -120,9 +124,29 @@ function FieldMessages({ messages }: { messages: readonly string[] }) {
   )
 }
 
+interface PropertyLock {
+  readonly name: boolean
+  readonly reason: string
+}
+
+function propertyLock(
+  properties: PropertiesView | undefined,
+  accountId: AccountId | null
+): PropertyLock | null {
+  if (properties === undefined || accountId === null) return null
+  if (properties.byAccountId.has(accountId)) {
+    return { name: true, reason: LOCKED_BY_PROPERTY }
+  }
+  const property = properties.byLoanAccountId.get(accountId)
+  return property === undefined
+    ? null
+    : { name: false, reason: typeLockedByLoan(property.name) }
+}
+
 function AccountEditorForm({
   initial,
   typeOptions,
+  lock,
   liquidityOptions,
   serverErrors,
   formErrors,
@@ -131,6 +155,7 @@ function AccountEditorForm({
 }: {
   initial: AccountFormState
   typeOptions: readonly PickerOption[]
+  lock: PropertyLock | null
   liquidityOptions: readonly PickerOption[]
   serverErrors: AccountFieldErrors
   formErrors: readonly string[]
@@ -187,12 +212,15 @@ function AccountEditorForm({
           id="account-name"
           value={form.name}
           autoComplete="off"
+          disabled={lock?.name === true}
           {...(errors.name === undefined ? {} : { "aria-invalid": true })}
           onChange={(event) => {
             patch({ name: event.target.value })
           }}
         />
-        <FieldDescription className={HINT_CLASS}>{NAME_HINT}</FieldDescription>
+        <FieldDescription className={HINT_CLASS}>
+          {lock?.name === true ? lock.reason : NAME_HINT}
+        </FieldDescription>
         <FieldMessages messages={errors.name ?? []} />
       </Field>
 
@@ -207,12 +235,15 @@ function AccountEditorForm({
           }
           placeholder="Search account types"
           invalid={errors.account_type !== undefined}
+          disabled={lock !== null}
           options={typeOptions}
           onValueChange={(next) => {
             patch({ accountTypeId: next === null ? null : Number(next) })
           }}
         />
-        <FieldDescription className={HINT_CLASS}>{TYPE_HINT}</FieldDescription>
+        <FieldDescription className={HINT_CLASS}>
+          {lock === null || lock.name ? TYPE_HINT : lock.reason}
+        </FieldDescription>
         <FieldMessages messages={errors.account_type ?? []} />
       </Field>
 
@@ -334,6 +365,10 @@ export function AccountEditor({
     ...accountQueryOptions({ userId, accountId: accountId ?? "" }),
     enabled: open && accountId !== null,
   })
+  const properties = useQuery({
+    ...propertiesQueryOptions(userId),
+    enabled: open && accountId !== null,
+  })
 
   const create = useCreateAccount(userId)
   const update = useUpdateAccount(userId, accountId)
@@ -370,7 +405,7 @@ export function AccountEditor({
   )
 
   const initial: AccountFormState | null = isEdit
-    ? loadedDetail === null
+    ? loadedDetail === null || properties.isPending
       ? null
       : accountFormFromDetail(loadedDetail)
     : types.data === undefined || liquidityTypes.data === undefined
@@ -546,6 +581,7 @@ export function AccountEditor({
             key={`${mode.kind}:${accountId ?? "new"}`}
             initial={initial}
             typeOptions={typeOptions}
+            lock={propertyLock(properties.data, accountId)}
             liquidityOptions={liquidityOptions}
             serverErrors={serverErrors}
             formErrors={formErrors}
