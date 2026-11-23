@@ -19,7 +19,7 @@ import { useAccounts } from "@/features/accounts/api"
 import { useAssetSearch } from "@/features/assets/api"
 import { countOf } from "@/lib/format"
 
-import type { ImportFileView, ImportSessionParams } from "./api"
+import type { ImportSessionParams } from "./api"
 import { useAnswerAsks, useImportPending } from "./api"
 import {
   accountPrefill,
@@ -47,12 +47,12 @@ function AccountQuestion({
   params,
   name,
   asks,
-  fileNames,
+  sourceNames,
 }: {
   params: ImportSessionParams
   name: string
   asks: readonly AccountMappingAsk[]
-  fileNames: Readonly<Record<string, string>>
+  sourceNames: Readonly<Record<string, string>>
 }) {
   const accounts = useAccounts(params.userId)
   const answer = useAnswerAsks(params)
@@ -89,7 +89,7 @@ function AccountQuestion({
   }
 
   const splittable =
-    asks.length > 1 && !asks.some((ask) => ask.answer_covers_all_files)
+    asks.length > 1 && !asks.some((ask) => ask.answer_covers_all_sources)
   const groups = split && splittable ? asks.map((ask) => [ask]) : [asks]
 
   return (
@@ -102,7 +102,8 @@ function AccountQuestion({
           Which account is “{name}”?
         </p>
         <p className="mt-1 text-[11px] text-ink-3">
-          In {asks.map((ask) => fileNames[ask.file_id] ?? "a file").join(", ")}
+          In{" "}
+          {asks.map((ask) => sourceNames[ask.source_id] ?? "a file").join(", ")}
         </p>
       </div>
       {groups.map((group) => {
@@ -114,7 +115,7 @@ function AccountQuestion({
           <div key={key} className="flex flex-wrap items-center gap-2">
             {split ? (
               <span className="w-full text-[11px] text-ink-2">
-                {fileNames[group[0]?.file_id ?? ""] ?? "File"}
+                {sourceNames[group[0]?.source_id ?? ""] ?? "File"}
               </span>
             ) : null}
             <EntityPicker
@@ -319,20 +320,14 @@ function AssetQuestion({
 export function ImportQuestions({
   params,
   asks,
-  views,
+  sourceNames,
   pending,
 }: {
   params: ImportSessionParams
   asks: readonly IdentifiableImportAsk[]
-  views: readonly ImportFileView[]
+  sourceNames: Readonly<Record<string, string>>
   pending: number
 }) {
-  const fileNames: Record<string, string> = {}
-  for (const view of views) {
-    if (view.details !== undefined) {
-      fileNames[view.file.file_id] = view.details.original_name
-    }
-  }
   const accountsByName = new Map<string, AccountMappingAsk[]>()
   const assets: AssetMappingAsk[] = []
   for (const ask of asks) {
@@ -366,7 +361,7 @@ export function ImportQuestions({
             params={params}
             name={name}
             asks={group}
-            fileNames={fileNames}
+            sourceNames={sourceNames}
           />
         ))}
         {assets.map((ask) => (

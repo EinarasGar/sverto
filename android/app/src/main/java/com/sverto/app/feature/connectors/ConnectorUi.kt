@@ -30,6 +30,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.sverto.app.core.icons.LucideIcon
+import uniffi.sverto_core.ProviderAccountHistory
 import java.util.Locale
 
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
@@ -154,6 +155,13 @@ fun HeroButton(
         Text(text, style = MaterialTheme.typography.titleMedium)
     }
 }
+
+fun historyLabel(history: ProviderAccountHistory?): String? =
+    when (history) {
+        ProviderAccountHistory.FETCHING -> "Fetching history…"
+        ProviderAccountHistory.FAILED -> "Couldn't fetch history"
+        else -> null
+    }
 
 fun humanizeAccountName(raw: String): String {
     val trimmed = raw.trim()

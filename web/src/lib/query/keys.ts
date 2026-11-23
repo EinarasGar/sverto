@@ -5,6 +5,7 @@ export type CategoryId = number
 export type CategoryTypeId = number
 export type TransactionId = string
 export type TransactionGroupId = string
+export type HeldTransactionId = string
 export type ConversationId = string
 export type QuickUploadId = string
 export type FileId = string
@@ -216,6 +217,7 @@ export const queryKeys = {
         ) => [...transactionsRoot, "asset", assetId, params] as const,
         purchase: (accountId: AccountId, assetId: AssetId) =>
           [...transactionsRoot, "purchase", accountId, assetId] as const,
+        held: () => [...transactionsRoot, "held"] as const,
       },
 
       portfolio: {

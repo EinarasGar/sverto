@@ -24,7 +24,7 @@ impl From<ImportAssertionKind> for ImportAssertionKindDto {
 
 #[derive(Debug, Clone)]
 pub struct ImportAssertionDto {
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub account_ref: String,
     pub asset_ref: Option<String>,
     pub kind: ImportAssertionKindDto,
@@ -36,11 +36,11 @@ impl TryFrom<ImportAssertionModel> for ImportAssertionDto {
     type Error = anyhow::Error;
 
     fn try_from(model: ImportAssertionModel) -> Result<Self, Self::Error> {
-        let (Some(file_id), Some(account_ref)) = (model.file_id, model.account_ref) else {
-            anyhow::bail!("a printed balance has a file and an account name");
+        let (Some(source_id), Some(account_ref)) = (model.source_id, model.account_ref) else {
+            anyhow::bail!("a printed balance has a source and an account name");
         };
         Ok(Self {
-            file_id,
+            source_id,
             account_ref,
             asset_ref: model.asset_ref,
             kind: ImportAssertionKind::try_from(model.kind.as_str())?.into(),
@@ -123,7 +123,7 @@ pub struct ImportBalanceCheckDto {
 pub struct ImportStartingBalanceDto {
     pub account_id: Uuid,
     pub asset_id: i32,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub date: Date,
     pub quantity: Decimal,
 }

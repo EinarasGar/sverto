@@ -114,6 +114,36 @@ impl EnableBankingClient {
         Ok(parse_accounts(&body))
     }
 
+    async fn fetch_transactions(
+        &self,
+        longest: bool,
+        date_from: Option<&str>,
+        continuation_key: Option<&str>,
+    ) -> Result<crate::models::sync::FetchedPage> {
+        let token = crate::enablebanking::jwt::sign_jwt(now_unix())?;
+        let resp = crate::util::ensure_success(
+            self.http
+                .get(transactions_url(
+                    &self.base_url,
+                    &self.session_id,
+                    longest,
+                    date_from,
+                    continuation_key,
+                )?)
+                .header("Authorization", format!("Bearer {}", token))
+                .send()
+                .await?,
+        )
+        .await?;
+        let body: serde_json::Value = resp.json().await?;
+        Ok(parse_transactions_page(&body, date_from))
+    }
+
+    pub async fn fetch_balances(&self) -> Result<serde_json::Value> {
+        self.get(&format!("/accounts/{}/balances", self.session_id))
+            .await
+    }
+
     async fn get(&self, path: &str) -> Result<serde_json::Value> {
         let token = crate::enablebanking::jwt::sign_jwt(now_unix())?;
         let resp = crate::util::ensure_success(
@@ -141,22 +171,27 @@ fn rfc3339_date(dt: time::OffsetDateTime) -> String {
     dt.date().to_string()
 }
 
+const EARLIEST_DATE_FROM: &str = "2000-01-01";
+
 fn transactions_url(
     base_url: &str,
     account_uid: &str,
-    from: Option<time::OffsetDateTime>,
+    longest: bool,
+    date_from: Option<&str>,
     continuation_key: Option<&str>,
 ) -> Result<Url> {
-    let mut params: Vec<(String, String)> = vec![
-        (
-            "dates_from".to_string(),
-            from.map(rfc3339_date).unwrap_or_default(),
-        ),
-        (
-            "dates_to".to_string(),
+    let mut params: Vec<(String, String)> = Vec::new();
+    if let Some(date_from) = date_from {
+        params.push(("date_from".to_string(), date_from.to_string()));
+    }
+    if longest {
+        params.push(("strategy".to_string(), "longest".to_string()));
+    } else {
+        params.push((
+            "date_to".to_string(),
             rfc3339_date(time::OffsetDateTime::now_utc()),
-        ),
-    ];
+        ));
+    }
     if let Some(key) = continuation_key {
         params.push(("continuation_key".to_string(), key.to_string()));
     }
@@ -167,7 +202,10 @@ fn transactions_url(
     .map_err(Into::into)
 }
 
-fn parse_transactions_page(body: &serde_json::Value) -> crate::models::sync::FetchedPage {
+fn parse_transactions_page(
+    body: &serde_json::Value,
+    date_from: Option<&str>,
+) -> crate::models::sync::FetchedPage {
     use crate::models::sync::{FetchedPage, SyncCursor};
 
     let items = body
@@ -182,8 +220,9 @@ fn parse_transactions_page(body: &serde_json::Value) -> crate::models::sync::Fet
     FetchedPage {
         stream: "transactions".to_string(),
         payload: serde_json::Value::Array(items),
-        next_cursor: next_key
-            .map(|k| SyncCursor::new(serde_json::json!({ "continuation_key": k }))),
+        next_cursor: next_key.map(|k| {
+            SyncCursor::new(serde_json::json!({ "continuation_key": k, "date_from": date_from }))
+        }),
     }
 }
 
@@ -194,34 +233,32 @@ impl crate::port::Connector for EnableBankingClient {
         from: Option<time::OffsetDateTime>,
         cursor: Option<crate::models::sync::SyncCursor>,
     ) -> Result<crate::models::sync::FetchedPage> {
-        let continuation_key = cursor
-            .as_ref()
-            .and_then(|c| c.value.get("continuation_key"))
-            .and_then(|v| v.as_str())
-            .map(str::to_string);
-        let token = crate::enablebanking::jwt::sign_jwt(now_unix())?;
-        let resp = crate::util::ensure_success(
-            self.http
-                .get(transactions_url(
-                    &self.base_url,
-                    &self.session_id,
-                    from,
-                    continuation_key.as_deref(),
-                )?)
-                .header("Authorization", format!("Bearer {}", token))
-                .send()
-                .await?,
-        )
-        .await?;
-        let body: serde_json::Value = resp.json().await?;
-        Ok(parse_transactions_page(&body))
-    }
+        let cursor_value = |key: &str| {
+            cursor
+                .as_ref()
+                .and_then(|c| c.value.get(key))
+                .and_then(|v| v.as_str())
+                .map(str::to_string)
+        };
+        let continuation_key = cursor_value("continuation_key");
+        let longest = from.is_none();
+        let date_from = match continuation_key {
+            Some(_) => cursor_value("date_from").or_else(|| from.map(rfc3339_date)),
+            None => Some(
+                from.map(rfc3339_date)
+                    .unwrap_or_else(|| EARLIEST_DATE_FROM.to_string()),
+            ),
+        };
 
-    fn capabilities(&self) -> crate::port::ProviderCapabilities {
-        crate::port::ProviderCapabilities {
-            max_history: Some(time::Duration::days(
-                crate::enablebanking::config::EnableBankingConfig::get().consent_days,
-            )),
+        let page = self
+            .fetch_transactions(longest, date_from.as_deref(), continuation_key.as_deref())
+            .await;
+        match page {
+            Err(e) if longest && continuation_key.is_none() => {
+                tracing::warn!(error = %e, "enablebanking rejected the early date_from — retrying without it");
+                self.fetch_transactions(true, None, None).await
+            }
+            page => page,
         }
     }
 
@@ -233,9 +270,7 @@ impl crate::port::Connector for EnableBankingClient {
     }
 
     async fn fetch_balance(&self) -> Result<crate::models::balance::ProviderBalance> {
-        let body = self
-            .get(&format!("/accounts/{}/balances", self.session_id))
-            .await?;
+        let body = self.fetch_balances().await?;
         let cash = parse_cash_balance(&body);
 
         Ok(crate::models::balance::ProviderBalance {
@@ -291,6 +326,10 @@ fn parse_accounts(body: &serde_json::Value) -> Vec<ProviderAccount> {
                     .get("cash_account_type")
                     .and_then(|v| v.as_str())
                     .map(str::to_string),
+                account_number_last4: None,
+                balance: None,
+                booked_balance: None,
+                iban: None,
             })
         })
         .chain(
@@ -301,8 +340,56 @@ fn parse_accounts(body: &serde_json::Value) -> Vec<ProviderAccount> {
                     display_name: uid.clone(),
                     currency: None,
                     account_type: None,
+                    account_number_last4: None,
+                    balance: None,
+                    booked_balance: None,
+                    iban: None,
                 }),
         )
+        .collect()
+}
+
+pub fn parse_authorized_accounts(body: &serde_json::Value) -> Vec<ProviderAccount> {
+    let items = body
+        .get("accounts")
+        .and_then(|v| v.as_array())
+        .cloned()
+        .unwrap_or_default();
+    items
+        .iter()
+        .filter_map(|item| {
+            let Some(uid) = item.get("uid").and_then(|v| v.as_str()) else {
+                tracing::warn!("enablebanking authorized account missing uid — skipping");
+                return None;
+            };
+            let text = |key: &str| {
+                item.get(key)
+                    .and_then(|v| v.as_str())
+                    .filter(|s| !s.is_empty())
+            };
+            let iban = item.pointer("/account_id/iban").and_then(|v| v.as_str());
+            let account_number = iban.or_else(|| {
+                item.pointer("/account_id/other/identification")
+                    .and_then(|v| v.as_str())
+            });
+            Some(ProviderAccount {
+                provider_account_id: uid.to_string(),
+                display_name: text("details")
+                    .or_else(|| text("name"))
+                    .or_else(|| text("product"))
+                    .unwrap_or(uid)
+                    .to_string(),
+                currency: text("currency").filter(|c| *c != "XXX").map(str::to_string),
+                account_type: text("cash_account_type").map(str::to_string),
+                account_number_last4: account_number.map(|n| {
+                    let chars: Vec<char> = n.chars().collect();
+                    chars[chars.len().saturating_sub(4)..].iter().collect()
+                }),
+                balance: None,
+                booked_balance: None,
+                iban: iban.and_then(crate::util::normalized_iban),
+            })
+        })
         .collect()
 }
 
@@ -311,20 +398,47 @@ fn parse_cash_balance(
 ) -> Vec<crate::models::balance::ProviderCashBalance> {
     body.get("balances")
         .and_then(|v| v.as_array())
-        .map(|items| {
-            items
-                .iter()
-                .filter_map(|item| {
-                    let balance_amount = item.get("balance_amount")?;
-                    let currency = balance_amount.get("currency")?.as_str()?.to_string();
-                    let amount = balance_amount
-                        .get("amount")
-                        .and_then(crate::util::parse_decimal)?;
-                    Some(crate::models::balance::ProviderCashBalance { currency, amount })
-                })
-                .collect()
-        })
+        .map(|items| items.iter().filter_map(cash_balance).collect())
         .unwrap_or_default()
+}
+
+const BOOKED_BALANCE_TYPES: &[&str] = &["CLBD", "ITBD"];
+
+pub fn pick_display_balance(
+    body: &serde_json::Value,
+) -> Option<crate::models::balance::ProviderCashBalance> {
+    let items = body.get("balances").and_then(|v| v.as_array())?;
+    find_balance(items, BOOKED_BALANCE_TYPES).or_else(|| items.iter().find_map(cash_balance))
+}
+
+pub fn booked_balance(
+    body: &serde_json::Value,
+) -> Option<crate::models::balance::ProviderCashBalance> {
+    let items = body.get("balances").and_then(|v| v.as_array())?;
+    find_balance(items, BOOKED_BALANCE_TYPES)
+}
+
+fn find_balance(
+    items: &[serde_json::Value],
+    balance_types: &[&str],
+) -> Option<crate::models::balance::ProviderCashBalance> {
+    items
+        .iter()
+        .find(|item| {
+            item.get("balance_type")
+                .and_then(|v| v.as_str())
+                .is_some_and(|balance_type| balance_types.contains(&balance_type))
+        })
+        .and_then(cash_balance)
+}
+
+fn cash_balance(item: &serde_json::Value) -> Option<crate::models::balance::ProviderCashBalance> {
+    let balance_amount = item.get("balance_amount")?;
+    let currency = balance_amount.get("currency")?.as_str()?.to_string();
+    let amount = balance_amount
+        .get("amount")
+        .and_then(crate::util::parse_decimal)?;
+    Some(crate::models::balance::ProviderCashBalance { currency, amount })
 }
 
 #[cfg(test)]
@@ -334,15 +448,19 @@ mod tests {
 
     #[test]
     fn cursor_round_trip_preserves_continuation_key() {
-        let page = parse_transactions_page(&json!({
-            "transactions": [{ "transaction_id": "t1" }],
-            "continuation_key": "key-page-2"
-        }));
+        let page = parse_transactions_page(
+            &json!({
+                "transactions": [{ "transaction_id": "t1" }],
+                "continuation_key": "key-page-2"
+            }),
+            Some("2000-01-01"),
+        );
         assert_eq!(page.stream, "transactions");
         assert_eq!(page.payload.as_array().unwrap().len(), 1);
 
         let cursor = page.next_cursor.expect("expected continuation cursor");
         assert_eq!(cursor.value["continuation_key"], "key-page-2");
+        assert_eq!(cursor.value["date_from"], "2000-01-01");
 
         // Round-trip: stored cursor feeds the next request's continuation_key param.
         let extracted = cursor
@@ -355,13 +473,13 @@ mod tests {
 
     #[test]
     fn last_page_has_no_cursor() {
-        let page = parse_transactions_page(&json!({ "transactions": [] }));
+        let page = parse_transactions_page(&json!({ "transactions": [] }), None);
         assert!(page.next_cursor.is_none());
     }
 
     #[test]
     fn missing_transactions_array_yields_empty_payload() {
-        let page = parse_transactions_page(&json!({}));
+        let page = parse_transactions_page(&json!({}), None);
         assert!(page.payload.as_array().unwrap().is_empty());
         assert!(page.next_cursor.is_none());
     }
@@ -371,7 +489,8 @@ mod tests {
         let url = transactions_url(
             "https://api.enablebanking.com",
             "uid-1",
-            None,
+            true,
+            Some("2000-01-01"),
             Some("cont key/with&special"),
         )
         .unwrap();
@@ -384,13 +503,34 @@ mod tests {
             "continuation_key".to_string(),
             "cont key/with&special".to_string()
         )));
-        assert!(pairs.iter().any(|(k, _)| k == "dates_from"));
-        assert!(pairs.iter().any(|(k, _)| k == "dates_to"));
+        assert!(pairs.contains(&("strategy".to_string(), "longest".to_string())));
+        assert!(pairs.contains(&("date_from".to_string(), "2000-01-01".to_string())));
+        assert!(!pairs.iter().any(|(k, _)| k == "date_to"));
+    }
+
+    #[test]
+    fn transactions_url_bounds_incremental_fetch_by_date() {
+        let url = transactions_url(
+            "https://api.enablebanking.com",
+            "uid-1",
+            false,
+            Some("2026-11-01"),
+            None,
+        )
+        .unwrap();
+        let pairs: Vec<(String, String)> = url
+            .query_pairs()
+            .map(|(k, v)| (k.into_owned(), v.into_owned()))
+            .collect();
+        assert!(pairs.contains(&("date_from".to_string(), "2026-11-01".to_string())));
+        assert!(pairs.iter().any(|(k, _)| k == "date_to"));
+        assert!(!pairs.iter().any(|(k, _)| k == "strategy"));
     }
 
     #[test]
     fn transactions_url_omits_continuation_key_when_absent() {
-        let url = transactions_url("https://api.enablebanking.com", "uid-1", None, None).unwrap();
+        let url =
+            transactions_url("https://api.enablebanking.com", "uid-1", true, None, None).unwrap();
         assert!(!url.query_pairs().any(|(k, _)| k == "continuation_key"));
     }
 
@@ -433,6 +573,16 @@ mod tests {
         assert_eq!(accounts[0].provider_account_id, "uuid-a");
         assert_eq!(accounts[0].display_name, "Named");
         assert_eq!(accounts[1].provider_account_id, "uuid-b");
+    }
+
+    #[test]
+    fn an_available_balance_alone_gives_no_booked_balance() {
+        let balance = booked_balance(&json!({
+            "balances": [
+                { "balance_type": "ITAV", "balance_amount": { "amount": "74.53", "currency": "EUR" } }
+            ]
+        }));
+        assert!(balance.is_none());
     }
 
     #[test]

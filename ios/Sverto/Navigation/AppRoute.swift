@@ -24,10 +24,13 @@ enum AppRoute: Hashable {
     case connectorDetail(providerKind: String)
     case connectionDetail(connectionId: String)
     case bindingSetup(connectionId: String)
-    case providerAccountDetail(connectionId: String, providerAccountId: String, displayName: String, currency: String?)
+    case providerAccountDetail(connectionId: String, providerAccountId: String, displayName: String, currency: String?, fromLinkSetup: Bool = false)
     case connectTrueLayer(code: String?, state: String?, error: String?)
     case connectEnableBanking(code: String?, state: String?, error: String?)
     case connectTrading212
+    case imports
+    case importSession(id: String, pickFiles: Bool = false)
+    case importItems(sessionId: String)
 }
 
 enum GroupChildMode: Hashable {

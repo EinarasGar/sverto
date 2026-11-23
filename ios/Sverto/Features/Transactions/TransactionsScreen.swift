@@ -12,6 +12,7 @@ struct TransactionsScreen: View {
 
 private struct TransactionsTab: View {
     @State private var search: TransactionSearchViewModel
+    @State private var held: HeldTransactionsViewModel
     @State private var searchText = ""
     @State private var isSearchPresented = false
     @Environment(TransactionsViewModel.self) private var model
@@ -21,6 +22,7 @@ private struct TransactionsTab: View {
 
     init(store: AppStore) {
         _search = State(initialValue: TransactionSearchViewModel(store: store))
+        _held = State(initialValue: HeldTransactionsViewModel(store: store))
     }
 
     var body: some View {
@@ -45,6 +47,10 @@ private struct TransactionsTab: View {
             .onChange(of: model.actionFailure) { _, failure in
                 if let failure { toasts.show(failure.message) }
             }
+            .onChange(of: held.notice) { _, notice in
+                if let notice { toasts.show(notice.message) }
+            }
+            .sensoryFeedback(.success, trigger: held.decidedCount)
             .onChange(of: shell.pendingSharedImages, initial: true) { _, images in
                 guard !images.isEmpty else { return }
                 shell.pendingSharedImages = []
@@ -55,6 +61,7 @@ private struct TransactionsTab: View {
             .aiConsentSheet(quickUploads.aiConsent)
             .onAppear { model.start() }
             .onDisappear { model.stop() }
+            .task { await held.load() }
     }
 
     @ViewBuilder
@@ -73,6 +80,7 @@ private struct TransactionsTab: View {
             TransactionListView(
                 model: model,
                 quickUploads: quickUploads,
+                held: held,
                 onTransactionTap: { shell.showTransactionDetail($0, isInGroup: false) },
                 onQuickUploadTap: openQuickUpload
             )
@@ -139,7 +147,8 @@ private struct NewTransactionEntryPoints: ViewModifier {
                         NewTransactionMenu(
                             onAddReceiptPhoto: { quickUploads.aiConsent.perform { isPhotoPickerPresented = true } },
                             onManualEntry: { isTypePickerPresented = true },
-                            onNewGroup: { shell.push(.createTransactionGroup(quickUploadId: nil, fromSelection: false)) }
+                            onNewGroup: { shell.push(.createTransactionGroup(quickUploadId: nil, fromSelection: false)) },
+                            onImportStatements: { shell.push(.imports) }
                         )
                     }
                     ProfileToolbar()

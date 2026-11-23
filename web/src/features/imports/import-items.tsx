@@ -46,7 +46,7 @@ import { ImportStatusChip } from "./import-status-chip"
 import {
   AMEND_REFUSAL_NOTE,
   applyBlocker,
-  KIND_NOTE,
+  type SourceCopy,
   VERB_COPY,
 } from "./status"
 import { VirtualList } from "./virtual-list"
@@ -94,12 +94,14 @@ function UnstageableRow({ group }: { group: ImportUnstageableGroup }) {
 function ItemRow({
   item,
   ledger,
+  sourceCopy,
   pinning,
   onPin,
   onKeep,
 }: {
   item: IdentifiableStagedTransaction
   ledger: LedgerTransactionRow
+  sourceCopy: SourceCopy
   pinning: boolean
   onPin: (verb: ImportItemVerbOverride) => void
   onKeep: (askKey: string) => void
@@ -109,7 +111,7 @@ function ItemRow({
   const subject = `${primary} on ${date}`
   const verb = VERB_COPY[item.verb]
   const pinnable = item.verb !== "delete"
-  const kindNote = KIND_NOTE[item.kind]
+  const kindNote = sourceCopy.kindNote[item.kind]
   const meta = [
     ledger.typeName,
     ledger.account === null ? null : accountLabel(ledger.account),
@@ -465,10 +467,12 @@ function BalanceQuestion({
   params,
   ask,
   lookup,
+  sourceCopy,
 }: {
   params: ImportSessionParams
   ask: BalanceAsk
   lookup: ReturnType<typeof toLookupIndex>
+  sourceCopy: SourceCopy
 }) {
   const { account, ticker } = positionName(lookup, ask.account_id, ask.asset_id)
   const date = formatDateStamp(ask.as_of_date)
@@ -482,9 +486,9 @@ function BalanceQuestion({
         <ImportStatusChip tone="ghost" label="Not checked" />
       </div>
       <p className="text-[11px] leading-[1.5] text-pretty text-ink-3">
-        No statement gives a balance to check against. What did {account} hold
-        in {ticker} at the end of {date}? Your bank or broker app shows the
-        balance after each transaction.
+        {sourceCopy.noBalance} What did {account} hold in {ticker} at the end of{" "}
+        {date}? Your bank or broker app shows the balance after each
+        transaction.
       </p>
       <EnterBalanceForm
         params={params}
@@ -529,6 +533,7 @@ function BalanceRow({
   entered,
   lookup,
   adjustments,
+  sourceCopy,
   pinning,
   onPin,
 }: {
@@ -537,6 +542,7 @@ function BalanceRow({
   entered: ImportEnteredBalance | undefined
   lookup: Lookup
   adjustments: readonly AdjustmentOffer[]
+  sourceCopy: SourceCopy
   pinning: boolean
   onPin: (itemId: string, verb: ImportItemVerbOverride) => void
 }) {
@@ -612,8 +618,8 @@ function BalanceRow({
       ) : null}
       {offFromStart ? (
         <p className="text-[11px] text-ink-3">
-          Off by {amount(check.starting_off_by)} before the first balance, from
-          history before this statement.
+          Off by {amount(check.starting_off_by)} before the first balance,{" "}
+          {sourceCopy.historyBefore}
         </p>
       ) : null}
       {check.changes.length > 0 ? (
@@ -705,7 +711,7 @@ function BalanceRow({
           )
         })}
       <UnlistedRows
-        title="In your ledger but not on this statement"
+        title={sourceCopy.notListed}
         rows={check.unlisted.filter((row) => !row.may_book_later)}
         amount={amount}
         lookup={lookup}
@@ -717,7 +723,7 @@ function BalanceRow({
         }}
       />
       <UnlistedRows
-        title="In your ledger, dated in the statement's last days: the bank may book these on the next statement"
+        title={sourceCopy.mayBookLater}
         rows={check.unlisted.filter((row) => row.may_book_later)}
         amount={amount}
         lookup={lookup}
@@ -760,10 +766,12 @@ function isUndecidedStart(item: IdentifiableStagedTransaction): boolean {
 
 function StartingBalanceRow({
   ledger,
+  sourceCopy,
   pinning,
   onPin,
 }: {
   ledger: LedgerTransactionRow
+  sourceCopy: SourceCopy
   pinning: boolean
   onPin: (verb: ImportItemVerbOverride) => void
 }) {
@@ -778,9 +786,7 @@ function StartingBalanceRow({
           Start {account} on {date}?
         </p>
         <p className="mt-0.5 text-[11px] text-pretty text-ink-3">
-          The statement's first balance needs this before its first row, on top
-          of what your ledger already holds. Add it, leave it out, or upload the
-          statement before this one.
+          {sourceCopy.startingBalance}
         </p>
       </div>
       <div className="text-right">
@@ -911,11 +917,13 @@ export function ImportItems({
   status,
   classification,
   balanceAsks,
+  sourceCopy,
 }: {
   params: ImportSessionParams
   status: ImportSessionStatus
   classification: ImportClassification
   balanceAsks: readonly BalanceAsk[]
+  sourceCopy: SourceCopy
 }) {
   const [filter, setFilter] = useState<VerbFilter>("all")
   const classified = classification.status === "classified"
@@ -965,6 +973,7 @@ export function ImportItems({
           items={data.items}
           unstageable={data.unstageable.length}
           checks={balanceChecks?.checks ?? []}
+          sourceCopy={sourceCopy}
           blocked={
             applyBlocker(status) ??
             (nearMisses.length > 0
@@ -1027,6 +1036,7 @@ export function ImportItems({
                   )}
                   lookup={lookup}
                   adjustments={adjustments}
+                  sourceCopy={sourceCopy}
                   pinning={pin.isPending}
                   onPin={(itemId, verb) => {
                     pin.mutate({ itemIds: [itemId], verb })
@@ -1046,6 +1056,7 @@ export function ImportItems({
                   params={params}
                   ask={ask}
                   lookup={lookup}
+                  sourceCopy={sourceCopy}
                 />
               ))}
             </ul>
@@ -1059,8 +1070,8 @@ export function ImportItems({
                   "pt-2"
               )}
             >
-              {countOf(uncheckedRest, "account balance")} couldn't be checked:
-              the statements give nothing to compare with.
+              {countOf(uncheckedRest, "account balance")} couldn't be checked:{" "}
+              {sourceCopy.nothingToCompare}
             </p>
           ) : null}
         </div>
@@ -1125,6 +1136,7 @@ export function ImportItems({
                   asLedgerTransaction(item.transaction),
                   lookup
                 )}
+                sourceCopy={sourceCopy}
                 pinning={pin.isPending}
                 onPin={(verb) => {
                   pin.mutate({ itemIds: [item.id], verb })
@@ -1148,6 +1160,7 @@ export function ImportItems({
                 asLedgerTransaction(item.transaction),
                 lookup
               )}
+              sourceCopy={sourceCopy}
               pinning={pin.isPending || answer.isPending}
               onPin={(verb) => {
                 pin.mutate({ itemIds: [item.id], verb })

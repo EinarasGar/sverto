@@ -1,4 +1,7 @@
-use sea_query::{Alias, Expr, ExprTrait, JoinType, PostgresQueryBuilder, Query};
+use sea_query::{
+    extension::postgres::PgFunc, Alias, Expr, ExprTrait, Func, IntoIden, JoinType,
+    PostgresQueryBuilder, Query, TableRef,
+};
 use sea_query_sqlx::SqlxBinder;
 use sqlx::types::Uuid;
 
@@ -7,7 +10,7 @@ use crate::{
         account_idens::AccountIden,
         entries_idens::{BinnedEntriesIden, EntryIden},
         transaction_idens::TransactionIden,
-        CustomFunc,
+        CustomFunc, Unnest,
     },
     models::entry_models::AddEntryModel,
     query_params::get_binned_entries_params::GetBinnedEntriesParams,
@@ -238,4 +241,84 @@ pub fn get_oldest_entry_date(user_id: Uuid, account_id: Option<Uuid>) -> DbQuery
     }
 
     query.build_sqlx(PostgresQueryBuilder).into()
+}
+
+#[macros::named_query]
+pub fn get_latest_entry_dates(user_id: Uuid, account_ids: Vec<Uuid>) -> DbQueryWithValues {
+    Query::select()
+        .column((EntryIden::Table, EntryIden::AccountId))
+        .column((EntryIden::Table, EntryIden::AssetId))
+        .expr_as(
+            Expr::max(Expr::col((
+                TransactionIden::Table,
+                TransactionIden::DateTransacted,
+            ))),
+            TransactionIden::DateTransacted,
+        )
+        .from(TransactionIden::Table)
+        .join(
+            JoinType::Join,
+            EntryIden::Table,
+            Expr::col((EntryIden::Table, EntryIden::TransactionId))
+                .equals((TransactionIden::Table, TransactionIden::Id)),
+        )
+        .and_where(Expr::col((TransactionIden::Table, TransactionIden::UserId)).eq(user_id))
+        .and_where(
+            Expr::col((EntryIden::Table, EntryIden::AccountId))
+                .eq(PgFunc::any(Expr::val(account_ids))),
+        )
+        .and_where(
+            Expr::col((TransactionIden::Table, TransactionIden::DateTransacted))
+                .lt(Expr::cust("CURRENT_DATE + 1")),
+        )
+        .group_by_col((EntryIden::Table, EntryIden::AccountId))
+        .group_by_col((EntryIden::Table, EntryIden::AssetId))
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn update_entry_categories(
+    user_id: Uuid,
+    from_category_id: i32,
+    transaction_ids: Vec<Uuid>,
+    category_ids: Vec<i32>,
+) -> DbQueryWithValues {
+    let categorized = Alias::new("categorized");
+    let rows = Query::select()
+        .expr_as(
+            Func::cust(Unnest).arg(Expr::val(transaction_ids)),
+            Alias::new("transaction_id"),
+        )
+        .expr_as(
+            Func::cust(Unnest).arg(Expr::val(category_ids)),
+            Alias::new("category_id"),
+        )
+        .to_owned();
+    Query::update()
+        .table(EntryIden::Table)
+        .value(
+            EntryIden::CategoryId,
+            Expr::col((categorized.clone(), Alias::new("category_id"))),
+        )
+        .from(TableRef::SubQuery(
+            rows.into(),
+            categorized.clone().into_iden(),
+        ))
+        .and_where(
+            Expr::col((EntryIden::Table, EntryIden::TransactionId))
+                .equals((categorized, Alias::new("transaction_id"))),
+        )
+        .and_where(Expr::col((EntryIden::Table, EntryIden::CategoryId)).eq(from_category_id))
+        .and_where(
+            Expr::col((EntryIden::Table, EntryIden::TransactionId)).in_subquery(
+                Query::select()
+                    .column(TransactionIden::Id)
+                    .from(TransactionIden::Table)
+                    .and_where(Expr::col(TransactionIden::UserId).eq(user_id))
+                    .to_owned(),
+            ),
+        )
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
 }

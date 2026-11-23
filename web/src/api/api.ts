@@ -398,7 +398,7 @@ export interface AccountMappingAsk {
      * @type {boolean}
      * @memberof AccountMappingAsk
      */
-    'answer_covers_all_files': boolean;
+    'answer_covers_all_sources': boolean;
     /**
      * 
      * @type {string}
@@ -422,12 +422,6 @@ export interface AccountMappingAsk {
      * @type {string}
      * @memberof AccountMappingAsk
      */
-    'file_id': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof AccountMappingAsk
-     */
     'kind': AccountMappingAskKindEnum;
     /**
      * 
@@ -435,6 +429,12 @@ export interface AccountMappingAsk {
      * @memberof AccountMappingAsk
      */
     'raw_account': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof AccountMappingAsk
+     */
+    'source_id': string;
 }
 
 export const AccountMappingAskKindEnum = {
@@ -4381,6 +4381,12 @@ export interface ConnectorBinding {
     'id': string;
     /**
      * 
+     * @type {string}
+     * @memberof ConnectorBinding
+     */
+    'import_session_id'?: string | null;
+    /**
+     * 
      * @type {number}
      * @memberof ConnectorBinding
      */
@@ -4466,6 +4472,12 @@ export interface ConnectorConnection {
     'id': string;
     /**
      * 
+     * @type {boolean}
+     * @memberof ConnectorConnection
+     */
+    'links_by_import': boolean;
+    /**
+     * 
      * @type {string}
      * @memberof ConnectorConnection
      */
@@ -4490,6 +4502,97 @@ export interface ConnectorConnection {
     'updated_at': number;
 }
 
+
+/**
+ * 
+ * @export
+ * @interface ConnectorImportAccount
+ */
+export interface ConnectorImportAccount {
+    /**
+     * 
+     * @type {string}
+     * @memberof ConnectorImportAccount
+     */
+    'provider_account_id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ConnectorImportAccount
+     */
+    'sverto_account_id': string;
+}
+/**
+ * @type ConnectorImportFrom
+ * @export
+ */
+export type ConnectorImportFrom = ConnectorImportFromOneOf | ConnectorImportFromOneOf1 | ConnectorImportFromOneOf2;
+
+/**
+ * 
+ * @export
+ * @interface ConnectorImportFromOneOf
+ */
+export interface ConnectorImportFromOneOf {
+    /**
+     * 
+     * @type {string}
+     * @memberof ConnectorImportFromOneOf
+     */
+    'kind': ConnectorImportFromOneOfKindEnum;
+}
+
+export const ConnectorImportFromOneOfKindEnum = {
+    All: 'all'
+} as const;
+
+export type ConnectorImportFromOneOfKindEnum = typeof ConnectorImportFromOneOfKindEnum[keyof typeof ConnectorImportFromOneOfKindEnum];
+
+/**
+ * 
+ * @export
+ * @interface ConnectorImportFromOneOf1
+ */
+export interface ConnectorImportFromOneOf1 {
+    /**
+     * 
+     * @type {string}
+     * @memberof ConnectorImportFromOneOf1
+     */
+    'kind': ConnectorImportFromOneOf1KindEnum;
+}
+
+export const ConnectorImportFromOneOf1KindEnum = {
+    AfterLastEntry: 'after_last_entry'
+} as const;
+
+export type ConnectorImportFromOneOf1KindEnum = typeof ConnectorImportFromOneOf1KindEnum[keyof typeof ConnectorImportFromOneOf1KindEnum];
+
+/**
+ * 
+ * @export
+ * @interface ConnectorImportFromOneOf2
+ */
+export interface ConnectorImportFromOneOf2 {
+    /**
+     * 
+     * @type {string}
+     * @memberof ConnectorImportFromOneOf2
+     */
+    'date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ConnectorImportFromOneOf2
+     */
+    'kind': ConnectorImportFromOneOf2KindEnum;
+}
+
+export const ConnectorImportFromOneOf2KindEnum = {
+    Date: 'date'
+} as const;
+
+export type ConnectorImportFromOneOf2KindEnum = typeof ConnectorImportFromOneOf2KindEnum[keyof typeof ConnectorImportFromOneOf2KindEnum];
 
 /**
  * 
@@ -4528,6 +4631,12 @@ export interface ConversationResponse {
  * @interface CreateBindingRequest
  */
 export interface CreateBindingRequest {
+    /**
+     * 
+     * @type {ConnectorImportFrom}
+     * @memberof CreateBindingRequest
+     */
+    'import_from': ConnectorImportFrom;
     /**
      * 
      * @type {string}
@@ -4637,6 +4746,38 @@ export interface CreateConnectionResponse {
      * @memberof CreateConnectionResponse
      */
     'connection_id': string;
+}
+/**
+ * 
+ * @export
+ * @interface CreateConnectorImportRequest
+ */
+export interface CreateConnectorImportRequest {
+    /**
+     * 
+     * @type {Array<ConnectorImportAccount>}
+     * @memberof CreateConnectorImportRequest
+     */
+    'accounts': Array<ConnectorImportAccount>;
+    /**
+     * 
+     * @type {ConnectorImportFrom}
+     * @memberof CreateConnectorImportRequest
+     */
+    'import_from': ConnectorImportFrom;
+}
+/**
+ * 
+ * @export
+ * @interface CreateConnectorImportResponse
+ */
+export interface CreateConnectorImportResponse {
+    /**
+     * 
+     * @type {string}
+     * @memberof CreateConnectorImportResponse
+     */
+    'import_session_id': string;
 }
 /**
  * 
@@ -4867,6 +5008,58 @@ export const CredentialMode = {
 
 export type CredentialMode = typeof CredentialMode[keyof typeof CredentialMode];
 
+
+/**
+ * @type DecideHeldTransactionRequest
+ * @export
+ */
+export type DecideHeldTransactionRequest = DecideHeldTransactionRequestOneOf | DecideHeldTransactionRequestOneOf1;
+
+/**
+ * 
+ * @export
+ * @interface DecideHeldTransactionRequestOneOf
+ */
+export interface DecideHeldTransactionRequestOneOf {
+    /**
+     * 
+     * @type {string}
+     * @memberof DecideHeldTransactionRequestOneOf
+     */
+    'decision': DecideHeldTransactionRequestOneOfDecisionEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof DecideHeldTransactionRequestOneOf
+     */
+    'transaction_id': string;
+}
+
+export const DecideHeldTransactionRequestOneOfDecisionEnum = {
+    Same: 'same'
+} as const;
+
+export type DecideHeldTransactionRequestOneOfDecisionEnum = typeof DecideHeldTransactionRequestOneOfDecisionEnum[keyof typeof DecideHeldTransactionRequestOneOfDecisionEnum];
+
+/**
+ * 
+ * @export
+ * @interface DecideHeldTransactionRequestOneOf1
+ */
+export interface DecideHeldTransactionRequestOneOf1 {
+    /**
+     * 
+     * @type {string}
+     * @memberof DecideHeldTransactionRequestOneOf1
+     */
+    'decision': DecideHeldTransactionRequestOneOf1DecisionEnum;
+}
+
+export const DecideHeldTransactionRequestOneOf1DecisionEnum = {
+    Different: 'different'
+} as const;
+
+export type DecideHeldTransactionRequestOneOf1DecisionEnum = typeof DecideHeldTransactionRequestOneOf1DecisionEnum[keyof typeof DecideHeldTransactionRequestOneOf1DecisionEnum];
 
 /**
  * 
@@ -5308,6 +5501,25 @@ export interface GetFileResponse {
 /**
  * 
  * @export
+ * @interface GetHeldTransactionsResponse
+ */
+export interface GetHeldTransactionsResponse {
+    /**
+     * 
+     * @type {Array<IdentifiableHeldTransaction>}
+     * @memberof GetHeldTransactionsResponse
+     */
+    'held_transactions': Array<IdentifiableHeldTransaction>;
+    /**
+     * 
+     * @type {MetadataLookupTables}
+     * @memberof GetHeldTransactionsResponse
+     */
+    'lookup_tables': MetadataLookupTables;
+}
+/**
+ * 
+ * @export
  * @interface GetHoldingsResponse
  */
 export interface GetHoldingsResponse {
@@ -5671,6 +5883,61 @@ export interface IdentifiableExport {
 
 
 /**
+ * A single account-asset-entry in a transaction.  The generic parameter `A` determines the amount type: - `Amount` – unvalidated (default, used in response models & macro-generated enums) - `PositiveAmount` – must be > 0, validated at parse time - `NegativeAmount` – must be < 0, validated at parse time - `NonZeroAmount` – must not be 0, validated at parse time
+ * @export
+ * @interface IdentifiableHeldTransaction
+ */
+export interface IdentifiableHeldTransaction {
+    /**
+     * The id of an account for which the entry is related.
+     * @type {string}
+     * @memberof IdentifiableHeldTransaction
+     */
+    'account_id': string;
+    /**
+     * The number of units of the asset that were added or removed from the account.
+     * @type {number}
+     * @memberof IdentifiableHeldTransaction
+     */
+    'amount': number;
+    /**
+     * The id of an asset in the account for which the entry is related.
+     * @type {number}
+     * @memberof IdentifiableHeldTransaction
+     */
+    'asset_id': number;
+    /**
+     * 
+     * @type {Array<IdentifiableTransaction>}
+     * @memberof IdentifiableHeldTransaction
+     */
+    'candidates': Array<IdentifiableTransaction>;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableHeldTransaction
+     */
+    'date': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableHeldTransaction
+     */
+    'description': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableHeldTransaction
+     */
+    'id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableHeldTransaction
+     */
+    'provider_kind': string;
+}
+/**
  * @type IdentifiableImportAsk
  * An ambiguity the engine could not resolve on its own. Tagged by `kind`; each kind carries its own evidence and choice menu.
  * @export
@@ -5769,12 +6036,6 @@ export interface IdentifiableImportPendingTransaction {
      * @type {string}
      * @memberof IdentifiableImportPendingTransaction
      */
-    'file_id': string;
-    /**
-     * 
-     * @type {string}
-     * @memberof IdentifiableImportPendingTransaction
-     */
     'id': string;
     /**
      * 
@@ -5782,6 +6043,12 @@ export interface IdentifiableImportPendingTransaction {
      * @memberof IdentifiableImportPendingTransaction
      */
     'legs': Array<PendingLeg>;
+    /**
+     * 
+     * @type {string}
+     * @memberof IdentifiableImportPendingTransaction
+     */
+    'source_id': string;
 }
 /**
  * 
@@ -5821,6 +6088,12 @@ export interface IdentifiableImportSessionResponse {
     'status': ImportSessionStatus;
 }
 
+
+/**
+ * @type IdentifiableImportSource
+ * @export
+ */
+export type IdentifiableImportSource = { kind: 'bank_account' } & ImportBankAccountSource | { kind: 'file' } & ImportFileSource;
 
 /**
  * 
@@ -5984,12 +6257,6 @@ export interface IdentifiableStagedTransaction {
      */
     'ask_key'?: string | null;
     /**
-     * Files the row\'s evidence came from. Several when lines from different files compose one transaction; empty for rows created by answering an ask.
-     * @type {Array<string>}
-     * @memberof IdentifiableStagedTransaction
-     */
-    'file_ids': Array<string>;
-    /**
      * 
      * @type {string}
      * @memberof IdentifiableStagedTransaction
@@ -6013,6 +6280,12 @@ export interface IdentifiableStagedTransaction {
      * @memberof IdentifiableStagedTransaction
      */
     'parts': Array<string>;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof IdentifiableStagedTransaction
+     */
+    'source_ids': Array<string>;
     /**
      * The typed transaction this row will write to the ledger; for `delete` rows, the ledger transaction being removed. Its `transaction_id` is the target for `amend`/`delete`, the matched transaction for `skip`, and empty for `add` until apply writes it.
      * @type {IdentifiableTransaction}
@@ -6201,6 +6474,74 @@ export interface ImportBalanceChecks {
 /**
  * 
  * @export
+ * @interface ImportBankAccountSource
+ */
+export interface ImportBankAccountSource {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBankAccountSource
+     */
+    'account_number_last4'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBankAccountSource
+     */
+    'binding_id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBankAccountSource
+     */
+    'created_at': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBankAccountSource
+     */
+    'currency'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBankAccountSource
+     */
+    'display_name'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBankAccountSource
+     */
+    'id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBankAccountSource
+     */
+    'kind': ImportBankAccountSourceKindEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportBankAccountSource
+     */
+    'provider_kind': string;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportBankAccountSource
+     */
+    'recorded_transactions': number;
+}
+
+export const ImportBankAccountSourceKindEnum = {
+    BankAccount: 'bank_account'
+} as const;
+
+export type ImportBankAccountSourceKindEnum = typeof ImportBankAccountSourceKindEnum[keyof typeof ImportBankAccountSourceKindEnum];
+
+/**
+ * 
+ * @export
  * @interface ImportClassification
  */
 export interface ImportClassification {
@@ -6293,6 +6634,80 @@ export interface ImportEnteredBalance {
      */
     'quantity': string;
 }
+/**
+ * 
+ * @export
+ * @interface ImportFileSource
+ */
+export interface ImportFileSource {
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportFileSource
+     */
+    'created_at': string;
+    /**
+     * How dates written in digits are read: `03/11` is 3 November day-first, 11 March month-first.
+     * @type {string}
+     * @memberof ImportFileSource
+     */
+    'date_order'?: ImportFileSourceDateOrderEnum | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportFileSource
+     */
+    'error_message'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportFileSource
+     */
+    'file_id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportFileSource
+     */
+    'id': string;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportFileSource
+     */
+    'kind': ImportFileSourceKindEnum;
+    /**
+     * 
+     * @type {string}
+     * @memberof ImportFileSource
+     */
+    'paused_until'?: string | null;
+    /**
+     * 
+     * @type {number}
+     * @memberof ImportFileSource
+     */
+    'recorded_transactions': number;
+    /**
+     * 
+     * @type {ImportFileStatus}
+     * @memberof ImportFileSource
+     */
+    'status': ImportFileStatus;
+}
+
+export const ImportFileSourceDateOrderEnum = {
+    DayFirst: 'day_first',
+    MonthFirst: 'month_first'
+} as const;
+
+export type ImportFileSourceDateOrderEnum = typeof ImportFileSourceDateOrderEnum[keyof typeof ImportFileSourceDateOrderEnum];
+export const ImportFileSourceKindEnum = {
+    File: 'file'
+} as const;
+
+export type ImportFileSourceKindEnum = typeof ImportFileSourceKindEnum[keyof typeof ImportFileSourceKindEnum];
+
 /**
  * 
  * @export
@@ -6579,12 +6994,6 @@ export interface ImportSessionDetailResponse {
     'counts': ImportSessionCounts;
     /**
      * 
-     * @type {Array<IdentifiableImportFile>}
-     * @memberof ImportSessionDetailResponse
-     */
-    'files': Array<IdentifiableImportFile>;
-    /**
-     * 
      * @type {Array<IdentifiableImportAsk>}
      * @memberof ImportSessionDetailResponse
      */
@@ -6595,6 +7004,12 @@ export interface ImportSessionDetailResponse {
      * @memberof ImportSessionDetailResponse
      */
     'session': ImportSessionResponse;
+    /**
+     * 
+     * @type {Array<IdentifiableImportSource>}
+     * @memberof ImportSessionDetailResponse
+     */
+    'sources': Array<IdentifiableImportSource>;
 }
 /**
  * 
@@ -6728,12 +7143,6 @@ export interface ImportUnstageableGroup {
     'description'?: string | null;
     /**
      * 
-     * @type {Array<string>}
-     * @memberof ImportUnstageableGroup
-     */
-    'file_ids': Array<string>;
-    /**
-     * 
      * @type {string}
      * @memberof ImportUnstageableGroup
      */
@@ -6744,6 +7153,12 @@ export interface ImportUnstageableGroup {
      * @memberof ImportUnstageableGroup
      */
     'reason': string;
+    /**
+     * 
+     * @type {Array<string>}
+     * @memberof ImportUnstageableGroup
+     */
+    'source_ids': Array<string>;
 }
 /**
  * 
@@ -7242,7 +7657,19 @@ export interface ProviderAccount {
      * @type {string}
      * @memberof ProviderAccount
      */
+    'account_number_last4'?: string | null;
+    /**
+     * 
+     * @type {string}
+     * @memberof ProviderAccount
+     */
     'account_type'?: string | null;
+    /**
+     * 
+     * @type {ProviderAccountBalance}
+     * @memberof ProviderAccount
+     */
+    'balance'?: ProviderAccountBalance | null;
     /**
      * 
      * @type {string}
@@ -7257,11 +7684,54 @@ export interface ProviderAccount {
     'display_name': string;
     /**
      * 
+     * @type {ProviderAccountHistory}
+     * @memberof ProviderAccount
+     */
+    'history': ProviderAccountHistory;
+    /**
+     * 
      * @type {string}
      * @memberof ProviderAccount
      */
     'provider_account_id': string;
 }
+
+
+/**
+ * 
+ * @export
+ * @interface ProviderAccountBalance
+ */
+export interface ProviderAccountBalance {
+    /**
+     * 
+     * @type {number}
+     * @memberof ProviderAccountBalance
+     */
+    'amount': number;
+    /**
+     * 
+     * @type {string}
+     * @memberof ProviderAccountBalance
+     */
+    'currency': string;
+}
+/**
+ * 
+ * @export
+ * @enum {string}
+ */
+
+export const ProviderAccountHistory = {
+    NotFetched: 'not_fetched',
+    Fetching: 'fetching',
+    Fetched: 'fetched',
+    Failed: 'failed'
+} as const;
+
+export type ProviderAccountHistory = typeof ProviderAccountHistory[keyof typeof ProviderAccountHistory];
+
+
 /**
  * 
  * @export
@@ -8007,6 +8477,12 @@ export interface SyncReport {
      * @type {number}
      * @memberof SyncReport
      */
+    'attached': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof SyncReport
+     */
     'conflicts': number;
     /**
      * 
@@ -8014,6 +8490,12 @@ export interface SyncReport {
      * @memberof SyncReport
      */
     'duplicates': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof SyncReport
+     */
+    'held': number;
     /**
      * 
      * @type {number}
@@ -12346,7 +12828,7 @@ export const ConnectorsApiAxiosParamCreator = function (configuration?: Configur
             };
         },
         /**
-         * Creates a new binding between a connection and a provider account.
+         * Creates a new binding between a connection and a provider account, active at once.
          * @summary Create Binding
          * @param {string} userId 
          * @param {string} connectionId 
@@ -12431,6 +12913,54 @@ export const ConnectorsApiAxiosParamCreator = function (configuration?: Configur
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
             localVarRequestOptions.data = serializeDataIfNeeded(createConnectionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Links provider accounts of a connection to Sverto accounts through a new import session built from their fetched history. The links stay pending, and sync leaves them alone, until the session is applied; deleting the session removes them. Only connections whose accounts link by import (`links_by_import`) import; the others link accounts directly.
+         * @summary Import Connection Accounts
+         * @param {string} userId 
+         * @param {string} connectionId 
+         * @param {CreateConnectorImportRequest} createConnectorImportRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createConnectorImport: async (userId: string, connectionId: string, createConnectorImportRequest: CreateConnectorImportRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('createConnectorImport', 'userId', userId)
+            // verify required parameter 'connectionId' is not null or undefined
+            assertParamExists('createConnectorImport', 'connectionId', connectionId)
+            // verify required parameter 'createConnectorImportRequest' is not null or undefined
+            assertParamExists('createConnectorImport', 'createConnectorImportRequest', createConnectorImportRequest)
+            const localVarPath = `/api/users/{user_id}/connectors/connections/{connection_id}/imports`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"connection_id"}}`, encodeURIComponent(String(connectionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(createConnectorImportRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -13037,7 +13567,7 @@ export const ConnectorsApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Creates a new binding between a connection and a provider account.
+         * Creates a new binding between a connection and a provider account, active at once.
          * @summary Create Binding
          * @param {string} userId 
          * @param {string} connectionId 
@@ -13063,6 +13593,21 @@ export const ConnectorsApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.createConnection(userId, createConnectionRequest, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['ConnectorsApi.createConnection']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Links provider accounts of a connection to Sverto accounts through a new import session built from their fetched history. The links stay pending, and sync leaves them alone, until the session is applied; deleting the session removes them. Only connections whose accounts link by import (`links_by_import`) import; the others link accounts directly.
+         * @summary Import Connection Accounts
+         * @param {string} userId 
+         * @param {string} connectionId 
+         * @param {CreateConnectorImportRequest} createConnectorImportRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async createConnectorImport(userId: string, connectionId: string, createConnectorImportRequest: CreateConnectorImportRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<CreateConnectorImportResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.createConnectorImport(userId, connectionId, createConnectorImportRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['ConnectorsApi.createConnectorImport']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -13275,7 +13820,7 @@ export const ConnectorsApiFactory = function (configuration?: Configuration, bas
             return localVarFp.completeOauthSession(userId, connectionId, sessionId, completeOAuthSessionRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * Creates a new binding between a connection and a provider account.
+         * Creates a new binding between a connection and a provider account, active at once.
          * @summary Create Binding
          * @param {string} userId 
          * @param {string} connectionId 
@@ -13296,6 +13841,18 @@ export const ConnectorsApiFactory = function (configuration?: Configuration, bas
          */
         createConnection(userId: string, createConnectionRequest: CreateConnectionRequest, options?: RawAxiosRequestConfig): AxiosPromise<CreateConnectionResponse> {
             return localVarFp.createConnection(userId, createConnectionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Links provider accounts of a connection to Sverto accounts through a new import session built from their fetched history. The links stay pending, and sync leaves them alone, until the session is applied; deleting the session removes them. Only connections whose accounts link by import (`links_by_import`) import; the others link accounts directly.
+         * @summary Import Connection Accounts
+         * @param {string} userId 
+         * @param {string} connectionId 
+         * @param {CreateConnectorImportRequest} createConnectorImportRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        createConnectorImport(userId: string, connectionId: string, createConnectorImportRequest: CreateConnectorImportRequest, options?: RawAxiosRequestConfig): AxiosPromise<CreateConnectorImportResponse> {
+            return localVarFp.createConnectorImport(userId, connectionId, createConnectorImportRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * Creates an OAuth authorization session for a connection and returns the provider consent URL.
@@ -13467,7 +14024,7 @@ export interface ConnectorsApiInterface {
     completeOauthSession(userId: string, connectionId: string, sessionId: string, completeOAuthSessionRequest: CompleteOAuthSessionRequest, options?: RawAxiosRequestConfig): AxiosPromise<CompleteOAuthSessionResponse>;
 
     /**
-     * Creates a new binding between a connection and a provider account.
+     * Creates a new binding between a connection and a provider account, active at once.
      * @summary Create Binding
      * @param {string} userId 
      * @param {string} connectionId 
@@ -13488,6 +14045,18 @@ export interface ConnectorsApiInterface {
      * @memberof ConnectorsApiInterface
      */
     createConnection(userId: string, createConnectionRequest: CreateConnectionRequest, options?: RawAxiosRequestConfig): AxiosPromise<CreateConnectionResponse>;
+
+    /**
+     * Links provider accounts of a connection to Sverto accounts through a new import session built from their fetched history. The links stay pending, and sync leaves them alone, until the session is applied; deleting the session removes them. Only connections whose accounts link by import (`links_by_import`) import; the others link accounts directly.
+     * @summary Import Connection Accounts
+     * @param {string} userId 
+     * @param {string} connectionId 
+     * @param {CreateConnectorImportRequest} createConnectorImportRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ConnectorsApiInterface
+     */
+    createConnectorImport(userId: string, connectionId: string, createConnectorImportRequest: CreateConnectorImportRequest, options?: RawAxiosRequestConfig): AxiosPromise<CreateConnectorImportResponse>;
 
     /**
      * Creates an OAuth authorization session for a connection and returns the provider consent URL.
@@ -13661,7 +14230,7 @@ export class ConnectorsApi extends BaseAPI implements ConnectorsApiInterface {
     }
 
     /**
-     * Creates a new binding between a connection and a provider account.
+     * Creates a new binding between a connection and a provider account, active at once.
      * @summary Create Binding
      * @param {string} userId 
      * @param {string} connectionId 
@@ -13685,6 +14254,20 @@ export class ConnectorsApi extends BaseAPI implements ConnectorsApiInterface {
      */
     public createConnection(userId: string, createConnectionRequest: CreateConnectionRequest, options?: RawAxiosRequestConfig) {
         return ConnectorsApiFp(this.configuration).createConnection(userId, createConnectionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Links provider accounts of a connection to Sverto accounts through a new import session built from their fetched history. The links stay pending, and sync leaves them alone, until the session is applied; deleting the session removes them. Only connections whose accounts link by import (`links_by_import`) import; the others link accounts directly.
+     * @summary Import Connection Accounts
+     * @param {string} userId 
+     * @param {string} connectionId 
+     * @param {CreateConnectorImportRequest} createConnectorImportRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof ConnectorsApi
+     */
+    public createConnectorImport(userId: string, connectionId: string, createConnectorImportRequest: CreateConnectorImportRequest, options?: RawAxiosRequestConfig) {
+        return ConnectorsApiFp(this.configuration).createConnectorImport(userId, connectionId, createConnectorImportRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -14682,6 +15265,237 @@ export class FilesApi extends BaseAPI implements FilesApiInterface {
 
 
 /**
+ * HeldTransactionsApi - axios parameter creator
+ * @export
+ */
+export const HeldTransactionsApiAxiosParamCreator = function (configuration?: Configuration) {
+    return {
+        /**
+         * Settles a held bank row. `same` records it on one of its candidates: a candidate that is a single entry in the same account and asset takes the bank\'s amount and date and keeps its description and category; any other candidate is left as it is. `different` adds the bank row to the ledger as a transaction of its own. Either way the row is no longer held. A candidate that already has another row of the same bank account can\'t take this one.
+         * @summary Decide Held Transaction
+         * @param {string} userId 
+         * @param {string} heldTransactionId Id of the held bank row.
+         * @param {DecideHeldTransactionRequest} decideHeldTransactionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        decideHeldTransaction: async (userId: string, heldTransactionId: string, decideHeldTransactionRequest: DecideHeldTransactionRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('decideHeldTransaction', 'userId', userId)
+            // verify required parameter 'heldTransactionId' is not null or undefined
+            assertParamExists('decideHeldTransaction', 'heldTransactionId', heldTransactionId)
+            // verify required parameter 'decideHeldTransactionRequest' is not null or undefined
+            assertParamExists('decideHeldTransaction', 'decideHeldTransactionRequest', decideHeldTransactionRequest)
+            const localVarPath = `/api/users/{user_id}/held-transactions/{held_transaction_id}/decision`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"held_transaction_id"}}`, encodeURIComponent(String(heldTransactionId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(decideHeldTransactionRequest, localVarRequestOptions, configuration)
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Lists the bank rows a sync kept out of the ledger because they may already be recorded, newest first, each with the ledger transactions it may be (best match first). Held rows count in no balance until they are decided.
+         * @summary List Held Transactions
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listHeldTransactions: async (userId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('listHeldTransactions', 'userId', userId)
+            const localVarPath = `/api/users/{user_id}/held-transactions`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+    }
+};
+
+/**
+ * HeldTransactionsApi - functional programming interface
+ * @export
+ */
+export const HeldTransactionsApiFp = function(configuration?: Configuration) {
+    const localVarAxiosParamCreator = HeldTransactionsApiAxiosParamCreator(configuration)
+    return {
+        /**
+         * Settles a held bank row. `same` records it on one of its candidates: a candidate that is a single entry in the same account and asset takes the bank\'s amount and date and keeps its description and category; any other candidate is left as it is. `different` adds the bank row to the ledger as a transaction of its own. Either way the row is no longer held. A candidate that already has another row of the same bank account can\'t take this one.
+         * @summary Decide Held Transaction
+         * @param {string} userId 
+         * @param {string} heldTransactionId Id of the held bank row.
+         * @param {DecideHeldTransactionRequest} decideHeldTransactionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async decideHeldTransaction(userId: string, heldTransactionId: string, decideHeldTransactionRequest: DecideHeldTransactionRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.decideHeldTransaction(userId, heldTransactionId, decideHeldTransactionRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['HeldTransactionsApi.decideHeldTransaction']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Lists the bank rows a sync kept out of the ledger because they may already be recorded, newest first, each with the ledger transactions it may be (best match first). Held rows count in no balance until they are decided.
+         * @summary List Held Transactions
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listHeldTransactions(userId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GetHeldTransactionsResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listHeldTransactions(userId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['HeldTransactionsApi.listHeldTransactions']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+    }
+};
+
+/**
+ * HeldTransactionsApi - factory interface
+ * @export
+ */
+export const HeldTransactionsApiFactory = function (configuration?: Configuration, basePath?: string, axios?: AxiosInstance) {
+    const localVarFp = HeldTransactionsApiFp(configuration)
+    return {
+        /**
+         * Settles a held bank row. `same` records it on one of its candidates: a candidate that is a single entry in the same account and asset takes the bank\'s amount and date and keeps its description and category; any other candidate is left as it is. `different` adds the bank row to the ledger as a transaction of its own. Either way the row is no longer held. A candidate that already has another row of the same bank account can\'t take this one.
+         * @summary Decide Held Transaction
+         * @param {string} userId 
+         * @param {string} heldTransactionId Id of the held bank row.
+         * @param {DecideHeldTransactionRequest} decideHeldTransactionRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        decideHeldTransaction(userId: string, heldTransactionId: string, decideHeldTransactionRequest: DecideHeldTransactionRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.decideHeldTransaction(userId, heldTransactionId, decideHeldTransactionRequest, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Lists the bank rows a sync kept out of the ledger because they may already be recorded, newest first, each with the ledger transactions it may be (best match first). Held rows count in no balance until they are decided.
+         * @summary List Held Transactions
+         * @param {string} userId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listHeldTransactions(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<GetHeldTransactionsResponse> {
+            return localVarFp.listHeldTransactions(userId, options).then((request) => request(axios, basePath));
+        },
+    };
+};
+
+/**
+ * HeldTransactionsApi - interface
+ * @export
+ * @interface HeldTransactionsApi
+ */
+export interface HeldTransactionsApiInterface {
+    /**
+     * Settles a held bank row. `same` records it on one of its candidates: a candidate that is a single entry in the same account and asset takes the bank\'s amount and date and keeps its description and category; any other candidate is left as it is. `different` adds the bank row to the ledger as a transaction of its own. Either way the row is no longer held. A candidate that already has another row of the same bank account can\'t take this one.
+     * @summary Decide Held Transaction
+     * @param {string} userId 
+     * @param {string} heldTransactionId Id of the held bank row.
+     * @param {DecideHeldTransactionRequest} decideHeldTransactionRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof HeldTransactionsApiInterface
+     */
+    decideHeldTransaction(userId: string, heldTransactionId: string, decideHeldTransactionRequest: DecideHeldTransactionRequest, options?: RawAxiosRequestConfig): AxiosPromise<void>;
+
+    /**
+     * Lists the bank rows a sync kept out of the ledger because they may already be recorded, newest first, each with the ledger transactions it may be (best match first). Held rows count in no balance until they are decided.
+     * @summary List Held Transactions
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof HeldTransactionsApiInterface
+     */
+    listHeldTransactions(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<GetHeldTransactionsResponse>;
+
+}
+
+/**
+ * HeldTransactionsApi - object-oriented interface
+ * @export
+ * @class HeldTransactionsApi
+ * @extends {BaseAPI}
+ */
+export class HeldTransactionsApi extends BaseAPI implements HeldTransactionsApiInterface {
+    /**
+     * Settles a held bank row. `same` records it on one of its candidates: a candidate that is a single entry in the same account and asset takes the bank\'s amount and date and keeps its description and category; any other candidate is left as it is. `different` adds the bank row to the ledger as a transaction of its own. Either way the row is no longer held. A candidate that already has another row of the same bank account can\'t take this one.
+     * @summary Decide Held Transaction
+     * @param {string} userId 
+     * @param {string} heldTransactionId Id of the held bank row.
+     * @param {DecideHeldTransactionRequest} decideHeldTransactionRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof HeldTransactionsApi
+     */
+    public decideHeldTransaction(userId: string, heldTransactionId: string, decideHeldTransactionRequest: DecideHeldTransactionRequest, options?: RawAxiosRequestConfig) {
+        return HeldTransactionsApiFp(this.configuration).decideHeldTransaction(userId, heldTransactionId, decideHeldTransactionRequest, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Lists the bank rows a sync kept out of the ledger because they may already be recorded, newest first, each with the ledger transactions it may be (best match first). Held rows count in no balance until they are decided.
+     * @summary List Held Transactions
+     * @param {string} userId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof HeldTransactionsApi
+     */
+    public listHeldTransactions(userId: string, options?: RawAxiosRequestConfig) {
+        return HeldTransactionsApiFp(this.configuration).listHeldTransactions(userId, options).then((request) => request(this.axios, this.basePath));
+    }
+}
+
+
+
+/**
  * ImportsApi - axios parameter creator
  * @export
  */
@@ -14962,7 +15776,7 @@ export const ImportsApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Gets a single import session with its files, open asks and verb counts.
+         * Gets a single import session with its sources, open asks and verb counts.
          * @summary Get Import Session
          * @param {string} userId 
          * @param {string} importSessionId 
@@ -15220,7 +16034,7 @@ export const ImportsApiAxiosParamCreator = function (configuration?: Configurati
             };
         },
         /**
-         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off and the session has files: the import reads and categorizes them with AI. A session of bank accounts alone is classified without AI, its lines left uncategorized.
          * @summary Retry Import Classification
          * @param {string} userId 
          * @param {string} importSessionId 
@@ -15454,7 +16268,7 @@ export const ImportsApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Gets a single import session with its files, open asks and verb counts.
+         * Gets a single import session with its sources, open asks and verb counts.
          * @summary Get Import Session
          * @param {string} userId 
          * @param {string} importSessionId 
@@ -15539,7 +16353,7 @@ export const ImportsApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
-         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off and the session has files: the import reads and categorizes them with AI. A session of bank accounts alone is classified without AI, its lines left uncategorized.
          * @summary Retry Import Classification
          * @param {string} userId 
          * @param {string} importSessionId 
@@ -15663,7 +16477,7 @@ export const ImportsApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.detachFile(userId, importSessionId, fileId, options).then((request) => request(axios, basePath));
         },
         /**
-         * Gets a single import session with its files, open asks and verb counts.
+         * Gets a single import session with its sources, open asks and verb counts.
          * @summary Get Import Session
          * @param {string} userId 
          * @param {string} importSessionId 
@@ -15730,7 +16544,7 @@ export const ImportsApiFactory = function (configuration?: Configuration, basePa
             return localVarFp.readFileDates(userId, importSessionId, fileId, readImportFileDatesRequest, options).then((request) => request(axios, basePath));
         },
         /**
-         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+         * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off and the session has files: the import reads and categorizes them with AI. A session of bank accounts alone is classified without AI, its lines left uncategorized.
          * @summary Retry Import Classification
          * @param {string} userId 
          * @param {string} importSessionId 
@@ -15844,7 +16658,7 @@ export interface ImportsApiInterface {
     detachFile(userId: string, importSessionId: string, fileId: string, options?: RawAxiosRequestConfig): AxiosPromise<void>;
 
     /**
-     * Gets a single import session with its files, open asks and verb counts.
+     * Gets a single import session with its sources, open asks and verb counts.
      * @summary Get Import Session
      * @param {string} userId 
      * @param {string} importSessionId 
@@ -15911,7 +16725,7 @@ export interface ImportsApiInterface {
     readFileDates(userId: string, importSessionId: string, fileId: string, readImportFileDatesRequest: ReadImportFileDatesRequest, options?: RawAxiosRequestConfig): AxiosPromise<void>;
 
     /**
-     * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off and the session has files: the import reads and categorizes them with AI. A session of bank accounts alone is classified without AI, its lines left uncategorized.
      * @summary Retry Import Classification
      * @param {string} userId 
      * @param {string} importSessionId 
@@ -16037,7 +16851,7 @@ export class ImportsApi extends BaseAPI implements ImportsApiInterface {
     }
 
     /**
-     * Gets a single import session with its files, open asks and verb counts.
+     * Gets a single import session with its sources, open asks and verb counts.
      * @summary Get Import Session
      * @param {string} userId 
      * @param {string} importSessionId 
@@ -16116,7 +16930,7 @@ export class ImportsApi extends BaseAPI implements ImportsApiInterface {
     }
 
     /**
-     * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off: the import reads and categorizes with AI.
+     * Classifies the session\'s lines again after the last classification failed. Refused with 403 while the user has AI features turned off and the session has files: the import reads and categorizes them with AI. A session of bank accounts alone is classified without AI, its lines left uncategorized.
      * @summary Retry Import Classification
      * @param {string} userId 
      * @param {string} importSessionId 

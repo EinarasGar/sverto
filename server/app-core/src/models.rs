@@ -666,6 +666,7 @@ pub struct ConnectorConnection {
     pub id: String,
     pub provider_kind: String,
     pub credential_mode: CredentialMode,
+    pub links_by_import: bool,
     pub provider_key_id: Option<String>,
     pub status: String,
     pub consent_expires_at: Option<i64>,
@@ -685,6 +686,7 @@ pub struct ConnectorBinding {
     pub last_sync_at: Option<i64>,
     pub last_sync_status: Option<String>,
     pub last_sync_error: Option<String>,
+    pub import_session_id: Option<String>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -693,6 +695,36 @@ pub struct ProviderAccount {
     pub display_name: String,
     pub currency: Option<String>,
     pub account_type: Option<String>,
+    pub account_number_last4: Option<String>,
+    pub balance: Option<ProviderAccountBalance>,
+    pub history: ProviderAccountHistory,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ProviderAccountHistory {
+    NotFetched,
+    Fetching,
+    Fetched,
+    Failed,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ProviderAccountBalance {
+    pub amount: f64,
+    pub currency: String,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ConnectorImportAccount {
+    pub provider_account_id: String,
+    pub sverto_account_id: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ConnectorImportFrom {
+    All,
+    AfterLastEntry,
+    Date { date: i64 },
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -748,6 +780,8 @@ pub struct CompleteOAuthResult {
 #[derive(Debug, Clone, uniffi::Record)]
 pub struct SyncReport {
     pub new_transactions: i64,
+    pub attached: i64,
+    pub held: i64,
     pub unchanged: i64,
     pub amended: i64,
     pub conflicts: i64,
@@ -759,6 +793,35 @@ pub struct SyncReport {
 pub struct SyncOutcome {
     pub status: String,
     pub report: Option<SyncReport>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct HeldTransaction {
+    pub id: String,
+    pub provider_kind: String,
+    pub date: i64,
+    pub description: String,
+    pub account_id: String,
+    pub account_name: String,
+    pub amount_display: String,
+    pub candidates: Vec<HeldTransactionCandidate>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct HeldTransactionCandidate {
+    pub id: String,
+    pub date: i64,
+    pub description: Option<String>,
+    pub account_name: String,
+    pub amount_display: String,
+    pub category_name: Option<String>,
+    pub category_icon: Option<String>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, uniffi::Enum)]
+pub enum HeldTransactionDecision {
+    Same { transaction_id: String },
+    Different,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
@@ -786,4 +849,293 @@ pub enum AuthMode {
 pub struct ServerInfo {
     pub auth_mode: AuthMode,
     pub version: String,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ImportSessionStatus {
+    Collecting,
+    Parsing,
+    Reconciling,
+    NeedsInput,
+    ProposalReady,
+    Completed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ImportClassificationStatus {
+    NotStarted,
+    Waiting,
+    Running,
+    Classified,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ImportFileStatus {
+    Pending,
+    Processing,
+    Parsed,
+    Failed,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ImportDateOrder {
+    DayFirst,
+    MonthFirst,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportSessionSummary {
+    pub id: String,
+    pub title: String,
+    pub status: ImportSessionStatus,
+    pub classification_status: ImportClassificationStatus,
+    pub created_at: i64,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportSessionDetail {
+    pub summary: ImportSessionSummary,
+    pub classification_error: Option<String>,
+    pub sources: Vec<ImportSource>,
+    pub asks: Vec<ImportAsk>,
+    pub counts: ImportCounts,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportSource {
+    pub id: String,
+    pub recorded_transactions: i64,
+    pub kind: ImportSourceKind,
+}
+
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum ImportSourceKind {
+    File {
+        file: ImportFile,
+    },
+    BankAccount {
+        binding_id: String,
+        provider_kind: String,
+        display_name: Option<String>,
+        currency: Option<String>,
+        account_number_last4: Option<String>,
+    },
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportFile {
+    pub file_id: String,
+    pub name: String,
+    pub status: ImportFileStatus,
+    pub error: Option<String>,
+    pub paused_until: Option<i64>,
+    pub date_order: Option<ImportDateOrder>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportCounts {
+    pub pending: i64,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportAccountCandidate {
+    pub id: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportAssetCandidate {
+    pub id: i32,
+    pub ticker: String,
+    pub name: String,
+}
+
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum ImportAsk {
+    AccountMapping {
+        ask_key: String,
+        source_id: String,
+        raw_account: String,
+        candidates: Vec<ImportAccountCandidate>,
+        can_exclude: bool,
+        answer_covers_all_sources: bool,
+    },
+    AssetMapping {
+        ask_key: String,
+        raw: String,
+        candidates: Vec<ImportAssetCandidate>,
+        can_exclude: bool,
+    },
+    NoCheckpoint {
+        ask_key: String,
+        account_id: String,
+        account_name: String,
+        asset_id: i32,
+        ticker: String,
+        as_of_date: i64,
+    },
+}
+
+#[derive(Debug, Clone, uniffi::Enum)]
+pub enum ImportAnswer {
+    AccountMap { account_id: String },
+    AccountExclude,
+    AssetMap { asset_id: i32 },
+    AssetExclude,
+    EnterBalance { quantity: String },
+    DeleteUnlisted,
+    KeepUnlisted,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ImportRowKind {
+    Movement,
+    StartingBalance,
+    JoinedTransfer,
+    Adjustment,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ImportRowVerb {
+    Add,
+    Amend,
+    Delete,
+    Skip,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ImportAmendRefusal {
+    TargetGone,
+    NotOneEntry,
+    Unreadable,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, uniffi::Enum)]
+pub enum ImportItemVerb {
+    Auto,
+    Skip,
+    Add,
+    Apart,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportItems {
+    pub ready: bool,
+    pub fingerprint: Option<String>,
+    pub rows: Vec<ImportStagedRow>,
+    pub balance_checks: Option<ImportBalanceChecks>,
+    pub unstageable: Vec<ImportUnstageable>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportStagedRow {
+    pub id: String,
+    pub kind: ImportRowKind,
+    pub verb: ImportRowVerb,
+    pub verb_locked: bool,
+    pub ask_key: Option<String>,
+    pub amend_refusal: Option<ImportAmendRefusal>,
+    pub type_key: String,
+    pub type_label: String,
+    pub date: i64,
+    pub description: String,
+    pub account_id: String,
+    pub asset_id: i32,
+    pub account_name: String,
+    pub amount_display: String,
+    pub secondary_amount_display: Option<String>,
+    pub category_name: Option<String>,
+    pub category_icon: Option<String>,
+    pub near_miss: Vec<ImportCandidate>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportCandidate {
+    pub id: String,
+    pub in_ledger: bool,
+    pub amend: bool,
+    pub leaves_movement_unrecorded: bool,
+    pub date: i64,
+    pub description: Option<String>,
+    pub account_name: Option<String>,
+    pub amount_display: String,
+    pub parts: Vec<ImportCandidatePart>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportCandidatePart {
+    pub date: i64,
+    pub description: Option<String>,
+    pub amount_display: String,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportBalanceChecks {
+    pub checks: Vec<ImportBalanceCheck>,
+    pub unchecked: u32,
+    pub entered: Vec<ImportEnteredBalance>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportBalanceCheck {
+    pub account_id: String,
+    pub asset_id: i32,
+    pub account_name: String,
+    pub ticker: String,
+    pub first_date: i64,
+    pub last_date: i64,
+    pub balances_checked: u32,
+    pub starting_off_by: f64,
+    pub starting_off_by_display: String,
+    pub final_off_by: f64,
+    pub final_off_by_display: String,
+    pub changes: Vec<ImportBalanceChange>,
+    pub unlisted: Vec<ImportUnlistedMovement>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportBalanceChange {
+    pub after: i64,
+    pub through: i64,
+    pub change_display: String,
+    pub explained: bool,
+    pub awaits_answer: bool,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportUnlistedMovement {
+    pub transaction_id: String,
+    pub date: i64,
+    pub amount_display: String,
+    pub description: Option<String>,
+    pub may_book_later: bool,
+    pub explains_difference: bool,
+    pub ask_key: Option<String>,
+    pub deleting: bool,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportEnteredBalance {
+    pub ask_key: String,
+    pub account_id: String,
+    pub asset_id: i32,
+    pub date: i64,
+    pub quantity_display: String,
+    pub as_of_date: i64,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportUnstageable {
+    pub date: i64,
+    pub description: Option<String>,
+    pub reason: String,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct ImportPendingRow {
+    pub account_ref: String,
+    pub date: i64,
+    pub description: Option<String>,
+    pub amounts_display: String,
 }

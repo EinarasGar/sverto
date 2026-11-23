@@ -92,6 +92,8 @@ pub enum ConnectorBindingIden {
     WriteMode,
     Status,
     ProjectedPageId,
+    HistoryFrom,
+    HistoryFromLastEntry,
     CreatedAt,
     UpdatedAt,
 }
@@ -106,6 +108,8 @@ impl Iden for ConnectorBindingIden {
             Self::WriteMode => "write_mode",
             Self::Status => "status",
             Self::ProjectedPageId => "projected_page_id",
+            Self::HistoryFrom => "history_from",
+            Self::HistoryFromLastEntry => "history_from_last_entry",
             Self::CreatedAt => "created_at",
             Self::UpdatedAt => "updated_at",
         }
@@ -184,6 +188,38 @@ impl Iden for ConnectorSecretIden {
             Self::Ciphertext => "ciphertext",
             Self::Nonce => "nonce",
             Self::CreatedAt => "created_at",
+        }
+    }
+}
+
+pub enum HeldTransactionsIden {
+    Table,
+    Id,
+    UserId,
+    BindingId,
+    ExternalId,
+    ExternalHash,
+    AssetId,
+    Quantity,
+    DateTransacted,
+    Description,
+    CandidateIds,
+}
+
+impl Iden for HeldTransactionsIden {
+    fn unquoted(&self) -> &str {
+        match self {
+            Self::Table => "held_transactions",
+            Self::Id => "id",
+            Self::UserId => "user_id",
+            Self::BindingId => "binding_id",
+            Self::ExternalId => "external_id",
+            Self::ExternalHash => "external_hash",
+            Self::AssetId => "asset_id",
+            Self::Quantity => "quantity",
+            Self::DateTransacted => "date_transacted",
+            Self::Description => "description",
+            Self::CandidateIds => "candidate_ids",
         }
     }
 }

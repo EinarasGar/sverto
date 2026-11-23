@@ -1,6 +1,7 @@
 pub mod base_models;
 pub mod create_binding;
 pub mod create_connection;
+pub mod create_import;
 pub mod get_bindings;
 pub mod get_connections;
 pub mod ingest;
@@ -11,3 +12,4 @@ pub mod oauth;
 pub mod sync_binding;
 pub mod sync_checkpoint;
 pub mod update_binding;
+pub mod validation;

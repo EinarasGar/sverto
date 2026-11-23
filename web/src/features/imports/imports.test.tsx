@@ -13,10 +13,11 @@ import {
 
 import type {
   GetFileResponse,
-  IdentifiableImportFile,
   IdentifiableImportSessionResponse,
+  IdentifiableImportSource,
   IdentifiableStagedTransaction,
   ImportClassificationStatus,
+  ImportFileSource,
   ImportItemsResponse,
   ImportSessionDetailResponse,
   ImportSessionStatus,
@@ -85,9 +86,11 @@ function summary(
 
 function attached(
   fileId: string,
-  overrides: Partial<IdentifiableImportFile> = {}
-): IdentifiableImportFile {
+  overrides: Partial<ImportFileSource> = {}
+): ImportFileSource {
   return {
+    kind: "file",
+    id: fileId,
     file_id: fileId,
     status: "pending",
     created_at: CREATED_AT,
@@ -100,7 +103,7 @@ function attached(
 
 function detail(
   status: ImportSessionStatus,
-  files: IdentifiableImportFile[]
+  sources: IdentifiableImportSource[]
 ): ImportSessionDetailResponse {
   return {
     session: {
@@ -109,7 +112,7 @@ function detail(
       classification: { status: "not_started" },
       created_at: CREATED_AT,
     },
-    files,
+    sources,
     counts: {
       add: 0,
       amend: 0,
@@ -433,6 +436,10 @@ describe("an import session", () => {
       await screen.findByRole("button", { name: "Delete import" })
     )
     const dialog = await screen.findByRole("alertdialog")
+    expect(dialog).toHaveTextContent(
+      "The import and the files uploaded to it are deleted."
+    )
+    expect(dialog).not.toHaveTextContent(/link/)
     expect(endpoints.deleteImportSession).not.toHaveBeenCalled()
     await user.click(
       within(dialog).getByRole("button", { name: "Delete import" })
@@ -448,19 +455,19 @@ describe("an import session", () => {
   })
 
   function accountAsk(
-    fileId: string,
+    sourceId: string,
     name: string,
     candidates: { id: string; name: string }[] = [],
-    answerCoversAllFiles = false
+    answerCoversAllSources = false
   ) {
     return {
       kind: "account_mapping" as const,
-      ask_key: `account_mapping:${fileId}:${name}`,
-      file_id: fileId,
+      ask_key: `account_mapping:${sourceId}:${name}`,
+      source_id: sourceId,
       raw_account: name,
       candidates,
       choices: ["map" as const, "exclude" as const],
-      answer_covers_all_files: answerCoversAllFiles,
+      answer_covers_all_sources: answerCoversAllSources,
     }
   }
 
@@ -599,7 +606,7 @@ describe("an import session", () => {
     })
     const waiting = (id: string, legs: [string, string][]) => ({
       id,
-      file_id: "f-1",
+      source_id: "f-1",
       account_ref: "Broker",
       date: "2026-02-24T14:24:00Z",
       description: id,
@@ -690,18 +697,18 @@ describe("an import session", () => {
   it("refetches the waiting rows when the import changes underneath them", async () => {
     giveElementsHeight(480)
     const user = userEvent.setup()
-    const waiting = (fileId: string, description: string) => ({
-      id: `l-${fileId}`,
-      file_id: fileId,
+    const waiting = (sourceId: string, description: string) => ({
+      id: `l-${sourceId}`,
+      source_id: sourceId,
       account_ref: "Current",
       date: "2026-02-24T14:24:00Z",
       description,
       legs: [{ asset_ref: "GBP", quantity: "-550.00" }],
-      blocked_by: [`account_mapping:${fileId}:Current`],
+      blocked_by: [`account_mapping:${sourceId}:Current`],
     })
-    const withPending = (files: IdentifiableImportFile[], pending: number) => ({
+    const withPending = (files: ImportFileSource[], pending: number) => ({
       ...detail("needs_input", files),
-      open_asks: files.map((file) => accountAsk(file.file_id, "Current")),
+      open_asks: files.map((file) => accountAsk(file.id, "Current")),
       counts: { ...detail("needs_input", files).counts, pending },
     })
     endpoints.getImportSession.mockResolvedValue({
@@ -749,7 +756,7 @@ describe("an import session", () => {
     return {
       id: "row-1",
       kind: "movement",
-      file_ids: ["f-1"],
+      source_ids: ["f-1"],
       verb: "add",
       verb_locked: false,
       near_miss_candidates: [],
@@ -794,7 +801,7 @@ describe("an import session", () => {
         [
           {
             id: "u-1",
-            file_ids: ["f-1"],
+            source_ids: ["f-1"],
             date: "2026-02-02T00:00:00Z",
             description: "Tax",
             reason: "Withholding tax without a dividend.",

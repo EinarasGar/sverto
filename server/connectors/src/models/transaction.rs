@@ -11,6 +11,8 @@ pub struct ProviderTransaction {
     pub description: String,
     pub asset_identifier: Option<String>,
     pub quantity: Option<Decimal>,
+    #[serde(default)]
+    pub counterparty_iban: Option<String>,
 }
 
 impl ProviderTransaction {

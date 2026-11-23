@@ -1,5 +1,5 @@
 use crate::models::balance::{ProviderAssetBalance, ProviderBalance, ProviderCashBalance};
-use crate::models::sync::{FetchedPage, RawPage, SyncCursor};
+use crate::models::sync::{FetchedPage, RateLimited, RawPage, SyncCursor};
 use crate::models::transaction::ProviderTransaction;
 use crate::port::Connector;
 use crate::Result;
@@ -12,11 +12,15 @@ pub enum Trading212Env {
     Live,
 }
 
+const MAX_RATE_LIMIT_WAITS: u32 = 5;
+const MAX_RATE_LIMIT_WAIT: std::time::Duration = std::time::Duration::from_secs(120);
+
 pub struct Trading212Client {
     http: TracedHttpClient,
     base_url: String,
     api_key_id: String,
     api_secret: String,
+    waits_for_rate_limit: bool,
 }
 
 impl Trading212Client {
@@ -30,7 +34,13 @@ impl Trading212Client {
             base_url,
             api_key_id,
             api_secret,
+            waits_for_rate_limit: false,
         }
+    }
+
+    pub fn waiting_for_rate_limits(mut self) -> Self {
+        self.waits_for_rate_limit = true;
+        self
     }
 
     fn basic_auth(&self) -> String {
@@ -38,6 +48,51 @@ impl Trading212Client {
             .encode(format!("{}:{}", self.api_key_id, self.api_secret));
         format!("Basic {}", creds)
     }
+
+    async fn get(&self, url: &str) -> Result<reqwest::Response> {
+        let mut waits = 0;
+        loop {
+            let resp = self
+                .http
+                .get(url)
+                .header("Authorization", self.basic_auth())
+                .send()
+                .await?;
+            if resp.status() != reqwest::StatusCode::TOO_MANY_REQUESTS {
+                return crate::util::ensure_success(resp).await;
+            }
+            if !self.waits_for_rate_limit {
+                return Err(RateLimited.into());
+            }
+            let wait = (waits < MAX_RATE_LIMIT_WAITS)
+                .then(|| rate_limit_wait(resp.headers(), time::OffsetDateTime::now_utc()))
+                .flatten();
+            let Some(wait) = wait else {
+                return crate::util::ensure_success(resp).await;
+            };
+            waits += 1;
+            tracing::info!(
+                wait_secs = wait.as_secs(),
+                waits,
+                "trading212 rate limit reached; waiting for it to reset"
+            );
+            tokio::time::sleep(wait).await;
+        }
+    }
+}
+
+fn rate_limit_wait(
+    headers: &reqwest::header::HeaderMap,
+    now: time::OffsetDateTime,
+) -> Option<std::time::Duration> {
+    let header = |name: &str| headers.get(name)?.to_str().ok()?.trim().parse::<i64>().ok();
+    let seconds = match (header("x-ratelimit-reset"), header("retry-after")) {
+        (Some(reset), _) => reset - now.unix_timestamp() + 1,
+        (None, Some(seconds)) => seconds,
+        (None, None) => return None,
+    };
+    let wait = std::time::Duration::from_secs(u64::try_from(seconds.max(1)).ok()?);
+    (wait <= MAX_RATE_LIMIT_WAIT).then_some(wait)
 }
 
 #[async_trait::async_trait]
@@ -54,15 +109,7 @@ impl Connector for Trading212Client {
             None => format!("{}{}?limit=50", self.base_url, stream_endpoint(&stream)),
         };
 
-        let resp = crate::util::ensure_success(
-            self.http
-                .get(&url)
-                .header("Authorization", self.basic_auth())
-                .send()
-                .await?,
-        )
-        .await?;
-        let body: serde_json::Value = resp.json().await?;
+        let body: serde_json::Value = self.get(&url).await?.json().await?;
 
         let items: Vec<serde_json::Value> = body
             .get("items")
@@ -91,27 +138,11 @@ impl Connector for Trading212Client {
 
     async fn fetch_balance(&self) -> Result<ProviderBalance> {
         let portfolio_url = format!("{}/api/v0/equity/portfolio", self.base_url);
-        let portfolio_resp = crate::util::ensure_success(
-            self.http
-                .get(&portfolio_url)
-                .header("Authorization", self.basic_auth())
-                .send()
-                .await?,
-        )
-        .await?;
-        let portfolio_body: serde_json::Value = portfolio_resp.json().await?;
+        let portfolio_body: serde_json::Value = self.get(&portfolio_url).await?.json().await?;
         let quantities = parse_portfolio_quantities(&portfolio_body);
 
         let cash_url = format!("{}/api/v0/equity/account/cash", self.base_url);
-        let cash_resp = crate::util::ensure_success(
-            self.http
-                .get(&cash_url)
-                .header("Authorization", self.basic_auth())
-                .send()
-                .await?,
-        )
-        .await?;
-        let cash_body: serde_json::Value = cash_resp.json().await?;
+        let cash_body: serde_json::Value = self.get(&cash_url).await?.json().await?;
         let cash = parse_cash_balance(&cash_body);
 
         Ok(ProviderBalance { quantities, cash })
@@ -127,8 +158,8 @@ const STREAMS: [&str; 3] = ["transactions", "orders", "dividends"];
 fn stream_endpoint(stream: &str) -> &'static str {
     match stream {
         "orders" => "/api/v0/equity/history/orders",
-        "dividends" => "/api/v0/history/dividends",
-        _ => "/api/v0/history/transactions",
+        "dividends" => "/api/v0/equity/history/dividends",
+        _ => "/api/v0/equity/history/transactions",
     }
 }
 

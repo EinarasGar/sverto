@@ -1,5 +1,6 @@
+use rust_decimal::Decimal;
 use sqlx::types::{Json, Uuid};
-use time::OffsetDateTime;
+use time::{Date, OffsetDateTime};
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct ConnectorConnectionRow {
@@ -27,15 +28,32 @@ pub struct ConnectorBindingRow {
     pub status: String,
     pub synced_through: Option<OffsetDateTime>,
     pub projected_page_id: Option<Uuid>,
+    pub history_from: Option<Date>,
+    pub history_from_last_entry: bool,
     pub last_sync_at: Option<OffsetDateTime>,
     pub last_sync_status: Option<String>,
     pub last_sync_error: Option<String>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
+    pub provider_kind: String,
+    pub import_session_id: Option<Uuid>,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct InsertedConnectorBindingRow {
+    pub id: Uuid,
+    pub provider_account_id: Uuid,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct ProviderAccountRefRow {
+    pub id: Uuid,
+    pub external_account_id: String,
 }
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct ConnectorTransactionRow {
+    pub binding_id: Uuid,
     pub transaction_id: Option<Uuid>,
     pub external_id: String,
     pub external_hash: String,
@@ -64,12 +82,8 @@ pub struct AddConnectorBindingModel {
     pub sverto_account_id: Uuid,
     pub write_mode: String,
     pub status: String,
-}
-
-#[derive(Debug)]
-pub struct AddConnectorProviderAccountModel {
-    pub connection_id: Uuid,
-    pub external_account_id: String,
+    pub history_from: Option<Date>,
+    pub history_from_last_entry: bool,
 }
 
 #[derive(Debug)]
@@ -102,11 +116,57 @@ pub struct AddConnectorRawPageModel {
 #[derive(sqlx::FromRow, Debug)]
 pub struct ConnectorRawPageRow {
     pub id: Uuid,
+    pub provider_account_id: Uuid,
     pub stream: String,
     pub payload: Json<serde_json::Value>,
 }
 
 #[derive(sqlx::FromRow, Debug)]
+pub struct ProviderAccountSyncStateRow {
+    pub external_account_id: String,
+    pub synced_through: Option<OffsetDateTime>,
+    pub last_sync_status: Option<String>,
+}
+
+#[derive(sqlx::FromRow, Debug)]
 pub struct RawPageCursorRow {
     pub cursor_after: Option<Json<serde_json::Value>>,
+}
+
+#[derive(Debug)]
+pub struct AddHeldTransactionModel {
+    pub user_id: Uuid,
+    pub binding_id: Uuid,
+    pub external_id: String,
+    pub external_hash: String,
+    pub asset_id: i32,
+    pub quantity: Decimal,
+    pub date_transacted: OffsetDateTime,
+    pub description: String,
+    pub candidate_ids: Vec<Uuid>,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct HeldTransactionRow {
+    pub id: Uuid,
+    pub binding_id: Uuid,
+    pub account_id: Uuid,
+    pub write_mode: String,
+    pub provider_kind: String,
+    pub external_id: String,
+    pub external_hash: String,
+    pub asset_id: i32,
+    pub quantity: Decimal,
+    pub date_transacted: OffsetDateTime,
+    pub description: String,
+    pub candidate_ids: Vec<Uuid>,
+}
+
+#[derive(sqlx::FromRow, Debug)]
+pub struct SyncedTransactionLineRow {
+    pub transaction_id: Uuid,
+    pub description: Option<String>,
+    pub quantity: Decimal,
+    pub ticker: String,
+    pub account_name: String,
 }

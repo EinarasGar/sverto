@@ -1,6 +1,8 @@
 #[derive(Debug, Default, Clone, PartialEq)]
 pub struct SyncReportDto {
     pub new_transactions: usize,
+    pub attached: usize,
+    pub held: usize,
     pub unchanged: usize,
     pub amended: usize,
     pub conflicts: usize,

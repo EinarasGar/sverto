@@ -7,6 +7,7 @@ use crate::dtos::transaction_dto::{
     RegularTransactionMetadataDto, TransactionDto, TransactionTypeDto, TransactionVisibilityDto,
 };
 use crate::dtos::validation_error_dto::BusinessValidationErrorDto;
+use crate::entities::connectors::bank_ingestion::BankRow;
 use crate::entities::transactions::metadata::ConnectorLinkMeta;
 use crate::entities::transactions::transaction::Transaction;
 use crate::entities::transactions::transaction_types::create_transaction_from_dto;
@@ -84,6 +85,24 @@ impl ProviderTransactionImport {
             }
         }
         vec![stripped.to_string()]
+    }
+
+    pub fn bank_row(&self, cash_asset_id: i32) -> Option<BankRow> {
+        let tx = &self.transaction;
+        if tx.asset_identifier.is_some() || tx.quantity.is_some() {
+            return None;
+        }
+        Some(BankRow {
+            binding_id: self.binding_id,
+            external_id: tx.external_id.clone(),
+            external_hash: tx.external_hash(),
+            account_id: self.account_id,
+            asset_id: cash_asset_id,
+            quantity: tx.amount,
+            date_transacted: tx.date,
+            description: tx.description.clone(),
+            counterparty_iban: tx.counterparty_iban.clone(),
+        })
     }
 
     pub fn try_into_transaction(
@@ -191,6 +210,7 @@ mod tests {
                 description: "Zero".to_string(),
                 asset_identifier: None,
                 quantity: None,
+                counterparty_iban: None,
             },
             Uuid::nil(),
             TransactionVisibilityDto::Default,

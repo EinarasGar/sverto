@@ -18,6 +18,8 @@ extension ConnectorBinding {
     var bindingStatus: ConnectorStatus? { ConnectorStatus(rawValue: status) }
 
     var isPaused: Bool { bindingStatus == .paused }
+
+    var isWaitingForImport: Bool { bindingStatus == .pending }
 }
 
 extension BindingStatus {
@@ -25,6 +27,16 @@ extension BindingStatus {
         switch self {
         case .active: .active
         case .paused: .paused
+        }
+    }
+}
+
+extension ProviderAccountHistory {
+    var label: String? {
+        switch self {
+        case .fetching: "Fetching history…"
+        case .failed: "Couldn't fetch history"
+        case .notFetched, .fetched: nil
         }
     }
 }

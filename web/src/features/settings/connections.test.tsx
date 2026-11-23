@@ -8,7 +8,7 @@ import {
 import userEvent from "@testing-library/user-event"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { ConnectorBinding } from "@/api"
+import type { ConnectorBinding, ConnectorConnection } from "@/api"
 
 const getMe = vi.fn()
 const listConnections = vi.fn()
@@ -24,6 +24,7 @@ const syncBinding = vi.fn()
 const revokeConnection = vi.fn()
 const createConnection = vi.fn()
 const createOauthSession = vi.fn()
+const createConnectorImport = vi.fn()
 
 const ENDPOINTS: Record<string, unknown> = {
   getMe,
@@ -40,6 +41,7 @@ const ENDPOINTS: Record<string, unknown> = {
   revokeConnection,
   createConnection,
   createOauthSession,
+  createConnectorImport,
 }
 
 vi.mock("@/lib/api", () => ({
@@ -55,7 +57,8 @@ vi.mock("@/lib/api", () => ({
 }))
 
 const { SettingsScreen } = await import("./settings-screen")
-const { renderSettings, stubViewport, VIEWPORTS } =
+const { seedAuthMe } = await import("@/auth/test-harness")
+const { createTestQueryClient, renderSettings, stubViewport, VIEWPORTS } =
   await import("./test-harness")
 const {
   BINDING_UNBOUND_CONSEQUENCE,
@@ -82,6 +85,22 @@ function binding(overrides: Partial<ConnectorBinding> = {}): ConnectorBinding {
   }
 }
 
+function connection(
+  overrides: Partial<ConnectorConnection> = {}
+): ConnectorConnection {
+  return {
+    id: "c1",
+    provider_kind: "truelayer",
+    credential_mode: "stored",
+    links_by_import: true,
+    status: "active",
+    created_at: NOW - 90 * 86_400,
+    updated_at: NOW,
+    consent_expires_at: NOW + 90 * 86_400,
+    ...overrides,
+  }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   stubViewport(VIEWPORTS.full)
@@ -95,19 +114,7 @@ beforeEach(() => {
     },
   })
   listConnections.mockResolvedValue({
-    data: {
-      connections: [
-        {
-          id: "c1",
-          provider_kind: "truelayer",
-          credential_mode: "stored",
-          status: "active",
-          created_at: NOW - 90 * 86_400,
-          updated_at: NOW,
-          consent_expires_at: NOW + 90 * 86_400,
-        },
-      ],
-    },
+    data: { connections: [connection()] },
   })
   listBindings.mockResolvedValue({ data: { bindings: [binding()] } })
   listProviderAccounts.mockResolvedValue({
@@ -167,6 +174,9 @@ beforeEach(() => {
   createConnection.mockResolvedValue({ data: { connection_id: "c9" } })
   createOauthSession.mockResolvedValue({
     data: { auth_url: "https://provider.example/consent", session_id: "s1" },
+  })
+  createConnectorImport.mockResolvedValue({
+    data: { import_session_id: "s-9" },
   })
 })
 
@@ -288,24 +298,47 @@ describe("a connection's detail", () => {
     })
   })
 
-  it("binds a provider account to one of yours", async () => {
+  it("links a picked account of a connection that links directly, from the chosen start", async () => {
+    listConnections.mockResolvedValue({
+      data: {
+        connections: [
+          connection({
+            provider_kind: "trading212",
+            links_by_import: false,
+            consent_expires_at: null,
+          }),
+        ],
+      },
+    })
     const user = userEvent.setup()
     await renderDetail()
-    const picker = await screen.findByRole("combobox", {
-      name: "Pick an account",
-    })
-    await user.click(picker)
+    expect(
+      await screen.findByRole("button", { name: "Link 0 accounts" })
+    ).toBeDisabled()
+    expect(screen.queryByRole("button", { name: /^Import \d/ })).toBeNull()
+
+    await user.click(screen.getByRole("combobox", { name: "Pick an account" }))
     await user.click(
       await screen.findByRole("option", { name: /Lloyds Saver/ })
     )
-    await user.click(screen.getByRole("button", { name: "Bind" }))
+    await user.click(screen.getByRole("button", { name: "From a date" }))
+    fireEvent.change(screen.getByLabelText("Import from date"), {
+      target: { value: "2026-01-15" },
+    })
+    await user.click(screen.getByRole("button", { name: "Link 1 account" }))
+
     await waitFor(() => {
       expect(createBinding).toHaveBeenCalledWith(
         "00000000-0000-0000-0000-000000000000",
         "c1",
-        { provider_account_id: "pa2", sverto_account_id: "a2" }
+        {
+          provider_account_id: "pa2",
+          sverto_account_id: "a2",
+          import_from: { kind: "date", date: "2026-01-15" },
+        }
       )
     })
+    expect(createConnectorImport).not.toHaveBeenCalled()
   })
 
   it("syncs a single binding on demand", async () => {
@@ -318,6 +351,53 @@ describe("a connection's detail", () => {
         {}
       )
     })
+  })
+})
+
+describe("linking the accounts of a stored connection, with AI features off", () => {
+  async function renderDetail() {
+    return renderSettings(
+      <SettingsScreen section="connections" connectionId="c1" />,
+      seedAuthMe(createTestQueryClient(), { ai_features_enabled: false })
+    )
+  }
+
+  async function chooseSaver(user: ReturnType<typeof userEvent.setup>) {
+    await user.click(
+      await screen.findByRole("combobox", { name: "Pick an account" })
+    )
+    await user.click(
+      await screen.findByRole("option", { name: /Lloyds Saver/ })
+    )
+  }
+
+  it("picks accounts without linking them, then imports them from after the last entry", async () => {
+    const user = userEvent.setup()
+    const { router } = await renderDetail()
+
+    expect(
+      await screen.findByRole("button", { name: "Import 0 accounts" })
+    ).toBeDisabled()
+    expect(screen.queryByRole("button", { name: /^Link \d/ })).toBeNull()
+
+    await chooseSaver(user)
+    expect(createBinding).not.toHaveBeenCalled()
+    await user.click(screen.getByRole("button", { name: "Import 1 account" }))
+
+    await waitFor(() => {
+      expect(createConnectorImport).toHaveBeenCalledWith(
+        "00000000-0000-0000-0000-000000000000",
+        "c1",
+        {
+          accounts: [{ provider_account_id: "pa2", sverto_account_id: "a2" }],
+          import_from: { kind: "after_last_entry" },
+        }
+      )
+    })
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe("/imports/s-9")
+    })
+    expect(createBinding).not.toHaveBeenCalled()
   })
 })
 

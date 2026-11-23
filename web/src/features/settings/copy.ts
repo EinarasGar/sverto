@@ -95,3 +95,22 @@ export const CONNECT_OAUTH_CONSEQUENCE =
 
 export const CONNECT_KEY_CONSEQUENCE =
   "The key is stored with your Sverto data, not on this device. Use a read-only key — Sverto never needs more."
+
+export const PENDING_BINDING_IMPORTING =
+  "Waiting for its import. Finish or delete the import to sync, pause or remove this account."
+
+export const HISTORY_FETCHING = "Fetching history…"
+export const HISTORY_FAILED = "Couldn't fetch history"
+
+export const IMPORT_FROM_AFTER_LAST_ENTRY =
+  "Starts on the day of the latest transaction already in each account. An account with nothing in it gets everything available."
+
+export const IMPORT_FROM_ALL = "Everything the bank returned for each account."
+
+export const IMPORT_FROM_DATE = "Everything from the date you pick."
+
+export const IMPORT_ACCOUNTS_CONSEQUENCE =
+  "Opens an import you review first — nothing reaches your ledger until you apply it. The accounts start syncing then, and deleting the import unlinks them again."
+
+export const LINK_ACCOUNTS_CONSEQUENCE =
+  "Links the accounts at once. Syncing writes their transactions from that day on and never anything older."

@@ -1,4 +1,5 @@
 use crate::models::{MappedTransaction, ProviderTransaction, SkippedTransaction};
+use rust_decimal::Decimal;
 use serde_json::Value;
 
 fn skipped(external_id: impl Into<String>, reason: impl Into<String>) -> MappedTransaction {
@@ -25,21 +26,9 @@ pub fn map_transaction(tx: &Value) -> MappedTransaction {
         );
     }
 
-    let Some(amount_value) = tx.get("transaction_amount") else {
-        return skipped(external_id, "missing transaction_amount");
-    };
-    let Some(amount) = amount_value
-        .get("amount")
-        .and_then(crate::util::parse_decimal)
-    else {
-        return skipped(external_id, "missing or unparseable amount");
-    };
-    let Some(currency) = amount_value
-        .get("currency")
-        .and_then(|v| v.as_str())
-        .map(str::to_string)
-    else {
-        return skipped(external_id, "missing currency");
+    let (amount, currency) = match signed_amount(tx) {
+        Ok(signed) => signed,
+        Err(reason) => return skipped(external_id, reason),
     };
     let Some(date) = tx
         .get("booking_date")
@@ -51,14 +40,6 @@ pub fn map_transaction(tx: &Value) -> MappedTransaction {
 
     let description = build_description(tx);
 
-    // Enable Banking always reports a positive `amount`; the sign lives in
-    // `credit_debit_indicator`. DBIT = money out (negative), CRDT = money in (positive).
-    let amount = match tx.get("credit_debit_indicator").and_then(|v| v.as_str()) {
-        Some("DBIT") => -amount.abs(),
-        Some("CRDT") => amount.abs(),
-        _ => amount,
-    };
-
     MappedTransaction::Provider(ProviderTransaction {
         external_id,
         amount,
@@ -67,7 +48,29 @@ pub fn map_transaction(tx: &Value) -> MappedTransaction {
         description,
         asset_identifier: None,
         quantity: None,
+        counterparty_iban: counterparty_iban(tx),
     })
+}
+
+pub(crate) fn signed_amount(tx: &Value) -> Result<(Decimal, String), &'static str> {
+    let amount_value = tx
+        .get("transaction_amount")
+        .ok_or("missing transaction_amount")?;
+    let amount = amount_value
+        .get("amount")
+        .and_then(crate::util::parse_decimal)
+        .ok_or("missing or unparseable amount")?;
+    let currency = amount_value
+        .get("currency")
+        .and_then(|v| v.as_str())
+        .ok_or("missing currency")?
+        .to_string();
+    let amount = match tx.get("credit_debit_indicator").and_then(|v| v.as_str()) {
+        Some("DBIT") => -amount.abs(),
+        Some("CRDT") => amount.abs(),
+        _ => amount,
+    };
+    Ok((amount, currency))
 }
 
 fn is_booked(tx: &Value) -> bool {
@@ -109,6 +112,18 @@ fn build_description(tx: &Value) -> String {
         .and_then(|v| v.as_str())
         .map(str::to_string)
         .unwrap_or_default()
+}
+
+fn counterparty_iban(tx: &Value) -> Option<String> {
+    let account = match tx.get("credit_debit_indicator").and_then(|v| v.as_str()) {
+        Some("DBIT") => tx.get("creditor_account"),
+        Some("CRDT") => tx.get("debtor_account"),
+        _ => None,
+    }?;
+    account
+        .get("iban")
+        .and_then(|v| v.as_str())
+        .and_then(crate::util::normalized_iban)
 }
 
 fn parse_date(s: &str) -> Option<time::OffsetDateTime> {
@@ -205,6 +220,30 @@ mod tests {
             }
             MappedTransaction::Skipped(s) => panic!("expected provider tx, got skip: {s:?}"),
         }
+    }
+
+    fn counterparty(tx: Value) -> Option<String> {
+        match map_transaction(&tx) {
+            MappedTransaction::Provider(p) => p.counterparty_iban,
+            MappedTransaction::Skipped(s) => panic!("expected provider tx, got skip: {s:?}"),
+        }
+    }
+
+    #[test]
+    fn the_counterparty_iban_is_the_creditor_of_a_debit_and_the_debtor_of_a_credit() {
+        let mut debit = base_tx();
+        debit["credit_debit_indicator"] = json!("DBIT");
+        debit["debtor_account"] = json!({ "iban": "LT067300010164068367", "other": null });
+        debit["creditor_account"] = json!({ "iban": "lt12 1000 0111 0100 1000", "other": null });
+        let mut credit = base_tx();
+        credit["debtor_account"] = json!({ "iban": "GB29NWBK60161331926819", "other": null });
+        credit["creditor_account"] = json!({ "iban": "LT067300010164068367", "other": null });
+
+        assert_eq!(counterparty(debit).as_deref(), Some("LT121000011101001000"));
+        assert_eq!(
+            counterparty(credit).as_deref(),
+            Some("GB29NWBK60161331926819")
+        );
     }
 
     #[test]

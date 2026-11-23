@@ -1935,6 +1935,7 @@ dependencies = [
  "async-trait",
  "base64 0.22.1",
  "digest 0.10.7",
+ "futures",
  "jsonwebtoken",
  "mockall",
  "observability",

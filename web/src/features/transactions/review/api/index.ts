@@ -1,4 +1,5 @@
 export type {
+  HeldTransaction,
   ReviewAction,
   ReviewCategory,
   ReviewEntryLine,
@@ -53,3 +54,10 @@ export {
 
 export type { ReviewQueueResult } from "./hooks"
 export { REVIEW_LEDGER_PAGE_SIZE, useReviewItems } from "./hooks"
+
+export type { DecideHeldTransactionVariables } from "./held-transactions"
+export {
+  heldTransactionsQueryOptions,
+  useDecideHeldTransaction,
+  useHeldTransactions,
+} from "./held-transactions"

@@ -61,14 +61,20 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.ui.TransactionListSkeleton
 import com.sverto.app.feature.transactions.components.groupByDate
 import com.sverto.app.feature.transactions.components.transactionDayItems
+import com.sverto.app.feature.transactions.held.HeldTransactionsSection
+import com.sverto.app.feature.transactions.held.HeldTransactionsUiState
+import com.sverto.app.feature.transactions.held.HeldTransactionsViewModel
 import com.sverto.app.feature.transactions.quickupload.QuickUploadUiItem
 import com.sverto.app.feature.transactions.quickupload.QuickUploadsSection
 import kotlinx.coroutines.flow.distinctUntilChanged
+import uniffi.sverto_core.HeldTransactionDecision
 import uniffi.sverto_core.TransactionListItem
 import uniffi.sverto_core.TransactionVisibility
 
@@ -84,6 +90,7 @@ fun TransactionsScreen(
     onCreateGroup: () -> Unit,
     onGroupSelected: (List<String>) -> Unit,
     onQuickUpload: () -> Unit,
+    onImportStatements: () -> Unit,
     quickUploadItems: List<QuickUploadUiItem>,
     onQuickUploadItemClick: (QuickUploadUiItem) -> Unit,
     onQuickUploadRetry: (String) -> Unit,
@@ -93,8 +100,10 @@ fun TransactionsScreen(
     modifier: Modifier = Modifier,
     onRefreshQuickUploads: (() -> Unit)? = null,
     viewModel: TransactionsViewModel = viewModel(),
+    heldTransactionsViewModel: HeldTransactionsViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val heldState by heldTransactionsViewModel.state.collectAsStateWithLifecycle()
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val selectedIds by viewModel.selectedIds.collectAsStateWithLifecycle()
     val isBulkBusy by viewModel.isBulkBusy.collectAsStateWithLifecycle()
@@ -120,6 +129,11 @@ fun TransactionsScreen(
     BackHandler(fabMenuExpanded) { fabMenuExpanded = false }
     BackHandler(selectionActive) { viewModel.clearSelection() }
 
+    LifecycleResumeEffect(Unit) {
+        heldTransactionsViewModel.load()
+        onPauseOrDispose { }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
         when {
             state.isLoading && state.items.isEmpty() -> {
@@ -134,11 +148,13 @@ fun TransactionsScreen(
                 TransactionList(
                     transactions = state.items,
                     quickUploadItems = quickUploadItems,
+                    heldState = heldState,
                     isRefreshing = isRefreshing,
                     isLoadingMore = state.isLoadingMore,
                     onRefresh = {
                         viewModel.refresh()
                         onRefreshQuickUploads?.invoke()
+                        heldTransactionsViewModel.load()
                     },
                     onLoadMore = viewModel::loadMore,
                     onTransactionClick = onTransactionClick,
@@ -148,6 +164,7 @@ fun TransactionsScreen(
                     onQuickUploadItemClick = onQuickUploadItemClick,
                     onQuickUploadRetry = onQuickUploadRetry,
                     onQuickUploadDismiss = onQuickUploadDismiss,
+                    onDecideHeld = heldTransactionsViewModel::decide,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
                 )
@@ -168,6 +185,7 @@ fun TransactionsScreen(
                 onToggle = { fabMenuExpanded = !fabMenuExpanded },
                 onQuickUpload = onQuickUpload,
                 onManualEntry = { showNewTransactionSheet = true },
+                onImportStatements = onImportStatements,
             )
         }
 
@@ -246,6 +264,7 @@ fun TransactionsScreen(
 private fun TransactionList(
     transactions: List<TransactionListItem>,
     quickUploadItems: List<QuickUploadUiItem>,
+    heldState: HeldTransactionsUiState,
     isRefreshing: Boolean,
     isLoadingMore: Boolean,
     onRefresh: () -> Unit,
@@ -257,6 +276,7 @@ private fun TransactionList(
     onQuickUploadItemClick: (QuickUploadUiItem) -> Unit,
     onQuickUploadRetry: (String) -> Unit,
     onQuickUploadDismiss: (String) -> Unit,
+    onDecideHeld: (String, HeldTransactionDecision) -> Unit,
     sharedTransitionScope: SharedTransitionScope,
     animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
@@ -278,7 +298,7 @@ private fun TransactionList(
             }
     }
 
-    val itemCount = quickUploadItems.size
+    val itemCount = quickUploadItems.size + heldState.items.size
     var previousItemCount by remember { mutableIntStateOf(itemCount) }
     LaunchedEffect(itemCount) {
         if (itemCount > previousItemCount) {
@@ -302,7 +322,7 @@ private fun TransactionList(
         },
         modifier = modifier.fillMaxSize(),
     ) {
-        if (transactions.isEmpty()) {
+        if (transactions.isEmpty() && heldState.items.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
                     text = "No transactions yet",
@@ -322,6 +342,14 @@ private fun TransactionList(
                         onItemClick = onQuickUploadItemClick,
                         onRetry = onQuickUploadRetry,
                         onDismiss = onQuickUploadDismiss,
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    )
+                }
+
+                item(key = "held_transactions") {
+                    HeldTransactionsSection(
+                        state = heldState,
+                        onDecide = onDecideHeld,
                         modifier = Modifier.padding(bottom = 8.dp),
                     )
                 }

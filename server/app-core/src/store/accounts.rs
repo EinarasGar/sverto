@@ -1,6 +1,8 @@
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use super::infra::SharedInfra;
+use super::{ok_or_err, user_id};
 use crate::api::accounts::{extract_account_edit, extract_account_types, extract_accounts};
 use crate::api::holdings::extract_account_balances;
 use crate::api::properties::{attach_properties, extract_properties, fill_property_figures};
@@ -154,6 +156,19 @@ pub async fn load_accounts(
         m.state.base_ticker = infra.default_asset_ticker().unwrap_or_default();
         m.notify();
     }
+}
+
+pub(crate) async fn account_names(
+    infra: &SharedInfra,
+    auth_token: Option<&str>,
+) -> Result<HashMap<String, String>, ApiError> {
+    let uid = user_id(infra)?;
+    let resp = infra
+        .get(&format!("/api/users/{uid}/accounts"), auth_token)
+        .await?;
+    ok_or_err(resp.status, &resp.body)?;
+    let accounts = extract_accounts(&resp.body).map_err(|e| ApiError::Parse { reason: e })?;
+    Ok(accounts.into_iter().map(|a| (a.id, a.name)).collect())
 }
 
 pub async fn refresh_accounts(

@@ -128,6 +128,7 @@ function accountRow(overrides: Partial<AccountIndexRow> = {}): AccountIndexRow {
       lastSyncError: null,
       syncedThrough: null,
       writesPostDirectly: false,
+      importSessionId: null,
     },
     unrealisedGains: 1447.2,
     ...overrides,

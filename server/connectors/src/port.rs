@@ -1,5 +1,5 @@
 use crate::models::balance::ProviderBalance;
-use crate::models::sync::{FetchedPage, RawPage, SyncCursor};
+use crate::models::sync::{FetchedPage, RateLimited, RawPage, SyncCursor};
 use crate::models::transaction::ProviderTransaction;
 use crate::provider::ProviderKind;
 use async_trait::async_trait;
@@ -86,18 +86,20 @@ pub trait Connector: Send + Sync + 'static {
             .and_then(|v| serde_json::from_value(v).ok());
 
         loop {
-            if let Some(budget) = params.budget {
-                if OffsetDateTime::now_utc() >= started_at + budget {
-                    let next_cursor = cursor.as_ref().and_then(|c| serde_json::to_value(c).ok());
-                    return Ok(SyncRunOutcome::Partial {
-                        pages_fetched,
-                        next_cursor,
-                    });
-                }
+            if params
+                .budget
+                .is_some_and(|budget| OffsetDateTime::now_utc() >= started_at + budget)
+            {
+                return Ok(partial(pages_fetched, cursor));
             }
 
             let page =
-                fetch_page_with_retries(self, from, cursor.clone(), params.inline_retries).await?;
+                match fetch_page_with_retries(self, from, cursor.clone(), params.inline_retries)
+                    .await
+                {
+                    Err(e) if e.is::<RateLimited>() => return Ok(partial(pages_fetched, cursor)),
+                    page => page?,
+                };
             store.append_page(&page).await?;
             pages_fetched += 1;
 
@@ -143,6 +145,13 @@ pub trait Connector: Send + Sync + 'static {
     }
 }
 
+fn partial(pages_fetched: i32, cursor: Option<SyncCursor>) -> SyncRunOutcome {
+    SyncRunOutcome::Partial {
+        pages_fetched,
+        next_cursor: cursor.and_then(|c| serde_json::to_value(c).ok()),
+    }
+}
+
 async fn fetch_page_with_retries<C: Connector + ?Sized>(
     connector: &C,
     from: Option<OffsetDateTime>,
@@ -153,6 +162,7 @@ async fn fetch_page_with_retries<C: Connector + ?Sized>(
     for attempt in 0..=retries {
         match connector.fetch_page(from, cursor.clone()).await {
             Ok(result) => return Ok(result),
+            Err(e) if e.is::<RateLimited>() => return Err(e),
             Err(e) => {
                 tracing::warn!(attempt, error = %e, "sync page fetch failed");
                 last_err = Some(e);

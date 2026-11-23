@@ -10,6 +10,7 @@ pub mod config_handler;
 pub mod connectors_handler;
 pub mod exports_handler;
 pub mod file_handler;
+pub mod held_transactions_handler;
 pub mod import_session_handler;
 pub mod individual_transactions;
 pub mod portfolio_handler;

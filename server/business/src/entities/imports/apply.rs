@@ -4,6 +4,7 @@ use anyhow::Result;
 use uuid::Uuid;
 
 use super::reconciliation::{external_refs, statement_stream};
+use crate::dtos::imports::import_source_dto::ImportExternalLineDto;
 use crate::dtos::imports::import_staging_dto::{
     ImportAmendRefusalDto, ImportPartsDto, ImportProposalDto, ImportProposalRowDto,
     ImportRecordedOnDto, ImportRowKindDto, ImportVerbDto,
@@ -149,23 +150,13 @@ impl ImportApply {
                     date: starting.date,
                     description: None,
                     kind: SourceKindDto::Balance,
-                    stream: statement_stream(starting.file_id),
+                    stream: statement_stream(starting.source_id),
                     external_ref: Some("starting-balance".to_string()),
                     itemised_fee: None,
                 });
             }
             for (index, (movement, external_ref)) in row.movements.iter().zip(refs).enumerate() {
-                let transaction_id = match row.verb {
-                    ImportVerbDto::Add => created.get(&row.id).copied(),
-                    ImportVerbDto::Amend => row.transaction.transaction_id,
-                    ImportVerbDto::Skip => match row.recorded_on.get(index).copied().flatten() {
-                        Some(ImportRecordedOnDto::Transaction(id)) => Some(id),
-                        Some(ImportRecordedOnDto::Row(id)) => created.get(&id).copied(),
-                        None => None,
-                    },
-                    ImportVerbDto::Delete => None,
-                };
-                let Some(transaction_id) = transaction_id else {
+                let Some(transaction_id) = movement_transaction(row, index, created) else {
                     continue;
                 };
                 sources.push(TransactionSourceDto {
@@ -175,13 +166,48 @@ impl ImportApply {
                     date: movement.date,
                     description: movement.description.clone(),
                     kind: SourceKindDto::Statement,
-                    stream: statement_stream(movement.file_id),
+                    stream: statement_stream(movement.source_id),
                     external_ref: Some(external_ref.clone()),
                     itemised_fee: movement.itemised_fee,
                 });
             }
         }
         sources
+    }
+
+    pub fn external_lines(&self, created: &HashMap<Uuid, Uuid>) -> Vec<ImportExternalLineDto> {
+        self.rows
+            .iter()
+            .flat_map(|row| {
+                row.movements
+                    .iter()
+                    .enumerate()
+                    .filter_map(move |(index, movement)| {
+                        Some(ImportExternalLineDto {
+                            source_id: movement.source_id,
+                            external_id: movement.external_id.clone()?,
+                            transaction_id: movement_transaction(row, index, created),
+                        })
+                    })
+            })
+            .collect()
+    }
+}
+
+fn movement_transaction(
+    row: &ImportProposalRowDto,
+    movement_index: usize,
+    created: &HashMap<Uuid, Uuid>,
+) -> Option<Uuid> {
+    match row.verb {
+        ImportVerbDto::Add => created.get(&row.id).copied(),
+        ImportVerbDto::Amend => row.transaction.transaction_id,
+        ImportVerbDto::Skip => match row.recorded_on.get(movement_index).copied().flatten() {
+            Some(ImportRecordedOnDto::Transaction(id)) => Some(id),
+            Some(ImportRecordedOnDto::Row(id)) => created.get(&id).copied(),
+            None => None,
+        },
+        ImportVerbDto::Delete => None,
     }
 }
 
@@ -214,7 +240,7 @@ mod tests {
     };
 
     const ACCOUNT: Uuid = Uuid::from_u128(1);
-    const FILE: Uuid = Uuid::from_u128(10);
+    const SOURCE: Uuid = Uuid::from_u128(10);
     const GBP: i32 = 10;
     const CATEGORY: i32 = 42;
 
@@ -243,10 +269,11 @@ mod tests {
             account_id: ACCOUNT,
             asset_id: GBP,
             quantity,
-            file_id: FILE,
+            source_id: SOURCE,
             date: date!(2026 - 03 - 03),
             description: Some("TESCO STORES".to_string()),
             itemised_fee: None,
+            external_id: None,
         }
     }
 
@@ -260,7 +287,7 @@ mod tests {
         ImportProposalRowDto {
             id: Uuid::from_u128(id),
             kind: ImportRowKindDto::Movement,
-            file_ids: vec![FILE],
+            source_ids: vec![SOURCE],
             ask_key: None,
             verb,
             verb_locked: false,
@@ -335,8 +362,76 @@ mod tests {
         );
         assert!(sources
             .iter()
-            .all(|source| source.stream == format!("statement:{FILE}")
+            .all(|source| source.stream == format!("statement:{SOURCE}")
                 && source.kind == SourceKindDto::Statement));
+    }
+
+    #[test]
+    fn every_bank_line_reports_the_transaction_it_ended_up_on_or_none() {
+        let ledger = Uuid::from_u128(500);
+        let new = Uuid::from_u128(900);
+        let bank_row = |id, verb, transaction, recorded_on, external_id: &str| {
+            let mut row = row(id, verb, transaction, dec!(-4), recorded_on);
+            row.movements[0].external_id = Some(external_id.to_string());
+            row
+        };
+        let apply = ImportApply::new(proposal(vec![
+            bank_row(
+                1,
+                ImportVerbDto::Add,
+                regular(None, dec!(-4), &[]),
+                None,
+                "added",
+            ),
+            bank_row(
+                2,
+                ImportVerbDto::Amend,
+                regular(Some(ledger), dec!(-4), &[]),
+                Some(ImportRecordedOnDto::Transaction(ledger)),
+                "amended",
+            ),
+            bank_row(
+                3,
+                ImportVerbDto::Skip,
+                regular(None, dec!(-4), &[]),
+                Some(ImportRecordedOnDto::Row(Uuid::from_u128(1))),
+                "matched",
+            ),
+            bank_row(
+                4,
+                ImportVerbDto::Skip,
+                regular(None, dec!(-4), &[]),
+                None,
+                "skipped",
+            ),
+            row(
+                5,
+                ImportVerbDto::Add,
+                regular(None, dec!(-9), &[]),
+                dec!(-9),
+                None,
+            ),
+        ]));
+
+        let lines = apply.external_lines(&HashMap::from([
+            (Uuid::from_u128(1), new),
+            (Uuid::from_u128(5), Uuid::from_u128(901)),
+        ]));
+
+        let recorded: Vec<_> = lines
+            .iter()
+            .map(|line| (line.external_id.as_str(), line.transaction_id))
+            .collect();
+        assert_eq!(
+            recorded,
+            vec![
+                ("added", Some(new)),
+                ("amended", Some(ledger)),
+                ("matched", Some(new)),
+                ("skipped", None),
+            ]
+        );
+        assert!(lines.iter().all(|line| line.source_id == SOURCE));
     }
 
     fn starting_balance(id: u128, verb: ImportVerbDto) -> ImportProposalRowDto {
@@ -344,7 +439,7 @@ mod tests {
         row.kind = ImportRowKindDto::StartingBalance(ImportStartingBalanceDto {
             account_id: ACCOUNT,
             asset_id: GBP,
-            file_id: FILE,
+            source_id: SOURCE,
             date: date!(2026 - 02 - 28),
             quantity: dec!(1000),
         });
@@ -404,7 +499,7 @@ mod tests {
         );
         assert!(sources
             .iter()
-            .all(|source| source.stream == format!("statement:{FILE}")));
+            .all(|source| source.stream == format!("statement:{SOURCE}")));
     }
 
     #[test]

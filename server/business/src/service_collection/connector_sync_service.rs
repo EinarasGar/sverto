@@ -2,11 +2,13 @@
 use dal::database_context::MyraDb;
 use dal::job_queue::JobQueueHandle;
 use dal::models::connector_models::{
-    ActiveStoredBindingRow, AddConnectorProviderAccountModel, ConnectorBindingRow,
-    ConnectorRawPageRow, ConnectorTransactionRow, UpdateProviderAccountSyncResultModel,
+    ActiveStoredBindingRow, ConnectorBindingRow, ConnectorRawPageRow, ConnectorTransactionRow,
+    ProviderAccountRefRow, UpdateProviderAccountSyncResultModel,
 };
 use dal::queries::connector_queries;
-use dal::query_params::connector_params::{GetConnectorBindingsParams, GetRawPagesParams};
+use dal::query_params::connector_params::{
+    GetConnectorBindingsParams, GetConnectorTransactionsParams, GetRawPagesParams,
+};
 #[mockall_double::double]
 use dal::redis_connection::RedisConnection;
 use dal::secrets::SecretProvider;
@@ -14,29 +16,29 @@ use dal::secrets::SecretProvider;
 use connectors::client_supplied::{ClientSuppliedConnector, ClientSuppliedStream};
 use connectors::models::sync::RawPage;
 use connectors::port::{Connector, ConnectorStore, SyncParams, SyncRunOutcome};
-use connectors::provider::{CredentialSource, ProviderKind};
+use connectors::provider::CredentialSource;
 
 use crate::dtos::bad_gateway_error_dto::BusinessBadGatewayError;
 use crate::dtos::bad_request_error_dto::BusinessBadRequestError;
 use crate::dtos::conflict_error_dto::BusinessConflictError;
 use crate::dtos::connectors::{
     ActiveStoredBinding, BindingStatusDto, ConnectionStatusDto, ConnectorBindingDto,
-    ConnectorConnectionDto, CredentialModeDto, SyncDispatchDto, SyncOutcomeDto, SyncReportDto,
-    TransientSyncCredentialDto,
+    ConnectorConnectionDto, CredentialModeDto, HistoryStartDto, SyncDispatchDto, SyncOutcomeDto,
+    SyncReportDto, TransientSyncCredentialDto,
 };
-use crate::dtos::transaction_dto::TransactionVisibilityDto;
 use crate::jobs::SyncConnectorBindingJob;
 use crate::providers::connector_store::BusinessConnectorStore;
 
+use crate::entities::connectors::bank_ingestion::{synced_visibility, BankIngestion};
 use crate::entities::connectors::connector_transaction_batch::ConnectorTransactionBatch;
 use crate::entities::connectors::provider_transaction_import::{
     ProviderTransactionImport, TransactionImportOutcome,
 };
-use crate::entities::transactions::transaction::Transaction;
 
 use super::asset_service::AssetsService;
+use super::bank_ingestion_service::BankIngestionService;
 use super::connector_service::ConnectorService;
-use super::transaction_management_service::TransactionManagementService;
+use super::ledger_matching_service::LedgerMatchingService;
 use super::ServiceProviders;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -58,8 +60,9 @@ pub struct ConnectorSyncService {
     redis: RedisConnection,
     queue: JobQueueHandle,
     connectors: ConnectorService,
-    transaction_management: TransactionManagementService,
     assets: AssetsService,
+    ledger_matching: LedgerMatchingService,
+    bank_ingestion: BankIngestionService,
 }
 
 impl ConnectorSyncService {
@@ -70,8 +73,9 @@ impl ConnectorSyncService {
             redis: providers.redis.clone(),
             queue: providers.job_queue.clone(),
             connectors: ConnectorService::new(providers),
-            transaction_management: TransactionManagementService::new(providers),
             assets: AssetsService::new(providers),
+            ledger_matching: LedgerMatchingService::new(providers),
+            bank_ingestion: BankIngestionService::new(providers),
         }
     }
 
@@ -355,12 +359,6 @@ impl ConnectorSyncService {
         Ok(())
     }
 
-    /// Captures full history for every discoverable account and card *while the user is present*
-    /// — called from the OAuth-completion handler, inside the SCA window. Open-banking providers
-    /// restrict historical (esp. card) data for unattended access, so consent time is the only
-    /// reliable moment to backfill. Pages land in the connection/account-scoped archive, so a
-    /// binding created later projects the history without re-fetching. Pass-through providers
-    /// (`needs_attended_backfill() == false`, e.g. Trading212) skip this.
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, connection_id = %connection_id))]
     pub async fn run_attended_backfill(
         &self,
@@ -371,11 +369,6 @@ impl ConnectorSyncService {
             .connectors
             .get_connection(user_id, connection_id)
             .await?;
-        let provider_kind: ProviderKind = connection.provider_kind.parse()?;
-        if !provider_kind.provider().needs_attended_backfill() {
-            return Ok(());
-        }
-
         let accounts = self
             .connectors
             .list_provider_accounts(user_id, connection_id)
@@ -397,6 +390,22 @@ impl ConnectorSyncService {
                 );
             }
         }
+
+        let syncs: Vec<SyncConnectorBindingJob> = self
+            .db
+            .fetch_all::<ConnectorBindingRow>(connector_queries::get_connector_bindings(
+                GetConnectorBindingsParams::by_connection(user_id, connection_id),
+            ))
+            .await?
+            .into_iter()
+            .map(ConnectorBindingDto::from)
+            .filter(|binding| binding.status == BindingStatusDto::Active)
+            .map(|binding| SyncConnectorBindingJob {
+                binding_id: binding.id,
+                user_id,
+            })
+            .collect();
+        self.db.push(&self.queue, syncs).await?;
         Ok(())
     }
 
@@ -407,15 +416,14 @@ impl ConnectorSyncService {
         connection: &ConnectorConnectionDto,
         external_account_id: &str,
     ) -> anyhow::Result<()> {
-        let provider_account_ref: Uuid = self
+        let provider_account_ref = self
             .db
-            .fetch_one_scalar(connector_queries::get_or_create_provider_account(
-                AddConnectorProviderAccountModel {
-                    connection_id: connection.id,
-                    external_account_id: external_account_id.to_string(),
-                },
+            .fetch_one::<ProviderAccountRefRow>(connector_queries::get_or_create_provider_accounts(
+                connection.id,
+                vec![external_account_id.to_string()],
             ))
-            .await?;
+            .await?
+            .id;
 
         let claimed = self
             .db
@@ -577,9 +585,11 @@ impl ConnectorSyncService {
         } else {
             self.db
                 .fetch_all::<ConnectorTransactionRow>(
-                    connector_queries::get_connector_transactions_by_external_ids(
-                        binding_id,
-                        batch.external_ids(),
+                    connector_queries::get_connector_transactions(
+                        GetConnectorTransactionsParams::by_external_ids(
+                            binding_id,
+                            batch.external_ids(),
+                        ),
                     ),
                 )
                 .await?
@@ -587,13 +597,12 @@ impl ConnectorSyncService {
                 .map(|row| (row.external_id.clone(), row))
                 .collect()
         };
+        let held = self
+            .bank_ingestion
+            .held_external_ids(user_id, binding_id, batch.external_ids())
+            .await?;
 
-        let visibility = match binding_row.write_mode.as_str() {
-            "trusted" => TransactionVisibilityDto::Default,
-            _ => TransactionVisibilityDto::Ghost,
-        };
-
-        self.db.start_transaction().await?;
+        let visibility = synced_visibility(&binding_row.write_mode);
 
         let mut report = SyncReportDto {
             duplicates: batch.duplicates(),
@@ -601,7 +610,14 @@ impl ConnectorSyncService {
             ..SyncReportDto::default()
         };
 
-        let classified = batch.classify(&existing_rows);
+        let history_start = binding_row.history_from.map(|day| {
+            if binding_row.history_from_last_entry {
+                HistoryStartDto::AfterLastEntry(day)
+            } else {
+                HistoryStartDto::From(day)
+            }
+        });
+        let classified = batch.classify(&existing_rows, &held, history_start);
         report.unchanged = classified.unchanged;
         report.conflicts = classified.conflicts.len();
         report.amended = classified.amended.len();
@@ -642,7 +658,7 @@ impl ConnectorSyncService {
         }
         let resolved = self.assets.resolve_tickers(user_id, needed_tickers).await?;
 
-        let mut entities: Vec<Transaction> = Vec::new();
+        let mut ingestion = BankIngestion::default();
         for import in imports {
             let cash_asset_id = resolved.get(import.currency()).copied();
             let instrument_asset_id = import
@@ -652,7 +668,10 @@ impl ConnectorSyncService {
 
             match import.try_into_transaction(user_id, cash_asset_id, instrument_asset_id)? {
                 TransactionImportOutcome::Ready(entity) => {
-                    entities.push(entity);
+                    match cash_asset_id.and_then(|asset_id| import.bank_row(asset_id)) {
+                        Some(row) => ingestion.add_row(row, entity),
+                        None => ingestion.add_other(entity),
+                    }
                 }
                 TransactionImportOutcome::Unresolvable(reason) => {
                     report.unresolved += 1;
@@ -666,13 +685,23 @@ impl ConnectorSyncService {
             }
         }
 
-        if !entities.is_empty() {
-            self.transaction_management
-                .add_transactions(&mut entities)
-                .await?;
-            report.new_transactions = entities.len();
-        }
+        let outcomes = self
+            .ledger_matching
+            .match_batches(user_id, &[ingestion.batch()])
+            .await?
+            .into_iter()
+            .next()
+            .unwrap_or_default();
+        let mut writes = ingestion.writes(user_id, outcomes)?;
 
+        self.db.start_transaction().await?;
+        self.bank_ingestion
+            .pair_transfers(user_id, &mut writes)
+            .await?;
+        report.new_transactions = writes.new_transactions();
+        report.attached = writes.attached();
+        report.held = writes.held.len();
+        let written = self.bank_ingestion.write(user_id, writes).await?;
         // Projection checkpoint advanced on the binding (the fetch outcome is recorded on the
         // provider account by the caller's fetch phase).
         self.db
@@ -683,11 +712,16 @@ impl ConnectorSyncService {
             .await?;
 
         self.db.commit_transaction().await?;
+        self.bank_ingestion
+            .queue_categorization(user_id, written)
+            .await;
 
         tracing::info!(
             binding_id = %binding_id,
             pages_projected = report.pages_projected,
             new = report.new_transactions,
+            attached = report.attached,
+            held = report.held,
             unchanged = report.unchanged,
             amended = report.amended,
             conflicts = report.conflicts,

@@ -38,6 +38,10 @@ private let everyRoute: [AppRoute] = [
     .connectEnableBanking(code: nil, state: nil, error: nil),
     .connectEnableBanking(code: "c", state: "s", error: "e"),
     .connectTrading212,
+    .imports,
+    .importSession(id: "imp-1"),
+    .importSession(id: "imp-1", pickFiles: true),
+    .importItems(sessionId: "imp-1"),
 ]
 
 private func caseName(_ route: AppRoute) -> String {
@@ -53,8 +57,8 @@ struct AppRouteTests {
         }
     }
 
-    @Test func coversAllTwentySevenCases() {
-        #expect(Set(everyRoute.map(caseName)).count == 27)
+    @Test func coversAllThirtyCases() {
+        #expect(Set(everyRoute.map(caseName)).count == 30)
     }
 
     @Test func routesAreDistinguishedByPayload() {

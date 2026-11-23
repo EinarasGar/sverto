@@ -5,6 +5,7 @@ use crate::dtos::imports::import_session_dto::ImportSessionStatusDto;
 pub struct ImportSessionStatusInputs {
     lifecycle: ImportSessionLifecycle,
     file_count: i64,
+    bank_account_count: i64,
     parsing_file_count: i64,
     failed_file_count: i64,
     open_ask_count: i64,
@@ -16,6 +17,7 @@ impl ImportSessionStatusInputs {
         Self {
             lifecycle,
             file_count: 0,
+            bank_account_count: 0,
             parsing_file_count: 0,
             failed_file_count: 0,
             open_ask_count: 0,
@@ -34,6 +36,10 @@ impl ImportSessionStatusInputs {
         }
     }
 
+    pub fn add_bank_accounts(&mut self, count: i64) {
+        self.bank_account_count += count;
+    }
+
     pub fn add_open_asks(&mut self, count: i64) {
         self.open_ask_count += count;
     }
@@ -43,7 +49,7 @@ impl ImportSessionStatusInputs {
             ImportSessionLifecycle::Completed => return ImportSessionStatusDto::Completed,
             ImportSessionLifecycle::Active => {}
         }
-        if self.file_count == 0 {
+        if self.file_count + self.bank_account_count == 0 {
             return ImportSessionStatusDto::Collecting;
         }
         if self.parsing_file_count > 0 {

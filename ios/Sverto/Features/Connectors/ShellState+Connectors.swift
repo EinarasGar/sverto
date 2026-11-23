@@ -26,6 +26,15 @@ extension ShellState {
         }
     }
 
+    func openImport(sessionId: String, replacingLinkSetupIn owner: NavigationOwner) {
+        updatePath(in: owner) { path in
+            if case .bindingSetup = path.last {
+                path.removeLast()
+            }
+            path.append(.importSession(id: sessionId))
+        }
+    }
+
     func popToConnectors(in owner: NavigationOwner) {
         updatePath(in: owner) { path in
             guard let index = path.lastIndex(of: .connectors) else { return }

@@ -12,7 +12,7 @@ pub struct ImportPendingLegDto {
 
 pub struct ImportPendingLineDto {
     pub id: Uuid,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub account_ref: String,
     pub date: OffsetDateTime,
     pub description: Option<String>,

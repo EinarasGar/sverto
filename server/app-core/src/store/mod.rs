@@ -10,6 +10,8 @@ pub mod categories;
 pub mod connector_local;
 pub mod connectors;
 pub mod exports;
+pub mod files;
+pub mod imports;
 pub mod infra;
 pub mod onboarding;
 pub mod portfolio;
@@ -33,6 +35,19 @@ use crate::models::{
 /// Shared between account_detail and asset_detail modules.
 pub(crate) const CHART_RANGES: &[&str] = &["1d", "1w", "1m", "3m", "6m", "1y", "all"];
 pub(crate) const CHART_LABELS: &[&str] = &["1D", "1W", "1M", "3M", "6M", "1Y", "ALL"];
+
+pub(crate) fn user_id(infra: &SharedInfra) -> Result<String, ApiError> {
+    infra.user_id().ok_or_else(|| ApiError::Parse {
+        reason: "no user_id".into(),
+    })
+}
+
+pub(crate) fn ok_or_err(status: u16, body: &str) -> Result<(), ApiError> {
+    if status >= 400 {
+        return Err(crate::error::server_error(status, body));
+    }
+    Ok(())
+}
 
 fn compute_connection_status_from(infra: &SharedInfra) -> ConnectionStatus {
     use std::sync::atomic::Ordering;
@@ -1282,13 +1297,9 @@ impl AppStore {
         mime_type: String,
         file_name: String,
     ) -> Result<String, crate::error::ApiError> {
-        let user_id = self.infra.user_id().ok_or_else(|| ApiError::Parse {
-            reason: "no user_id".into(),
-        })?;
         let token = self.get_auth_token().await;
-        ai_chat::upload_file(
+        files::upload_file(
             &self.infra,
-            &user_id,
             &image_data,
             &mime_type,
             &file_name,
@@ -1325,6 +1336,161 @@ impl AppStore {
 
     pub fn cancel_stream(&self) {
         ai_chat::cancel_stream(&self.ai_chat);
+    }
+
+    pub async fn list_import_sessions(
+        &self,
+    ) -> Result<Vec<crate::models::ImportSessionSummary>, ApiError> {
+        let token = self.get_auth_token().await;
+        imports::list_sessions(&self.infra, token.as_deref()).await
+    }
+
+    pub async fn create_import_session(&self) -> Result<String, ApiError> {
+        let token = self.get_auth_token().await;
+        imports::create_session(&self.infra, token.as_deref()).await
+    }
+
+    pub async fn create_connector_import(
+        &self,
+        connection_id: String,
+        accounts: Vec<crate::models::ConnectorImportAccount>,
+        import_from: crate::models::ConnectorImportFrom,
+    ) -> Result<String, ApiError> {
+        let token = self.get_auth_token().await;
+        imports::create_connector_import(
+            &self.infra,
+            &connection_id,
+            accounts,
+            import_from,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn get_import_session(
+        &self,
+        session_id: String,
+    ) -> Result<crate::models::ImportSessionDetail, ApiError> {
+        let token = self.get_auth_token().await;
+        imports::get_session(&self.infra, &session_id, token.as_deref()).await
+    }
+
+    pub async fn delete_import_session(&self, session_id: String) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::delete_session(&self.infra, &session_id, token.as_deref()).await
+    }
+
+    pub async fn upload_import_file(
+        &self,
+        data: Vec<u8>,
+        mime_type: String,
+        file_name: String,
+    ) -> Result<String, ApiError> {
+        let token = self.get_auth_token().await;
+        files::upload_file(&self.infra, &data, &mime_type, &file_name, token.as_deref()).await
+    }
+
+    pub async fn attach_import_files(
+        &self,
+        session_id: String,
+        file_ids: Vec<String>,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::attach_files(&self.infra, &session_id, &file_ids, token.as_deref()).await
+    }
+
+    pub async fn detach_import_file(
+        &self,
+        session_id: String,
+        file_id: String,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::detach_file(&self.infra, &session_id, &file_id, token.as_deref()).await
+    }
+
+    pub async fn retry_import_file(
+        &self,
+        session_id: String,
+        file_id: String,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::retry_file(&self.infra, &session_id, &file_id, token.as_deref()).await
+    }
+
+    pub async fn set_import_file_date_order(
+        &self,
+        session_id: String,
+        file_id: String,
+        date_order: crate::models::ImportDateOrder,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::set_file_date_order(
+            &self.infra,
+            &session_id,
+            &file_id,
+            date_order,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn retry_import_classification(&self, session_id: String) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::retry_classification(&self.infra, &session_id, token.as_deref()).await
+    }
+
+    pub async fn answer_import_ask(
+        &self,
+        session_id: String,
+        ask_key: String,
+        answer: crate::models::ImportAnswer,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::answer_ask(&self.infra, &session_id, &ask_key, answer, token.as_deref()).await
+    }
+
+    pub async fn list_import_items(
+        &self,
+        session_id: String,
+    ) -> Result<crate::models::ImportItems, ApiError> {
+        let token = self.get_auth_token().await;
+        imports::list_items(&self.infra, &session_id, token.as_deref()).await
+    }
+
+    pub async fn list_import_pending(
+        &self,
+        session_id: String,
+    ) -> Result<Vec<crate::models::ImportPendingRow>, ApiError> {
+        let token = self.get_auth_token().await;
+        imports::list_pending(&self.infra, &session_id, token.as_deref()).await
+    }
+
+    pub async fn set_import_items_verb(
+        &self,
+        session_id: String,
+        item_ids: Vec<String>,
+        verb: crate::models::ImportItemVerb,
+        candidate_id: Option<String>,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::set_items_verb(
+            &self.infra,
+            &session_id,
+            &item_ids,
+            verb,
+            candidate_id,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn apply_import_session(
+        &self,
+        session_id: String,
+        fingerprint: String,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        imports::apply_session(&self.infra, &session_id, &fingerprint, token.as_deref()).await
     }
 
     pub async fn list_connector_connections(
@@ -1425,6 +1591,7 @@ impl AppStore {
         connection_id: String,
         sverto_account_id: String,
         provider_account_id: Option<String>,
+        import_from: crate::models::ConnectorImportFrom,
     ) -> Result<String, crate::error::ApiError> {
         let token = self.get_auth_token().await;
         connectors::create_binding(
@@ -1432,6 +1599,7 @@ impl AppStore {
             &connection_id,
             &sverto_account_id,
             provider_account_id,
+            import_from,
             token.as_deref(),
         )
         .await
@@ -1474,6 +1642,28 @@ impl AppStore {
             &binding_id,
             &connection_id,
             credential_mode,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn list_held_transactions(
+        &self,
+    ) -> Result<Vec<crate::models::HeldTransaction>, crate::error::ApiError> {
+        let token = self.get_auth_token().await;
+        connectors::list_held_transactions(&self.infra, token.as_deref()).await
+    }
+
+    pub async fn decide_held_transaction(
+        &self,
+        held_transaction_id: String,
+        decision: crate::models::HeldTransactionDecision,
+    ) -> Result<(), crate::error::ApiError> {
+        let token = self.get_auth_token().await;
+        connectors::decide_held_transaction(
+            &self.infra,
+            &held_transaction_id,
+            decision,
             token.as_deref(),
         )
         .await

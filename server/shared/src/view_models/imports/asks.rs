@@ -43,11 +43,11 @@ pub enum IdentifiableImportAskViewModel {
 #[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct AccountMappingAsk {
     pub ask_key: String,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub raw_account: String,
     pub candidates: Vec<AccountCandidate>,
     pub choices: Vec<ImportAskChoice>,
-    pub answer_covers_all_files: bool,
+    pub answer_covers_all_sources: bool,
 }
 
 #[type_tag(value = "asset_mapping", tag = "kind")]
@@ -109,11 +109,11 @@ impl From<ImportOpenAskDto> for IdentifiableImportAskViewModel {
             ImportAskDto::AccountMapping(ask) => Self::AccountMapping(AccountMappingAsk {
                 kind: Default::default(),
                 ask_key: value.ask_key,
-                file_id: ask.file_id,
+                source_id: ask.source_id,
                 raw_account: ask.raw_account,
                 candidates: ask.candidates.into_iter().map(Into::into).collect(),
                 choices: ask.choices.into_iter().map(Into::into).collect(),
-                answer_covers_all_files: ask.answer_covers_all_files,
+                answer_covers_all_sources: ask.answer_covers_all_sources,
             }),
             ImportAskDto::AssetMapping(ask) => Self::AssetMapping(AssetMappingAsk {
                 kind: Default::default(),

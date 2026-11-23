@@ -45,6 +45,39 @@ impl From<ImportSessionLifecycle> for sea_query::Value {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImportSourceKind {
+    File,
+    BankAccount,
+}
+
+impl ImportSourceKind {
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::File => "file",
+            Self::BankAccount => "bank_account",
+        }
+    }
+}
+
+impl TryFrom<&str> for ImportSourceKind {
+    type Error = anyhow::Error;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        match s {
+            "file" => Ok(Self::File),
+            "bank_account" => Ok(Self::BankAccount),
+            other => Err(anyhow::anyhow!("Unknown import source kind: {other}")),
+        }
+    }
+}
+
+impl From<ImportSourceKind> for sea_query::Value {
+    fn from(value: ImportSourceKind) -> Self {
+        sea_query::Value::String(Some(value.as_str().to_string()))
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ImportFileStatus {
     Pending,
     Processing,
@@ -245,7 +278,7 @@ impl From<ImportAssertionKind> for sea_query::Value {
 pub struct ImportParsedLineInsert {
     pub id: Uuid,
     pub session_id: Uuid,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub transaction_key: Option<String>,
     pub account_ref: String,
     pub date_transacted: OffsetDateTime,
@@ -263,7 +296,7 @@ pub struct ImportParsedLegInsert {
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct ImportAssertionModel {
-    pub file_id: Option<Uuid>,
+    pub source_id: Option<Uuid>,
     pub account_ref: Option<String>,
     pub asset_ref: Option<String>,
     pub account_id: Option<Uuid>,
@@ -275,7 +308,7 @@ pub struct ImportAssertionModel {
 
 pub struct ImportAssertionInsert {
     pub session_id: Uuid,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub account_ref: String,
     pub asset_ref: String,
     pub kind: ImportAssertionKind,
@@ -307,6 +340,7 @@ pub struct ImportSessionSummaryModel {
     pub processing_files: i64,
     pub failed_files: i64,
     pub parsed_files: i64,
+    pub bank_accounts: i64,
     pub classification_run_id: Option<Uuid>,
     pub classified_at: Option<OffsetDateTime>,
     pub classification_error: Option<String>,
@@ -320,6 +354,7 @@ impl ImportSessionSummaryModel {
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct ImportFileModel {
+    pub source_id: Uuid,
     pub file_id: Uuid,
     pub conversation_id: Uuid,
     pub status: String,
@@ -343,21 +378,48 @@ impl ImportFileModel {
 }
 
 #[derive(Debug, sqlx::FromRow)]
+pub struct ImportSourceModel {
+    pub id: Uuid,
+    pub kind: String,
+    pub created_at: OffsetDateTime,
+    pub file_id: Option<Uuid>,
+    pub status: Option<String>,
+    pub error_message: Option<String>,
+    pub paused_until: Option<OffsetDateTime>,
+    pub date_order: Option<String>,
+    pub binding_id: Option<Uuid>,
+    pub cutoff_page_id: Option<Uuid>,
+}
+
+impl ImportSourceModel {
+    pub fn source_kind(&self) -> anyhow::Result<ImportSourceKind> {
+        ImportSourceKind::try_from(self.kind.as_str())
+    }
+}
+
+pub struct ImportBankAccountInsert {
+    pub session_id: Uuid,
+    pub source_id: Uuid,
+    pub binding_id: Uuid,
+    pub cutoff_page_id: Option<Uuid>,
+}
+
+#[derive(Debug, sqlx::FromRow)]
 pub struct ImportAccountRefModel {
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub account_ref: String,
 }
 
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct ImportAccountMappingModel {
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub account_ref: String,
     pub account_id: Option<Uuid>,
 }
 
 #[derive(Debug, sqlx::FromRow)]
 pub struct ImportAssetRefModel {
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub account_ref: String,
     pub asset_ref: String,
     pub counter_asset_ref: Option<String>,
@@ -372,12 +434,13 @@ pub struct ImportAssetMappingModel {
 #[derive(Debug, Clone, sqlx::FromRow)]
 pub struct ImportParsedLineModel {
     pub id: Uuid,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub transaction_key: Option<String>,
     pub account_ref: String,
     pub date_transacted: OffsetDateTime,
     pub description: Option<String>,
     pub related_asset_ref: Option<String>,
+    pub external_id: Option<String>,
 }
 
 #[derive(Debug, sqlx::FromRow)]

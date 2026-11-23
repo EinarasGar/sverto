@@ -1,5 +1,6 @@
 pub mod apply;
 pub mod balances;
+pub mod classification_mode;
 pub mod linking;
 pub mod orientation;
 pub mod proposal;

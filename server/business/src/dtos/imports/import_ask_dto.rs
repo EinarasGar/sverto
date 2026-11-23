@@ -24,11 +24,11 @@ pub struct AssetCandidateDto {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct AccountMappingAskDto {
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub raw_account: String,
     pub candidates: Vec<AccountCandidateDto>,
     pub choices: Vec<ImportAskChoiceDto>,
-    pub answer_covers_all_files: bool,
+    pub answer_covers_all_sources: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]

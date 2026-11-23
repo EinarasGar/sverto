@@ -12,11 +12,14 @@ use uuid::Uuid;
 
 use super::ai_conversation_service::AiConversationService;
 use super::user_service::UsersService;
+use crate::dtos::ai_features_disabled_error_dto::BusinessAiFeaturesDisabledError;
 use crate::dtos::conflict_error_dto::BusinessConflictError;
 use crate::dtos::imports::import_classification_dto::{
-    ImportClassificationStatusDto, ImportLineTypingDto, ImportParsedLegDto, ImportParsedLineDto,
+    ImportClassificationModeDto, ImportClassificationStatusDto, ImportLineTypingDto,
+    ImportParsedLegDto, ImportParsedLineDto,
 };
 use crate::dtos::not_found_error_dto::BusinessNotFoundError;
+use crate::entities::imports::classification_mode::classification_mode;
 use crate::jobs::ImportClassifyJob;
 
 pub struct ImportClassifyService {
@@ -73,30 +76,57 @@ impl ImportClassifyService {
 
     #[tracing::instrument(level = "debug", skip_all, fields(session_id = %session_id, user_id = %user_id))]
     pub async fn retry(&self, session_id: Uuid, user_id: Uuid) -> anyhow::Result<()> {
-        self.users_service
-            .ensure_ai_features_enabled(user_id)
-            .await?;
         let Some(summary) = self.summary(session_id, user_id).await? else {
             return Err(BusinessNotFoundError {
                 message: "Import session not found.".to_string(),
             }
             .into());
         };
+        let ai_features_enabled = self.users_service.is_ai_features_enabled(user_id).await?;
+        if classification_mode(&summary, ai_features_enabled)
+            == ImportClassificationModeDto::RefuseWithoutAi
+        {
+            return Err(BusinessAiFeaturesDisabledError.into());
+        }
+        let status = ImportClassificationStatusDto::from(&summary);
         if summary.session_lifecycle()? != ImportSessionLifecycle::Active
-            || summary.parsed_files == 0
+            || summary.parsed_files + summary.bank_accounts == 0
             || !matches!(
-                ImportClassificationStatusDto::from(&summary),
-                ImportClassificationStatusDto::NotStarted | ImportClassificationStatusDto::Failed
+                status,
+                ImportClassificationStatusDto::NotStarted
+                    | ImportClassificationStatusDto::Running
+                    | ImportClassificationStatusDto::Failed
             )
         {
             return Err(BusinessConflictError {
-                message: "Only a classification that failed or never started can be retried."
-                    .to_string(),
+                message:
+                    "Only a classification that failed, stalled or never started can be retried."
+                        .to_string(),
             }
             .into());
         }
-        self.open_run(session_id).await?;
+        if status != ImportClassificationStatusDto::Running {
+            self.open_run(session_id).await?;
+        }
         self.start_if_ready(session_id, user_id).await
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(session_id = %session_id))]
+    pub async fn mode(
+        &self,
+        session_id: Uuid,
+        user_id: Uuid,
+    ) -> anyhow::Result<ImportClassificationModeDto> {
+        let summary =
+            self.summary(session_id, user_id)
+                .await?
+                .ok_or_else(|| BusinessNotFoundError {
+                    message: "Import session not found.".to_string(),
+                })?;
+        Ok(classification_mode(
+            &summary,
+            self.users_service.is_ai_features_enabled(user_id).await?,
+        ))
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(session_id = %session_id))]
@@ -124,12 +154,13 @@ impl ImportClassifyService {
             .map(|line| ImportParsedLineDto {
                 legs: legs.remove(&line.id).unwrap_or_default(),
                 id: line.id,
-                file_id: line.file_id,
+                source_id: line.source_id,
                 transaction_key: line.transaction_key,
                 account_ref: line.account_ref,
                 date: line.date_transacted,
                 description: line.description,
                 related_asset_ref: line.related_asset_ref,
+                external_id: line.external_id,
             })
             .collect())
     }

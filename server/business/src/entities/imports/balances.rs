@@ -26,7 +26,7 @@ struct StatedBalance {
     balance_at: Date,
     is_opening: bool,
     quantity: Decimal,
-    file_id: Uuid,
+    source_id: Uuid,
 }
 
 struct Stated {
@@ -91,7 +91,7 @@ impl SessionBalances {
     pub fn add_account_mappings(&mut self, mappings: &[ImportAccountMappingModel]) {
         self.accounts.extend(mappings.iter().map(|mapping| {
             (
-                (mapping.file_id, mapping.account_ref.clone()),
+                (mapping.source_id, mapping.account_ref.clone()),
                 mapping.account_id,
             )
         }));
@@ -110,7 +110,7 @@ impl SessionBalances {
             for movement in &row.movements {
                 widen(
                     &mut self.row_dates,
-                    movement.file_id,
+                    movement.source_id,
                     (movement.account_id, movement.asset_id),
                     movement.date,
                 );
@@ -190,7 +190,7 @@ impl SessionBalances {
     fn linked_position(&self, assertion: &ImportAssertionDto) -> Option<Position> {
         let account_id = (*self
             .accounts
-            .get(&(assertion.file_id, assertion.account_ref.clone()))?)?;
+            .get(&(assertion.source_id, assertion.account_ref.clone()))?)?;
         let asset_id = (*self.assets.get(assertion.asset_ref.as_ref()?)?)?;
         Some((account_id, asset_id))
     }
@@ -198,7 +198,7 @@ impl SessionBalances {
     fn is_left_out(&self, assertion: &ImportAssertionDto) -> bool {
         let account_left_out = matches!(
             self.accounts
-                .get(&(assertion.file_id, assertion.account_ref.clone())),
+                .get(&(assertion.source_id, assertion.account_ref.clone())),
             Some(None)
         );
         let asset_left_out = assertion
@@ -232,9 +232,9 @@ impl SessionBalances {
         for assertion in &self.assertions {
             match self.position(assertion) {
                 Some(position) => {
-                    widen(&mut periods, assertion.file_id, position, assertion.date);
+                    widen(&mut periods, assertion.source_id, position, assertion.date);
                     printed
-                        .entry((position, assertion.file_id))
+                        .entry((position, assertion.source_id))
                         .or_default()
                         .entry(assertion.account_ref.as_str())
                         .or_default()
@@ -256,7 +256,7 @@ impl SessionBalances {
         }
 
         let mut by_position: BTreeMap<Position, Vec<StatedBalance>> = BTreeMap::new();
-        for ((position, file_id), printed_accounts) in printed {
+        for ((position, source_id), printed_accounts) in printed {
             let mut stated: Vec<StatedBalance> = Vec::new();
             if printed_accounts.len() == 1 {
                 stated.extend(
@@ -267,7 +267,7 @@ impl SessionBalances {
                             balance_at: balance_at(assertion),
                             is_opening: assertion.kind == ImportAssertionKindDto::Opening,
                             quantity: assertion.quantity,
-                            file_id,
+                            source_id,
                         }),
                 );
             } else {
@@ -302,7 +302,7 @@ impl SessionBalances {
                             balance_at,
                             is_opening,
                             quantity,
-                            file_id,
+                            source_id,
                         }),
                 );
             }
@@ -314,15 +314,15 @@ impl SessionBalances {
         }
 
         let mut moved: BTreeMap<Position, ((Date, Uuid), Date)> = BTreeMap::new();
-        for ((file_id, position), (first, last)) in &self.row_dates {
+        for ((source_id, position), (first, last)) in &self.row_dates {
             let (first_row, last_row) = moved
                 .entry(*position)
-                .or_insert(((*first, *file_id), *last));
-            *first_row = (*first_row).min((*first, *file_id));
+                .or_insert(((*first, *source_id), *last));
+            *first_row = (*first_row).min((*first, *source_id));
             *last_row = (*last_row).max(*last);
         }
         let mut enterable = Vec::new();
-        for (position, ((_, first_file), last_row)) in moved {
+        for (position, ((_, first_source), last_row)) in moved {
             if by_position.contains_key(&position) {
                 continue;
             }
@@ -338,7 +338,7 @@ impl SessionBalances {
                         balance_at: entered.date,
                         is_opening: false,
                         quantity: entered.quantity,
-                        file_id: first_file,
+                        source_id: first_source,
                     }],
                 );
             }
@@ -356,7 +356,7 @@ impl SessionBalances {
                     balance.balance_at,
                     balance.is_opening,
                     balance.quantity,
-                    balance.file_id,
+                    balance.source_id,
                 )
             });
             stated.dedup_by_key(|balance| (balance.balance_at, balance.quantity));
@@ -408,7 +408,9 @@ impl SessionBalances {
             let first_row = self
                 .row_dates
                 .iter()
-                .filter(|((file_id, moved), _)| *file_id == first.file_id || moved == position)
+                .filter(|((source_id, moved), _)| {
+                    *source_id == first.source_id || moved == position
+                })
                 .map(|(_, (starts, _))| *starts)
                 .min();
             let date = first_row.map_or(first.balance_at, |row| {
@@ -452,7 +454,7 @@ impl SessionBalances {
             starting_balances.push(ImportStartingBalanceDto {
                 account_id: position.0,
                 asset_id: position.1,
-                file_id: first.file_id,
+                source_id: first.source_id,
                 date,
                 quantity,
             });
@@ -631,11 +633,11 @@ fn balance_at(assertion: &ImportAssertionDto) -> Date {
 
 fn widen(
     periods: &mut HashMap<(Uuid, Position), Period>,
-    file_id: Uuid,
+    source_id: Uuid,
     position: Position,
     date: Date,
 ) {
-    let (first, last) = periods.entry((file_id, position)).or_insert((date, date));
+    let (first, last) = periods.entry((source_id, position)).or_insert((date, date));
     *first = (*first).min(date);
     *last = (*last).max(date);
 }
@@ -837,14 +839,14 @@ mod tests {
     };
 
     const ACCOUNT: Uuid = Uuid::from_u128(1);
-    const FILE: Uuid = Uuid::from_u128(2);
-    const NEXT_FILE: Uuid = Uuid::from_u128(3);
+    const SOURCE: Uuid = Uuid::from_u128(2);
+    const NEXT_SOURCE: Uuid = Uuid::from_u128(3);
     const GBP: i32 = 45;
     const USD: i32 = 46;
 
     fn assertion(kind: ImportAssertionKindDto, on: Date, quantity: Decimal) -> ImportAssertionDto {
         ImportAssertionDto {
-            file_id: FILE,
+            source_id: SOURCE,
             account_ref: "Current".to_string(),
             asset_ref: Some("GBP".to_string()),
             kind,
@@ -865,8 +867,8 @@ mod tests {
         assertion(ImportAssertionKindDto::Snapshot, on, quantity)
     }
 
-    fn in_next_file(mut assertion: ImportAssertionDto) -> ImportAssertionDto {
-        assertion.file_id = NEXT_FILE;
+    fn in_next_source(mut assertion: ImportAssertionDto) -> ImportAssertionDto {
+        assertion.source_id = NEXT_SOURCE;
         assertion
     }
 
@@ -879,7 +881,7 @@ mod tests {
         ImportProposalRowDto {
             id: Uuid::now_v7(),
             kind: ImportRowKindDto::Movement,
-            file_ids: vec![FILE],
+            source_ids: vec![SOURCE],
             ask_key: None,
             verb,
             verb_locked: false,
@@ -897,10 +899,11 @@ mod tests {
                 account_id: ACCOUNT,
                 asset_id: GBP,
                 quantity,
-                file_id: FILE,
+                source_id: SOURCE,
                 date: on,
                 description: None,
                 itemised_fee: None,
+                external_id: None,
             }],
             claims: claims
                 .iter()
@@ -939,9 +942,9 @@ mod tests {
         rows: Vec<ImportProposalRowDto>,
     ) -> SessionBalances {
         let mut balances = SessionBalances::new(assertions);
-        balances.add_account_mappings(&[FILE, NEXT_FILE].map(|file_id| {
+        balances.add_account_mappings(&[SOURCE, NEXT_SOURCE].map(|source_id| {
             ImportAccountMappingModel {
-                file_id,
+                source_id,
                 account_ref: "Current".to_string(),
                 account_id: Some(ACCOUNT),
             }
@@ -1035,7 +1038,7 @@ mod tests {
             vec![
                 closing(date!(2026 - 10 - 10), dec!(0)),
                 closing(date!(2026 - 10 - 12), dec!(0)),
-                in_next_file(closing(date!(2026 - 10 - 14), dec!(0))),
+                in_next_source(closing(date!(2026 - 10 - 14), dec!(0))),
             ],
             Vec::new(),
             vec![confirmed, unconfirmed],
@@ -1098,8 +1101,8 @@ mod tests {
         assert_eq!(alone.final_off_by, dec!(0));
 
         let mut both = march();
-        both.push(in_next_file(opening(date!(2026 - 03 - 12), dec!(980))));
-        both.push(in_next_file(closing(date!(2026 - 03 - 31), dec!(980))));
+        both.push(in_next_source(opening(date!(2026 - 03 - 12), dec!(980))));
+        both.push(in_next_source(closing(date!(2026 - 03 - 31), dec!(980))));
         let with_the_next = check_with(both, rows(), ledger());
         assert_eq!(
             with_the_next.changes,
@@ -1332,7 +1335,7 @@ mod tests {
         left_out.account_ref = "Deposit".to_string();
         let mut balances = balances(vec![left_out], Vec::new());
         balances.add_account_mappings(&[ImportAccountMappingModel {
-            file_id: FILE,
+            source_id: SOURCE,
             account_ref: "Deposit".to_string(),
             account_id: None,
         }]);
@@ -1372,7 +1375,7 @@ mod tests {
         ImportStartingBalanceDto {
             account_id: ACCOUNT,
             asset_id: GBP,
-            file_id: FILE,
+            source_id: SOURCE,
             date: on,
             quantity,
         }
@@ -1454,11 +1457,14 @@ mod tests {
 
     #[test]
     fn another_files_rows_do_not_date_the_starting_balance_of_a_position_they_do_not_move() {
-        let mut earlier_file = add(date!(2026 - 08 - 10), dec!(-8.20));
-        earlier_file.movements[0].file_id = NEXT_FILE;
+        let mut earlier_source = add(date!(2026 - 08 - 10), dec!(-8.20));
+        earlier_source.movements[0].source_id = NEXT_SOURCE;
         let found = starting_balances_in_two_currencies(
             vec![in_dollars(opening(date!(2026 - 09 - 04), dec!(63.20)))],
-            vec![earlier_file, dollars(add(date!(2026 - 09 - 04), dec!(10)))],
+            vec![
+                earlier_source,
+                dollars(add(date!(2026 - 09 - 04), dec!(10))),
+            ],
         );
         let mut held = starting(date!(2026 - 09 - 03), dec!(63.2));
         held.asset_id = USD;
@@ -1469,8 +1475,8 @@ mod tests {
     fn statements_that_follow_each_other_start_once_at_the_earliest() {
         let found = starting_balances(
             vec![
-                in_next_file(opening(date!(2026 - 10 - 01), dec!(80))),
-                in_next_file(closing(date!(2026 - 10 - 31), dec!(50))),
+                in_next_source(opening(date!(2026 - 10 - 01), dec!(80))),
+                in_next_source(closing(date!(2026 - 10 - 31), dec!(50))),
                 opening(date!(2026 - 09 - 01), dec!(100)),
                 closing(date!(2026 - 09 - 30), dec!(80)),
             ],
@@ -1589,7 +1595,7 @@ mod tests {
     ) -> SessionBalances {
         let mut balances = balances(assertions, rows);
         balances.add_account_mappings(&[ImportAccountMappingModel {
-            file_id: FILE,
+            source_id: SOURCE,
             account_ref: "Savings pot".to_string(),
             account_id: Some(ACCOUNT),
         }]);
@@ -1657,7 +1663,7 @@ mod tests {
         let found = starting_balances(
             vec![
                 opening(date!(2026 - 10 - 01), dec!(100)),
-                in_next_file(opening(date!(2026 - 10 - 01), dec!(300))),
+                in_next_source(opening(date!(2026 - 10 - 01), dec!(300))),
             ],
             Vec::new(),
             Vec::new(),
@@ -1710,7 +1716,7 @@ mod tests {
         let stated = || {
             [
                 closing(date!(2026 - 09 - 30), dec!(100)),
-                in_next_file(closing(date!(2026 - 09 - 30), dec!(100))),
+                in_next_source(closing(date!(2026 - 09 - 30), dec!(100))),
             ]
         };
         let [first, second] = stated();
@@ -2231,7 +2237,7 @@ mod tests {
         let disagreeing = checks(
             vec![
                 closing(date!(2026 - 03 - 31), dec!(1000)),
-                in_next_file(opening(date!(2026 - 04 - 01), dec!(1050))),
+                in_next_source(opening(date!(2026 - 04 - 01), dec!(1050))),
             ],
             vec![movement(1, date!(2026 - 02 - 01), dec!(1000))],
         );

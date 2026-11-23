@@ -1,6 +1,6 @@
 import { FileImage, FileSpreadsheet, FileText, RotateCw, X } from "lucide-react"
 
-import type { IdentifiableImportFile, ImportDateOrder } from "@/api"
+import type { ImportDateOrder, ImportFileSource } from "@/api"
 import {
   focusRing,
   Panel,
@@ -180,7 +180,7 @@ export function ImportFiles({
   acceptsFiles,
 }: {
   params: ImportSessionParams
-  files: readonly IdentifiableImportFile[]
+  files: readonly ImportFileSource[]
   acceptsFiles: boolean
 }) {
   const views = useImportFileViews(params.userId, files)
@@ -221,7 +221,7 @@ export function ImportFiles({
         >
           {views.map((view) => (
             <AttachedFileRow
-              key={view.file.file_id}
+              key={view.file.id}
               view={view}
               removable={acceptsFiles}
               onRemove={() => {

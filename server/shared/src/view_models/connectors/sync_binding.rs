@@ -13,6 +13,8 @@ pub struct SyncBindingRequestViewModel {
 #[derive(Clone, Debug, Serialize, Deserialize, ToSchema)]
 pub struct SyncReportViewModel {
     pub new_transactions: i64,
+    pub attached: i64,
+    pub held: i64,
     pub unchanged: i64,
     pub amended: i64,
     pub conflicts: i64,
@@ -26,6 +28,8 @@ impl From<SyncReportDto> for SyncReportViewModel {
     fn from(report: SyncReportDto) -> Self {
         Self {
             new_transactions: report.new_transactions as i64,
+            attached: report.attached as i64,
+            held: report.held as i64,
             unchanged: report.unchanged as i64,
             amended: report.amended as i64,
             conflicts: report.conflicts as i64,

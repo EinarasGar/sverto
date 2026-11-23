@@ -8,18 +8,20 @@ use time::{Date, OffsetDateTime};
 use crate::enums::transaction_types::DatabaseTransactionTypes;
 use crate::idens::import_idens::{
     ImportAccountMappingsIden, ImportAssertionsIden, ImportAssetMappingsIden,
-    ImportClassificationConversationsIden, ImportClassificationRunsIden, ImportFilesIden,
-    ImportLineClassificationsIden, ImportParsedLegsIden, ImportParsedLinesIden, ImportSessionsIden,
-    ImportStagedDecisionsIden,
+    ImportBankAccountsIden, ImportClassificationConversationsIden, ImportClassificationRunsIden,
+    ImportFilesIden, ImportLineClassificationsIden, ImportParsedLegsIden, ImportParsedLinesIden,
+    ImportSessionsIden, ImportSourcesIden, ImportStagedDecisionsIden,
 };
 use crate::idens::{ArrayFunc, CommonsIden, Unnest};
 use crate::models::import_models::{
-    ImportAssertionInsert, ImportAssertionKind, ImportDateOrder, ImportFileStatus,
-    ImportParsedLegInsert, ImportParsedLineInsert, ImportSessionLifecycle, ImportVerb,
+    ImportAccountMappingModel, ImportAssertionInsert, ImportAssertionKind, ImportAssetMappingModel,
+    ImportBankAccountInsert, ImportDateOrder, ImportFileStatus, ImportParsedLegInsert,
+    ImportParsedLineInsert, ImportSessionLifecycle, ImportSourceKind, ImportVerb,
 };
 use crate::query_params::import_params::{
-    ClassificationRunOutcome, GetImportFilesParams, GetImportFilesSearchType,
-    GetImportSessionsParams, GetImportSessionsSearchType,
+    ClassificationRunOutcome, DeleteImportSourcesParams, DeleteImportSourcesSearchType,
+    GetImportFilesParams, GetImportFilesSearchType, GetImportSessionsParams,
+    GetImportSessionsSearchType,
 };
 
 use super::DbQueryWithValues;
@@ -108,6 +110,19 @@ pub fn get_session_summaries(params: GetImportSessionsParams) -> DbQueryWithValu
             Alias::new("parsed_files"),
         )
         .expr_as(
+            subquery(
+                Query::select()
+                    .expr(Expr::cust("COUNT(*)"))
+                    .from(ImportBankAccountsIden::Table)
+                    .and_where(session_id_matches(
+                        ImportBankAccountsIden::Table,
+                        ImportBankAccountsIden::SessionId,
+                    ))
+                    .to_owned(),
+            ),
+            Alias::new("bank_accounts"),
+        )
+        .expr_as(
             latest_classification_run(ImportClassificationRunsIden::Id),
             Alias::new("classification_run_id"),
         )
@@ -166,8 +181,9 @@ pub fn get_session(params: GetImportSessionsParams) -> DbQueryWithValues {
     query.build_sqlx(PostgresQueryBuilder).into()
 }
 
-fn file_columns() -> [(ImportFilesIden, ImportFilesIden); 7] {
+fn file_columns() -> [(ImportFilesIden, ImportFilesIden); 8] {
     [
+        (ImportFilesIden::Table, ImportFilesIden::SourceId),
         (ImportFilesIden::Table, ImportFilesIden::FileId),
         (ImportFilesIden::Table, ImportFilesIden::ConversationId),
         (ImportFilesIden::Table, ImportFilesIden::Status),
@@ -218,13 +234,129 @@ pub fn get_session_files(params: GetImportFilesParams) -> DbQueryWithValues {
 }
 
 #[macros::named_query]
+pub fn get_session_sources(session_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
+    Query::select()
+        .columns([
+            (ImportSourcesIden::Table, ImportSourcesIden::Id),
+            (ImportSourcesIden::Table, ImportSourcesIden::Kind),
+            (ImportSourcesIden::Table, ImportSourcesIden::CreatedAt),
+        ])
+        .columns([
+            (ImportFilesIden::Table, ImportFilesIden::FileId),
+            (ImportFilesIden::Table, ImportFilesIden::Status),
+            (ImportFilesIden::Table, ImportFilesIden::ErrorMessage),
+            (ImportFilesIden::Table, ImportFilesIden::PausedUntil),
+            (ImportFilesIden::Table, ImportFilesIden::DateOrder),
+        ])
+        .columns([
+            (
+                ImportBankAccountsIden::Table,
+                ImportBankAccountsIden::BindingId,
+            ),
+            (
+                ImportBankAccountsIden::Table,
+                ImportBankAccountsIden::CutoffPageId,
+            ),
+        ])
+        .from(ImportSourcesIden::Table)
+        .left_join(
+            ImportFilesIden::Table,
+            Expr::col((ImportFilesIden::Table, ImportFilesIden::SourceId))
+                .equals((ImportSourcesIden::Table, ImportSourcesIden::Id)),
+        )
+        .left_join(
+            ImportBankAccountsIden::Table,
+            Expr::col((
+                ImportBankAccountsIden::Table,
+                ImportBankAccountsIden::SourceId,
+            ))
+            .equals((ImportSourcesIden::Table, ImportSourcesIden::Id)),
+        )
+        .and_where(
+            Expr::col((ImportSourcesIden::Table, ImportSourcesIden::SessionId))
+                .in_subquery(owned_session(session_id, user_id)),
+        )
+        .order_by(
+            (ImportSourcesIden::Table, ImportSourcesIden::CreatedAt),
+            Order::Asc,
+        )
+        .order_by(
+            (ImportSourcesIden::Table, ImportSourcesIden::Id),
+            Order::Asc,
+        )
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn insert_sources(
+    session_id: Uuid,
+    user_id: Uuid,
+    kind: ImportSourceKind,
+    ids: Vec<Uuid>,
+) -> DbQueryWithValues {
+    let rows = active_session(session_id, user_id)
+        .clear_selects()
+        .expr(Func::cust(Unnest).arg(Expr::val(ids)))
+        .column(ImportSessionsIden::Id)
+        .expr(Expr::val(kind))
+        .to_owned();
+    Query::insert()
+        .into_table(ImportSourcesIden::Table)
+        .columns([
+            ImportSourcesIden::Id,
+            ImportSourcesIden::SessionId,
+            ImportSourcesIden::Kind,
+        ])
+        .select_from(rows)
+        .expect("the select yields one value per inserted column")
+        .build_sqlx(PostgresQueryBuilder)
+        .into()
+}
+
+#[macros::named_query]
+pub fn insert_bank_accounts(bank_accounts: &[ImportBankAccountInsert]) -> DbQueryWithValues {
+    let mut query = Query::insert();
+    query.into_table(ImportBankAccountsIden::Table).columns([
+        ImportBankAccountsIden::SessionId,
+        ImportBankAccountsIden::SourceId,
+        ImportBankAccountsIden::BindingId,
+        ImportBankAccountsIden::CutoffPageId,
+    ]);
+    for bank_account in bank_accounts {
+        query.values_panic([
+            bank_account.session_id.into(),
+            bank_account.source_id.into(),
+            bank_account.binding_id.into(),
+            bank_account.cutoff_page_id.into(),
+        ]);
+    }
+    query.build_sqlx(PostgresQueryBuilder).into()
+}
+
+#[macros::named_query]
+pub fn delete_sources(params: DeleteImportSourcesParams) -> DbQueryWithValues {
+    let mut query = Query::delete();
+    query.from_table(ImportSourcesIden::Table).and_where(
+        Expr::col(ImportSourcesIden::SessionId)
+            .in_subquery(owned_session(params.session_id, params.user_id)),
+    );
+    if let DeleteImportSourcesSearchType::ById(source_id) = params.search_type {
+        query.and_where(Expr::col(ImportSourcesIden::Id).eq(source_id));
+    }
+    query.build_sqlx(PostgresQueryBuilder).into()
+}
+
+#[macros::named_query]
 pub fn attach_file(
     session_id: Uuid,
     user_id: Uuid,
+    source_id: Uuid,
     file_id: Uuid,
     conversation_id: Uuid,
 ) -> DbQueryWithValues {
     let row = active_session(session_id, user_id)
+        .expr(Expr::val(source_id))
         .expr(Expr::val(file_id))
         .expr(Expr::val(conversation_id))
         .to_owned();
@@ -232,6 +364,7 @@ pub fn attach_file(
         .into_table(ImportFilesIden::Table)
         .columns([
             ImportFilesIden::SessionId,
+            ImportFilesIden::SourceId,
             ImportFilesIden::FileId,
             ImportFilesIden::ConversationId,
         ])
@@ -361,8 +494,6 @@ pub fn finish_file_parse(
     session_id: Uuid,
     file_id: Uuid,
     user_id: Uuid,
-    coverage_from: Option<Date>,
-    coverage_to: Option<Date>,
     date_order: Option<ImportDateOrder>,
 ) -> DbQueryWithValues {
     Query::update()
@@ -370,8 +501,6 @@ pub fn finish_file_parse(
         .value(ImportFilesIden::Status, ImportFileStatus::Parsed)
         .value(ImportFilesIden::ErrorMessage, Option::<String>::None)
         .value(ImportFilesIden::PausedUntil, Option::<OffsetDateTime>::None)
-        .value(ImportFilesIden::CoverageFrom, coverage_from)
-        .value(ImportFilesIden::CoverageTo, coverage_to)
         .value(
             ImportFilesIden::DateOrder,
             date_order.map(|date_order| date_order.as_str().to_string()),
@@ -381,14 +510,15 @@ pub fn finish_file_parse(
         .and_where(
             Expr::col(ImportFilesIden::SessionId).in_subquery(active_session(session_id, user_id)),
         )
+        .returning_col(ImportFilesIden::SourceId)
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }
 
 #[macros::named_query]
-pub fn delete_file_parsed_lines(
+pub fn delete_source_parsed_lines(
     session_id: Uuid,
-    file_id: Uuid,
+    source_id: Uuid,
     user_id: Uuid,
 ) -> DbQueryWithValues {
     Query::delete()
@@ -397,20 +527,24 @@ pub fn delete_file_parsed_lines(
             Expr::col(ImportParsedLinesIden::SessionId)
                 .in_subquery(owned_session(session_id, user_id)),
         )
-        .and_where(Expr::col(ImportParsedLinesIden::FileId).eq(file_id))
+        .and_where(Expr::col(ImportParsedLinesIden::SourceId).eq(source_id))
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }
 
 #[macros::named_query]
-pub fn delete_file_assertions(session_id: Uuid, file_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
+pub fn delete_source_assertions(
+    session_id: Uuid,
+    source_id: Uuid,
+    user_id: Uuid,
+) -> DbQueryWithValues {
     Query::delete()
         .from_table(ImportAssertionsIden::Table)
         .and_where(
             Expr::col(ImportAssertionsIden::SessionId)
                 .in_subquery(owned_session(session_id, user_id)),
         )
-        .and_where(Expr::col(ImportAssertionsIden::FileId).eq(file_id))
+        .and_where(Expr::col(ImportAssertionsIden::SourceId).eq(source_id))
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }
@@ -421,7 +555,7 @@ pub fn insert_parsed_lines(lines: &[ImportParsedLineInsert]) -> DbQueryWithValue
     query.into_table(ImportParsedLinesIden::Table).columns([
         ImportParsedLinesIden::Id,
         ImportParsedLinesIden::SessionId,
-        ImportParsedLinesIden::FileId,
+        ImportParsedLinesIden::SourceId,
         ImportParsedLinesIden::TransactionKey,
         ImportParsedLinesIden::AccountRef,
         ImportParsedLinesIden::DateTransacted,
@@ -433,7 +567,7 @@ pub fn insert_parsed_lines(lines: &[ImportParsedLineInsert]) -> DbQueryWithValue
         query.values_panic([
             line.id.into(),
             line.session_id.into(),
-            line.file_id.into(),
+            line.source_id.into(),
             line.transaction_key.clone().into(),
             line.account_ref.clone().into(),
             line.date_transacted.into(),
@@ -469,7 +603,7 @@ pub fn insert_parsed_legs(legs: &[ImportParsedLegInsert]) -> DbQueryWithValues {
 pub fn get_assertions(session_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
     Query::select()
         .columns([
-            ImportAssertionsIden::FileId,
+            ImportAssertionsIden::SourceId,
             ImportAssertionsIden::AccountRef,
             ImportAssertionsIden::AssetRef,
             ImportAssertionsIden::AccountId,
@@ -492,7 +626,7 @@ pub fn insert_assertions(assertions: &[ImportAssertionInsert]) -> DbQueryWithVal
     let mut query = Query::insert();
     query.into_table(ImportAssertionsIden::Table).columns([
         ImportAssertionsIden::SessionId,
-        ImportAssertionsIden::FileId,
+        ImportAssertionsIden::SourceId,
         ImportAssertionsIden::AccountRef,
         ImportAssertionsIden::AssetRef,
         ImportAssertionsIden::Kind,
@@ -502,7 +636,7 @@ pub fn insert_assertions(assertions: &[ImportAssertionInsert]) -> DbQueryWithVal
     for assertion in assertions {
         query.values_panic([
             assertion.session_id.into(),
-            assertion.file_id.into(),
+            assertion.source_id.into(),
             assertion.account_ref.clone().into(),
             assertion.asset_ref.clone().into(),
             assertion.kind.into(),
@@ -568,7 +702,7 @@ fn checked_balances(session_id: Uuid, user_id: Uuid) -> Condition {
             Expr::col(ImportAssertionsIden::SessionId)
                 .in_subquery(owned_session(session_id, user_id)),
         )
-        .add(Expr::col(ImportAssertionsIden::FileId).is_not_null())
+        .add(Expr::col(ImportAssertionsIden::SourceId).is_not_null())
         .add(Expr::col(ImportAssertionsIden::Kind).ne(ImportAssertionKind::ValueTotal))
 }
 
@@ -576,14 +710,17 @@ fn checked_balances(session_id: Uuid, user_id: Uuid) -> Condition {
 pub fn get_session_account_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
     let stated = Query::select()
         .columns([
-            ImportAssertionsIden::FileId,
+            ImportAssertionsIden::SourceId,
             ImportAssertionsIden::AccountRef,
         ])
         .from(ImportAssertionsIden::Table)
         .cond_where(checked_balances(session_id, user_id))
         .to_owned();
     Query::select()
-        .column((ImportParsedLinesIden::Table, ImportParsedLinesIden::FileId))
+        .column((
+            ImportParsedLinesIden::Table,
+            ImportParsedLinesIden::SourceId,
+        ))
         .column((
             ImportParsedLinesIden::Table,
             ImportParsedLinesIden::AccountRef,
@@ -591,7 +728,7 @@ pub fn get_session_account_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithV
         .from(ImportParsedLinesIden::Table)
         .and_where(owned_session_lines(session_id, user_id))
         .union(UnionType::Distinct, stated)
-        .order_by(ImportParsedLinesIden::FileId, Order::Asc)
+        .order_by(ImportParsedLinesIden::SourceId, Order::Asc)
         .order_by(ImportParsedLinesIden::AccountRef, Order::Asc)
         .build_sqlx(PostgresQueryBuilder)
         .into()
@@ -602,7 +739,7 @@ pub fn get_session_asset_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithVal
     let counter_leg = Alias::new("counter_leg");
     let stated = Query::select()
         .columns([
-            ImportAssertionsIden::FileId,
+            ImportAssertionsIden::SourceId,
             ImportAssertionsIden::AccountRef,
             ImportAssertionsIden::AssetRef,
         ])
@@ -615,7 +752,10 @@ pub fn get_session_asset_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithVal
         .and_where(Expr::col(ImportAssertionsIden::AssetRef).is_not_null())
         .to_owned();
     let legs = Query::select()
-        .column((ImportParsedLinesIden::Table, ImportParsedLinesIden::FileId))
+        .column((
+            ImportParsedLinesIden::Table,
+            ImportParsedLinesIden::SourceId,
+        ))
         .column((
             ImportParsedLinesIden::Table,
             ImportParsedLinesIden::AccountRef,
@@ -669,7 +809,10 @@ pub fn get_session_asset_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithVal
     .equals((ImportParsedLinesIden::Table, ImportParsedLinesIden::Id));
     let keyed_legs = Query::select()
         .distinct()
-        .column((ImportParsedLinesIden::Table, ImportParsedLinesIden::FileId))
+        .column((
+            ImportParsedLinesIden::Table,
+            ImportParsedLinesIden::SourceId,
+        ))
         .column((
             ImportParsedLinesIden::Table,
             ImportParsedLinesIden::TransactionKey,
@@ -690,7 +833,10 @@ pub fn get_session_asset_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithVal
         )
         .to_owned();
     let keyed = Query::select()
-        .column((ImportParsedLinesIden::Table, ImportParsedLinesIden::FileId))
+        .column((
+            ImportParsedLinesIden::Table,
+            ImportParsedLinesIden::SourceId,
+        ))
         .column((
             ImportParsedLinesIden::Table,
             ImportParsedLinesIden::AccountRef,
@@ -711,8 +857,10 @@ pub fn get_session_asset_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithVal
             keyed_leg.clone(),
             Cond::all()
                 .add(
-                    Expr::col((keyed_leg.clone(), ImportParsedLinesIden::FileId))
-                        .equals((ImportParsedLinesIden::Table, ImportParsedLinesIden::FileId)),
+                    Expr::col((keyed_leg.clone(), ImportParsedLinesIden::SourceId)).equals((
+                        ImportParsedLinesIden::Table,
+                        ImportParsedLinesIden::SourceId,
+                    )),
                 )
                 .add(
                     Expr::col((keyed_leg.clone(), ImportParsedLinesIden::TransactionKey)).equals((
@@ -733,7 +881,10 @@ pub fn get_session_asset_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithVal
         )
         .to_owned();
     Query::select()
-        .column((ImportParsedLinesIden::Table, ImportParsedLinesIden::FileId))
+        .column((
+            ImportParsedLinesIden::Table,
+            ImportParsedLinesIden::SourceId,
+        ))
         .column((
             ImportParsedLinesIden::Table,
             ImportParsedLinesIden::AccountRef,
@@ -788,7 +939,7 @@ pub fn get_session_asset_refs(session_id: Uuid, user_id: Uuid) -> DbQueryWithVal
 pub fn get_account_mappings(session_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
     Query::select()
         .columns([
-            ImportAccountMappingsIden::FileId,
+            ImportAccountMappingsIden::SourceId,
             ImportAccountMappingsIden::AccountRef,
             ImportAccountMappingsIden::AccountId,
         ])
@@ -797,7 +948,7 @@ pub fn get_account_mappings(session_id: Uuid, user_id: Uuid) -> DbQueryWithValue
             Expr::col(ImportAccountMappingsIden::SessionId)
                 .in_subquery(owned_session(session_id, user_id)),
         )
-        .order_by(ImportAccountMappingsIden::FileId, Order::Asc)
+        .order_by(ImportAccountMappingsIden::SourceId, Order::Asc)
         .order_by(ImportAccountMappingsIden::AccountRef, Order::Asc)
         .build_sqlx(PostgresQueryBuilder)
         .into()
@@ -807,26 +958,35 @@ pub fn get_account_mappings(session_id: Uuid, user_id: Uuid) -> DbQueryWithValue
 pub fn insert_account_answers(
     session_id: Uuid,
     user_id: Uuid,
-    file_ids: Vec<Uuid>,
-    account_ref: String,
-    account_id: Option<Uuid>,
+    answers: Vec<ImportAccountMappingModel>,
 ) -> DbQueryWithValues {
+    let answer = Alias::new("answer");
     let rows = Query::select()
-        .column(ImportFilesIden::SessionId)
-        .column(ImportFilesIden::FileId)
-        .expr(Expr::val(account_ref))
-        .expr(Expr::val(account_id))
-        .from(ImportFilesIden::Table)
-        .and_where(
-            Expr::col(ImportFilesIden::SessionId).in_subquery(active_session(session_id, user_id)),
+        .column((ImportSourcesIden::Table, ImportSourcesIden::SessionId))
+        .column((ImportSourcesIden::Table, ImportSourcesIden::Id))
+        .column((answer.clone(), Alias::new("column2")))
+        .column((answer.clone(), Alias::new("column3")))
+        .from_values(
+            answers
+                .into_iter()
+                .map(|answer| (answer.source_id, answer.account_ref, answer.account_id)),
+            answer.clone(),
         )
-        .and_where(Expr::col(ImportFilesIden::FileId).eq(PgFunc::any(Expr::val(file_ids))))
+        .inner_join(
+            ImportSourcesIden::Table,
+            Expr::col((ImportSourcesIden::Table, ImportSourcesIden::Id))
+                .equals((answer, Alias::new("column1"))),
+        )
+        .and_where(
+            Expr::col((ImportSourcesIden::Table, ImportSourcesIden::SessionId))
+                .in_subquery(active_session(session_id, user_id)),
+        )
         .to_owned();
     Query::insert()
         .into_table(ImportAccountMappingsIden::Table)
         .columns([
             ImportAccountMappingsIden::SessionId,
-            ImportAccountMappingsIden::FileId,
+            ImportAccountMappingsIden::SourceId,
             ImportAccountMappingsIden::AccountRef,
             ImportAccountMappingsIden::AccountId,
         ])
@@ -835,7 +995,7 @@ pub fn insert_account_answers(
         .on_conflict(
             OnConflict::columns([
                 ImportAccountMappingsIden::SessionId,
-                ImportAccountMappingsIden::FileId,
+                ImportAccountMappingsIden::SourceId,
                 ImportAccountMappingsIden::AccountRef,
             ])
             .do_nothing()
@@ -862,15 +1022,23 @@ pub fn get_asset_mappings(session_id: Uuid, user_id: Uuid) -> DbQueryWithValues 
 }
 
 #[macros::named_query]
-pub fn insert_asset_answer(
+pub fn insert_asset_answers(
     session_id: Uuid,
     user_id: Uuid,
-    asset_ref: String,
-    asset_id: Option<i32>,
+    answers: Vec<ImportAssetMappingModel>,
 ) -> DbQueryWithValues {
-    let row = active_session(session_id, user_id)
-        .expr(Expr::val(asset_ref))
-        .expr(Expr::val(asset_id))
+    let answer = Alias::new("answer");
+    let rows = active_session(session_id, user_id)
+        .clear_selects()
+        .column((ImportSessionsIden::Table, ImportSessionsIden::Id))
+        .column((answer.clone(), Alias::new("column1")))
+        .column((answer.clone(), Alias::new("column2")))
+        .from_values(
+            answers
+                .into_iter()
+                .map(|answer| (answer.asset_ref, answer.asset_id)),
+            answer,
+        )
         .to_owned();
     Query::insert()
         .into_table(ImportAssetMappingsIden::Table)
@@ -879,7 +1047,7 @@ pub fn insert_asset_answer(
             ImportAssetMappingsIden::AssetRef,
             ImportAssetMappingsIden::AssetId,
         ])
-        .select_from(row)
+        .select_from(rows)
         .expect("the select yields one value per inserted column")
         .on_conflict(
             OnConflict::columns([
@@ -898,7 +1066,10 @@ pub fn get_parsed_lines(session_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
     Query::select()
         .columns([
             (ImportParsedLinesIden::Table, ImportParsedLinesIden::Id),
-            (ImportParsedLinesIden::Table, ImportParsedLinesIden::FileId),
+            (
+                ImportParsedLinesIden::Table,
+                ImportParsedLinesIden::SourceId,
+            ),
             (
                 ImportParsedLinesIden::Table,
                 ImportParsedLinesIden::TransactionKey,
@@ -918,6 +1089,10 @@ pub fn get_parsed_lines(session_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
             (
                 ImportParsedLinesIden::Table,
                 ImportParsedLinesIden::RelatedAssetRef,
+            ),
+            (
+                ImportParsedLinesIden::Table,
+                ImportParsedLinesIden::ExternalId,
             ),
         ])
         .from(ImportParsedLinesIden::Table)
@@ -1302,7 +1477,7 @@ pub fn detach_file(session_id: Uuid, file_id: Uuid, user_id: Uuid) -> DbQueryWit
         .and_where(
             Expr::col(ImportFilesIden::SessionId).in_subquery(active_session(session_id, user_id)),
         )
-        .returning_col(ImportFilesIden::ConversationId)
+        .returning(Query::returning().columns(file_columns().map(|(_, column)| column)))
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }

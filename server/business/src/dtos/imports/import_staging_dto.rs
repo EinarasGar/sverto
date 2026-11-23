@@ -85,16 +85,17 @@ pub struct StagedMovementDto {
     pub account_id: Uuid,
     pub asset_id: i32,
     pub quantity: Decimal,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub date: Date,
     pub description: Option<String>,
     pub itemised_fee: Option<Decimal>,
+    pub external_id: Option<String>,
 }
 
 #[derive(Debug, Clone)]
 pub struct StagedTransactionDto {
     pub id: Uuid,
-    pub file_ids: Vec<Uuid>,
+    pub source_ids: Vec<Uuid>,
     pub transaction: TransactionDto,
     pub movements: Vec<StagedMovementDto>,
 }
@@ -102,7 +103,7 @@ pub struct StagedTransactionDto {
 #[derive(Debug, Clone, PartialEq)]
 pub struct UnstageableGroupDto {
     pub id: Uuid,
-    pub file_ids: Vec<Uuid>,
+    pub source_ids: Vec<Uuid>,
     pub date: OffsetDateTime,
     pub description: Option<String>,
     pub reason: String,
@@ -169,7 +170,7 @@ pub enum ImportAmendRefusalDto {
 pub struct ImportProposalRowDto {
     pub id: Uuid,
     pub kind: ImportRowKindDto,
-    pub file_ids: Vec<Uuid>,
+    pub source_ids: Vec<Uuid>,
     pub ask_key: Option<String>,
     pub verb: ImportVerbDto,
     pub verb_locked: bool,

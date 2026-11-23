@@ -21,10 +21,12 @@ import { countOf } from "@/lib/format"
 
 import type { ImportSessionParams } from "./api"
 import { useApplyImportSession } from "./api"
+import type { SourceCopy } from "./status"
 
 function writeSummary(
   items: IdentifiableStagedTransaction[],
-  unstageable: number
+  unstageable: number,
+  sourceCopy: SourceCopy
 ): string {
   const count = (verb: ImportItemVerb) =>
     items.filter((item) => item.verb === verb).length
@@ -35,7 +37,7 @@ function writeSummary(
     count("add") > 0
       ? `adds ${countOf(count("add"), "transaction")}${
           starting > 0
-            ? ` (${countOf(starting, "starting balance")} from the statements)`
+            ? ` (${countOf(starting, "starting balance")} ${sourceCopy.startingBalancesFrom})`
             : ""
         }`
       : null,
@@ -68,6 +70,7 @@ export function ImportApply({
   items,
   unstageable,
   checks,
+  sourceCopy,
   blocked,
 }: {
   params: ImportSessionParams
@@ -75,11 +78,12 @@ export function ImportApply({
   items: IdentifiableStagedTransaction[]
   unstageable: number
   checks: ImportBalanceCheck[]
+  sourceCopy: SourceCopy
   blocked: string | undefined
 }) {
   const [confirming, setConfirming] = useState(false)
   const apply = useApplyImportSession(params)
-  const summary = writeSummary(items, unstageable)
+  const summary = writeSummary(items, unstageable, sourceCopy)
   const off = checks.filter(isOff).length
 
   return (
@@ -114,7 +118,7 @@ export function ImportApply({
             </AlertDialogDescription>
             {off > 0 ? (
               <p className="mt-[7px] text-[11.5px] leading-[1.6] text-pretty text-attention sm:text-left">
-                {countOf(off, "account")} won't match the statements' balances.
+                {countOf(off, "account")} {sourceCopy.balancesOff}
               </p>
             ) : null}
           </div>

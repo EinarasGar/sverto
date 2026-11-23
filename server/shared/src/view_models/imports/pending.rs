@@ -24,7 +24,7 @@ pub struct PendingLeg {
 #[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct IdentifiableImportPendingTransactionViewModel {
     pub id: Uuid,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub account_ref: String,
     #[serde(with = "time::serde::rfc3339")]
     pub date: OffsetDateTime,
@@ -51,7 +51,7 @@ impl From<ImportPendingLineDto> for IdentifiableImportPendingTransactionViewMode
     fn from(value: ImportPendingLineDto) -> Self {
         Self {
             id: value.id,
-            file_id: value.file_id,
+            source_id: value.source_id,
             account_ref: value.account_ref,
             date: value.date,
             description: value.description,

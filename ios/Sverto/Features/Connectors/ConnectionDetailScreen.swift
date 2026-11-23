@@ -61,7 +61,7 @@ private struct ConnectionDetailContent: View {
         .listStyle(.insetGrouped)
         .navigationTitle(connector?.name ?? "Connection")
         .navigationBarTitleDisplayMode(.inline)
-        .task { await model.load() }
+        .onAppear { Task { await model.load() } }
         .refreshable { await model.load() }
         .toastOnError(model.error)
         .confirmationDialog(
@@ -108,6 +108,7 @@ private struct ConnectionDetailContent: View {
                                 currency: nil
                             ))
                         },
+                        onOpenImport: { shell.push(.importSession(id: $0)) },
                         onUpdate: { writeMode, status in
                             Task { await model.updateBinding(binding, writeMode: writeMode, status: status) }
                         },

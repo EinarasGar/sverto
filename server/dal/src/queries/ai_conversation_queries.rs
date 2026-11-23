@@ -164,11 +164,19 @@ pub fn append_conversation_history(
 }
 
 #[macros::named_query]
-pub fn delete_conversation(conversation_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
+pub fn delete_chat(conversation_id: Uuid, user_id: Uuid) -> DbQueryWithValues {
     Query::delete()
         .from_table(AiConversationsIden::Table)
         .and_where(Expr::col(AiConversationsIden::Id).eq(conversation_id))
         .and_where(Expr::col(AiConversationsIden::UserId).eq(user_id))
+        .and_where(
+            Expr::col(AiConversationsIden::Id).in_subquery(
+                Query::select()
+                    .column(AiChatIden::ConversationId)
+                    .from(AiChatIden::Table)
+                    .take(),
+            ),
+        )
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }

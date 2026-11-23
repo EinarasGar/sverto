@@ -4,11 +4,13 @@ import SvertoCore
 struct TransactionListView: View {
     let model: TransactionsViewModel
     let quickUploads: QuickUploadViewModel
+    let held: HeldTransactionsViewModel
     let onTransactionTap: (TransactionListItem) -> Void
     let onQuickUploadTap: (QuickUploadUiItem) -> Void
 
     private static let loadMoreBuffer = 3
     private static let quickUploadsAnchor = "quick_uploads"
+    private static let heldAnchor = "held_transactions"
 
     private var loadMoreTriggerIds: Set<String> {
         Set(model.state.items.suffix(Self.loadMoreBuffer).map(\.id))
@@ -20,7 +22,10 @@ struct TransactionListView: View {
                 if !quickUploads.items.isEmpty {
                     quickUploadsSection
                 }
-                if model.state.items.isEmpty {
+                if !held.items.isEmpty {
+                    heldSection
+                }
+                if model.state.items.isEmpty, held.items.isEmpty {
                     emptySection
                 } else {
                     TransactionDaySections(
@@ -39,11 +44,13 @@ struct TransactionListView: View {
             .refreshable {
                 async let transactions: Void = model.refresh()
                 async let uploads: Void = quickUploads.refresh()
-                _ = await (transactions, uploads)
+                async let heldRows: Void = held.load()
+                _ = await (transactions, uploads, heldRows)
             }
-            .onChange(of: quickUploads.items.count) { oldCount, newCount in
+            .onChange(of: quickUploads.items.count + held.items.count) { oldCount, newCount in
                 guard newCount > oldCount else { return }
-                withAnimation { proxy.scrollTo(Self.quickUploadsAnchor, anchor: .top) }
+                let anchor = quickUploads.items.isEmpty ? Self.heldAnchor : Self.quickUploadsAnchor
+                withAnimation { proxy.scrollTo(anchor, anchor: .top) }
             }
         }
     }
@@ -52,6 +59,16 @@ struct TransactionListView: View {
         Section {
             QuickUploadsSection(viewModel: quickUploads, onItemTap: onQuickUploadTap)
                 .id(Self.quickUploadsAnchor)
+                .listRowInsets(EdgeInsets())
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+        }
+    }
+
+    private var heldSection: some View {
+        Section {
+            HeldTransactionsSection(model: held)
+                .id(Self.heldAnchor)
                 .listRowInsets(EdgeInsets())
                 .listRowBackground(Color.clear)
                 .listRowSeparator(.hidden)

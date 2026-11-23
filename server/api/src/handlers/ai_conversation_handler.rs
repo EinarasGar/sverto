@@ -126,7 +126,7 @@ pub async fn delete_conversation(
     AiConversationServiceState(service): AiConversationServiceState,
 ) -> Result<StatusCode, ApiError> {
     service
-        .delete_conversation(conversation_id, user_id)
+        .delete_chat(conversation_id, user_id)
         .await
         .map_err(ApiError::from_anyhow)?;
     Ok(StatusCode::NO_CONTENT)

@@ -9,7 +9,6 @@ pub struct AcceptedExtraction {
     pub assertions: Vec<ExtractedAssertion>,
     pub end_of_day_balances: Vec<ExtractedAssertion>,
     pub excluded: Vec<ExcludedRecords>,
-    pub coverage: Option<(Date, Date)>,
     pub unsettled_date_order: Option<DateOrder>,
 }
 

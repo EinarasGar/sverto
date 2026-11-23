@@ -35,11 +35,14 @@ use crate::{
     auth::AuthenticatedUserId,
     errors::ApiError,
     extractors::{ValidatedJson, ValidatedQuery},
-    states::{ConnectorServiceState, ConnectorSyncServiceState},
+    states::{ConnectorImportServiceState, ConnectorServiceState, ConnectorSyncServiceState},
     view_models::connectors::{
         base_models::ConnectorBindingViewModel,
         create_binding::{CreateBindingRequestViewModel, CreateBindingResponseViewModel},
         create_connection::{CreateConnectionRequestViewModel, CreateConnectionResponseViewModel},
+        create_import::{
+            CreateConnectorImportRequestViewModel, CreateConnectorImportResponseViewModel,
+        },
         get_bindings::GetBindingsResponseViewModel,
         get_connections::GetConnectionsResponseViewModel,
         ingest::{IngestTransactionsRequestViewModel, IngestTransactionsResponseViewModel},
@@ -124,7 +127,10 @@ pub async fn list_connections(
     let connections = connector_service.list_connections(user_id).await?;
 
     Ok(Json(GetConnectionsResponseViewModel {
-        connections: connections.into_iter().map(Into::into).collect(),
+        connections: connections
+            .into_iter()
+            .map(TryInto::try_into)
+            .collect::<anyhow::Result<_>>()?,
     }))
 }
 
@@ -316,7 +322,6 @@ pub async fn complete_oauth_session(
         session_id,
     }): Path<ConnectionSessionPath>,
     ConnectorServiceState(connector_service): ConnectorServiceState,
-    ConnectorSyncServiceState(sync_service): ConnectorSyncServiceState,
     ValidatedJson(body): ValidatedJson<CompleteOAuthSessionRequestViewModel>,
 ) -> Result<Json<CompleteOAuthSessionResponseViewModel>, ApiError> {
     // State is validated even on provider-error redirects — RFC 6749 error responses still
@@ -338,7 +343,7 @@ pub async fn complete_oauth_session(
             .await?;
         return Ok(Json(CompleteOAuthSessionResponseViewModel {
             status: OAuthSessionStatus::Denied,
-            connection: connection.into(),
+            connection: connection.try_into()?,
         }));
     }
 
@@ -355,20 +360,13 @@ pub async fn complete_oauth_session(
         )
         .await?;
 
-    if let Err(e) = sync_service
-        .run_attended_backfill(user_id, connection_id)
-        .await
-    {
-        tracing::warn!(connection_id = %connection_id, error = ?e, "attended backfill after consent failed");
-    }
-
     let connection = connector_service
         .get_connection(user_id, connection_id)
         .await?;
 
     Ok(Json(CompleteOAuthSessionResponseViewModel {
         status: OAuthSessionStatus::Completed,
-        connection: connection.into(),
+        connection: connection.try_into()?,
     }))
 }
 
@@ -448,13 +446,14 @@ pub async fn list_provider_account_transactions(
 
 /// Create Binding
 ///
-/// Creates a new binding between a connection and a provider account.
+/// Creates a new binding between a connection and a provider account, active at once.
 #[utoipa::path(
     post,
     path = "/api/users/{user_id}/connectors/connections/{connection_id}/bindings",
     tag = "Connectors",
     responses(
         (status = 201, description = "Binding created successfully.", body = CreateBindingResponseViewModel),
+        (status = 409, description = "The connection's accounts are linked by importing them."),
         CreateResponses
     ),
     params(
@@ -482,11 +481,57 @@ pub async fn create_binding(
             body.sverto_account_id,
             body.provider_account_id,
             "ghost".to_string(),
+            body.import_from.into(),
         )
         .await
         .map_err(ApiError::from_anyhow)?;
 
     Ok(Json(CreateBindingResponseViewModel { binding_id }))
+}
+
+/// Import Connection Accounts
+///
+/// Links provider accounts of a connection to Sverto accounts through a new import session
+/// built from their fetched history. The links stay pending, and sync leaves them alone, until
+/// the session is applied; deleting the session removes them. Only connections whose accounts
+/// link by import (`links_by_import`) import; the others link accounts directly.
+#[utoipa::path(
+    post,
+    path = "/api/users/{user_id}/connectors/connections/{connection_id}/imports",
+    tag = "Connectors",
+    responses(
+        (status = 201, description = "Import session created.", body = CreateConnectorImportResponseViewModel),
+        (status = 409, description = "The connection links accounts directly, an account is already linked, or its full history hasn't been fetched."),
+        CreateResponses
+    ),
+    params(
+        ("user_id" = Uuid, Path, description = "Unique Identifier of the user."),
+        ("connection_id" = Uuid, Path, description = "Id of the connection to import from."),
+    ),
+    request_body(
+        content = CreateConnectorImportRequestViewModel,
+    ),
+    security(
+        ("auth_token" = [])
+    )
+)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, connection_id = %connection_id))]
+pub async fn create_connector_import(
+    AuthenticatedUserId(user_id): AuthenticatedUserId,
+    Path(ConnectionIdPath { connection_id }): Path<ConnectionIdPath>,
+    ConnectorImportServiceState(service): ConnectorImportServiceState,
+    ValidatedJson(body): ValidatedJson<CreateConnectorImportRequestViewModel>,
+) -> Result<(StatusCode, Json<CreateConnectorImportResponseViewModel>), ApiError> {
+    body.validate()?;
+    let import_session_id = service
+        .create_import(user_id, connection_id, body.into())
+        .await
+        .map_err(ApiError::from_anyhow)?;
+
+    Ok((
+        StatusCode::CREATED,
+        Json(CreateConnectorImportResponseViewModel { import_session_id }),
+    ))
 }
 
 /// List Bindings
@@ -593,6 +638,7 @@ pub async fn get_sync_checkpoint(
     tag = "Connectors",
     responses(
         (status = 200, description = "Binding updated successfully.", body = ConnectorBindingViewModel),
+        (status = 409, description = "The binding is waiting for its import to be applied or deleted."),
         UpdateResponses
     ),
     params(
@@ -636,6 +682,7 @@ pub async fn update_binding(
     tag = "Connectors",
     responses(
         (status = 200, description = "Binding deleted successfully."),
+        (status = 409, description = "The binding is waiting for its import to be applied or deleted."),
         DeleteResponses
     ),
     params(

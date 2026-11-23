@@ -92,10 +92,13 @@ pub struct ConnectorBindingDto {
     pub last_sync_error: Option<String>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
+    pub provider_kind: String,
+    pub import_session_id: Option<Uuid>,
 }
 
 impl From<ConnectorBindingRow> for ConnectorBindingDto {
     fn from(row: ConnectorBindingRow) -> Self {
+        let status = BindingStatusDto::from_db_str(&row.status).unwrap_or(BindingStatusDto::Error);
         Self {
             id: row.id,
             provider_account_ref: row.provider_account_ref,
@@ -103,13 +106,17 @@ impl From<ConnectorBindingRow> for ConnectorBindingDto {
             sverto_account_id: row.sverto_account_id,
             provider_account_id: row.provider_account_id,
             write_mode: row.write_mode,
-            status: BindingStatusDto::from_db_str(&row.status).unwrap_or(BindingStatusDto::Error),
+            status,
             synced_through: row.synced_through,
             last_sync_at: row.last_sync_at,
             last_sync_status: row.last_sync_status,
             last_sync_error: row.last_sync_error,
             created_at: row.created_at,
             updated_at: row.updated_at,
+            provider_kind: row.provider_kind,
+            import_session_id: row
+                .import_session_id
+                .filter(|_| status == BindingStatusDto::Pending),
         }
     }
 }

@@ -5,7 +5,9 @@ use business::dtos::imports::{
     import_session_dto::{
         ImportSessionCountsDto, ImportSessionDetailDto, ImportSessionDto, ImportSessionStatusDto,
     },
+    import_source_dto::{ImportSourceBankAccountDto, ImportSourceDto, ImportSourceKindDto},
 };
+use macros::type_tag;
 use serde::{Deserialize, Serialize};
 use time::{serde::rfc3339, OffsetDateTime};
 use uuid::Uuid;
@@ -101,10 +103,56 @@ pub struct IdentifiableImportFileViewModel {
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
+#[serde(rename_all = "snake_case", untagged)]
+#[schema(discriminator = "kind")]
+pub enum IdentifiableImportSourceViewModel {
+    File(ImportFileSource),
+    BankAccount(ImportBankAccountSource),
+}
+
+#[type_tag(value = "file", tag = "kind")]
+#[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ImportFileSource {
+    pub id: Uuid,
+    pub file_id: Uuid,
+    pub status: ImportFileStatus,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    #[serde(
+        default,
+        with = "time::serde::rfc3339::option",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub paused_until: Option<OffsetDateTime>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub date_order: Option<ImportDateOrder>,
+    #[serde(with = "rfc3339")]
+    pub created_at: OffsetDateTime,
+    pub recorded_transactions: i64,
+}
+
+#[type_tag(value = "bank_account", tag = "kind")]
+#[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct ImportBankAccountSource {
+    pub id: Uuid,
+    pub binding_id: Uuid,
+    pub provider_kind: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub display_name: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub currency: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub account_number_last4: Option<String>,
+    #[serde(with = "rfc3339")]
+    pub created_at: OffsetDateTime,
+    pub recorded_transactions: i64,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ImportSessionDetailResponseViewModel {
     pub session: ImportSessionResponseViewModel,
     pub conversation_id: Uuid,
-    pub files: Vec<IdentifiableImportFileViewModel>,
+    pub sources: Vec<IdentifiableImportSourceViewModel>,
     pub open_asks: Vec<IdentifiableImportAskViewModel>,
     pub counts: ImportSessionCountsViewModel,
 }
@@ -206,7 +254,7 @@ impl From<ImportSessionDetailDto> for ImportSessionDetailResponseViewModel {
         Self {
             conversation_id: value.session.conversation_id,
             session: value.session.into(),
-            files: value.files.into_iter().map(Into::into).collect(),
+            sources: value.sources.into_iter().map(Into::into).collect(),
             open_asks: value.open_asks.into_iter().map(Into::into).collect(),
             counts: value.counts.into(),
         }
@@ -256,6 +304,42 @@ impl From<ImportFileDto> for IdentifiableImportFileViewModel {
             date_order: value.date_order.map(Into::into),
             created_at: value.created_at,
             recorded_transactions: value.recorded_transactions,
+        }
+    }
+}
+
+#[cfg(feature = "backend")]
+impl From<ImportSourceDto> for IdentifiableImportSourceViewModel {
+    fn from(value: ImportSourceDto) -> Self {
+        match value.kind {
+            ImportSourceKindDto::File(file) => Self::File(ImportFileSource {
+                kind: Default::default(),
+                id: value.id,
+                file_id: file.file_id,
+                status: file.status.into(),
+                error_message: file.error_message,
+                paused_until: file.paused_until,
+                date_order: file.date_order.map(Into::into),
+                created_at: value.created_at,
+                recorded_transactions: value.recorded_transactions,
+            }),
+            ImportSourceKindDto::BankAccount(ImportSourceBankAccountDto {
+                binding_id,
+                provider_kind,
+                display_name,
+                currency,
+                account_number_last4,
+            }) => Self::BankAccount(ImportBankAccountSource {
+                kind: Default::default(),
+                id: value.id,
+                binding_id,
+                provider_kind,
+                display_name,
+                currency,
+                account_number_last4,
+                created_at: value.created_at,
+                recorded_transactions: value.recorded_transactions,
+            }),
         }
     }
 }

@@ -1,9 +1,13 @@
 use async_trait::async_trait;
 
-use crate::enablebanking::client::EnableBankingClient;
+use crate::enablebanking::client::{
+    booked_balance, parse_authorized_accounts, pick_display_balance, EnableBankingClient,
+};
 use crate::enablebanking::config::EnableBankingConfig;
+use crate::enablebanking::session::StoredSession;
 use crate::models::account::ProviderAccount;
 use crate::models::aspsp::Aspsp;
+use crate::models::balance::ProviderBookedBalance;
 use crate::port::{Connector, ConnectorStore};
 use crate::provider::{BeginOauthOptions, CredentialSource, Provider, ProviderKind};
 use crate::Result;
@@ -38,12 +42,18 @@ impl Provider for EnableBankingProvider {
     }
 
     async fn list_accounts(&self, store: &dyn ConnectorStore) -> Result<Vec<ProviderAccount>> {
-        let session_id = store
+        let credential = store
             .get_credential()
             .await?
             .ok_or_else(|| anyhow::anyhow!("enablebanking connection has no stored session id"))?;
-        let client = EnableBankingClient::new(String::from_utf8(session_id)?)?;
-        client.list_accounts().await
+        match serde_json::from_slice::<StoredSession>(&credential) {
+            Ok(session) => Ok(session.accounts),
+            Err(_) => {
+                EnableBankingClient::new(String::from_utf8(credential)?)?
+                    .list_accounts()
+                    .await
+            }
+        }
     }
 
     async fn list_aspsps(&self, _store: &dyn ConnectorStore, country: &str) -> Result<Vec<Aspsp>> {
@@ -90,7 +100,18 @@ impl Provider for EnableBankingProvider {
             .and_then(|v| v.as_str())
             .ok_or_else(|| anyhow::anyhow!("enablebanking /sessions response missing session id"))?
             .to_string();
-        store.put_credential(session_id.as_bytes()).await?;
+
+        let accounts = futures::future::try_join_all(
+            parse_authorized_accounts(&session)
+                .into_iter()
+                .map(capture_balances),
+        )
+        .await?;
+        let stored = StoredSession {
+            session_id,
+            accounts,
+        };
+        store.put_credential(&serde_json::to_vec(&stored)?).await?;
 
         Ok(Some(
             time::OffsetDateTime::now_utc()
@@ -228,4 +249,26 @@ mod tests {
         store.expect_put_credential().returning(|_| Ok(()));
         store
     }
+}
+
+async fn capture_balances(mut account: ProviderAccount) -> Result<ProviderAccount> {
+    let client = EnableBankingClient::new(account.provider_account_id.clone())?;
+    let captured_at = time::OffsetDateTime::now_utc();
+    let balances = match client.fetch_balances().await {
+        Ok(balances) => balances,
+        Err(e) => {
+            tracing::warn!(error = %e, "enablebanking balance fetch at consent failed");
+            return Ok(account);
+        }
+    };
+    account.balance = pick_display_balance(&balances);
+    if account.currency.is_none() {
+        account.currency = account.balance.as_ref().map(|b| b.currency.clone());
+    }
+    account.booked_balance = booked_balance(&balances).map(|balance| ProviderBookedBalance {
+        currency: balance.currency,
+        amount: balance.amount,
+        captured_at,
+    });
+    Ok(account)
 }

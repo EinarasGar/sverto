@@ -132,12 +132,8 @@ impl AiConversationService {
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(conversation_id = %conversation_id, user_id = %user_id))]
-    pub async fn delete_conversation(
-        &self,
-        conversation_id: Uuid,
-        user_id: Uuid,
-    ) -> anyhow::Result<()> {
-        let query = ai_conversation_queries::delete_conversation(conversation_id, user_id);
+    pub async fn delete_chat(&self, conversation_id: Uuid, user_id: Uuid) -> anyhow::Result<()> {
+        let query = ai_conversation_queries::delete_chat(conversation_id, user_id);
         self.db.execute(query).await?;
         Ok(())
     }

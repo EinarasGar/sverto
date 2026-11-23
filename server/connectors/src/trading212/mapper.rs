@@ -73,6 +73,7 @@ pub fn map_transaction(raw: &Value) -> MappedTransaction {
         description,
         asset_identifier: None,
         quantity: None,
+        counterparty_iban: None,
     })
 }
 
@@ -160,6 +161,7 @@ pub fn map_order(raw: &Value) -> MappedTransaction {
         description: format!("{side} {quantity} {ticker}"),
         asset_identifier: Some(ticker),
         quantity: Some(quantity),
+        counterparty_iban: None,
     })
 }
 
@@ -207,5 +209,6 @@ pub fn map_dividend(raw: &Value) -> MappedTransaction {
         description: format!("Dividend {ticker}"),
         asset_identifier: Some(ticker),
         quantity: None,
+        counterparty_iban: None,
     })
 }

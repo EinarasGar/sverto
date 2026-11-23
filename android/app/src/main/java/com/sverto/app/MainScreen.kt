@@ -98,6 +98,7 @@ import com.sverto.app.feature.assets.AssetSearchAppBar
 import com.sverto.app.feature.assets.CustomAssetsScreen
 import com.sverto.app.feature.categories.CustomCategoriesScreen
 import com.sverto.app.feature.connectors.BindingSetupScreen
+import com.sverto.app.feature.connectors.BindingSetupViewModel
 import com.sverto.app.feature.connectors.ConnectEnableBankingScreen
 import com.sverto.app.feature.connectors.ConnectTrading212Screen
 import com.sverto.app.feature.connectors.ConnectTrueLayerScreen
@@ -105,6 +106,9 @@ import com.sverto.app.feature.connectors.ConnectionDetailScreen
 import com.sverto.app.feature.connectors.ConnectorDetailScreen
 import com.sverto.app.feature.connectors.ConnectorsScreen
 import com.sverto.app.feature.connectors.ProviderAccountDetailScreen
+import com.sverto.app.feature.imports.ImportItemsScreen
+import com.sverto.app.feature.imports.ImportSessionScreen
+import com.sverto.app.feature.imports.ImportsScreen
 import com.sverto.app.feature.portfolio.PortfolioScreen
 import com.sverto.app.feature.properties.AddPropertyScreen
 import com.sverto.app.feature.properties.PropertyDetailScreen
@@ -162,6 +166,9 @@ private const val CONNECT_TRADING212_ROUTE = "connectTrading212"
 private const val CONNECT_ENABLEBANKING_ROUTE =
     "connectEnableBanking?code={code}&state={state}&error={error}"
 private const val BINDING_SETUP_ROUTE = "bindingSetup/{connectionId}"
+private const val IMPORTS_ROUTE = "imports"
+private const val IMPORT_SESSION_ROUTE = "importSession/{sessionId}?pickFiles={pickFiles}"
+private const val IMPORT_ITEMS_ROUTE = "importItems/{sessionId}?filter={filter}"
 private const val PROVIDER_ACCOUNT_DETAIL_ROUTE =
     "providerAccountDetail/{connectionId}/{providerAccountId}?name={name}&currency={currency}"
 
@@ -598,6 +605,7 @@ private fun MainNavGraph(
                     navController.navigate("createTransactionGroup?fromSelection=true")
                 },
                 onQuickUpload = onQuickUpload,
+                onImportStatements = { navController.navigate(IMPORTS_ROUTE) },
                 quickUploadItems = quickUploadItems,
                 onQuickUploadItemClick = onQuickUploadItemClick,
                 onQuickUploadRetry = onQuickUploadRetry,
@@ -1149,6 +1157,7 @@ private fun MainNavGraph(
                 onCustomCategories = { navController.navigate("customCategories") },
                 onCustomAssets = { navController.navigate("customAssets") },
                 onConnectors = { navController.navigate(CONNECTORS_ROUTE) },
+                onImports = { navController.navigate(IMPORTS_ROUTE) },
                 aiFeaturesGate = aiFeaturesGate,
                 sessionViewModel = sessionViewModel,
             )
@@ -1181,6 +1190,64 @@ private fun MainNavGraph(
             },
         ) {
             CustomCategoriesScreen(onBack = { navController.popBackStack() })
+        }
+        slideComposable(IMPORTS_ROUTE, slideSpec) {
+            ImportsScreen(
+                aiFeaturesGate = aiFeaturesGate,
+                onBack = { navController.popBackStack() },
+                onOpenSession = { id -> navController.navigate("importSession/$id") },
+                onSessionCreated = { id -> navController.navigate("importSession/$id?pickFiles=true") },
+            )
+        }
+        slideComposable(
+            IMPORT_SESSION_ROUTE,
+            slideSpec,
+            arguments =
+                listOf(
+                    navArgument("sessionId") { type = NavType.StringType },
+                    navArgument("pickFiles") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    },
+                ),
+        ) { entry ->
+            val sessionId = entry.arguments?.getString("sessionId") ?: return@slideComposable
+            ImportSessionScreen(
+                sessionId = sessionId,
+                aiFeaturesGate = aiFeaturesGate,
+                onBack = { navController.popBackStack() },
+                onOpenItems = { filter -> navController.navigate("importItems/$sessionId?filter=$filter") },
+                onCreateAccount = { navController.navigate(ADD_ACCOUNT_ROUTE) },
+                onViewTransactions = {
+                    if (!navController.popBackStack(TopLevelRoute.Transactions.route, inclusive = false)) {
+                        navController.navigate(TopLevelRoute.Transactions.route) {
+                            popUpTo(navController.graph.findStartDestination().id)
+                            launchSingleTop = true
+                        }
+                    }
+                },
+                pickFilesOnOpen = entry.arguments?.getBoolean("pickFiles") == true,
+            )
+        }
+        slideComposable(
+            IMPORT_ITEMS_ROUTE,
+            slideSpec,
+            arguments =
+                listOf(
+                    navArgument("sessionId") { type = NavType.StringType },
+                    navArgument("filter") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+        ) { entry ->
+            val sessionId = entry.arguments?.getString("sessionId") ?: return@slideComposable
+            ImportItemsScreen(
+                sessionId = sessionId,
+                initialFilter = entry.arguments?.getString("filter"),
+                onBack = { navController.popBackStack() },
+            )
         }
         slideComposable(CONNECTORS_ROUTE, slideSpec) {
             ConnectorsScreen(
@@ -1225,6 +1292,7 @@ private fun MainNavGraph(
                             "?name=${Uri.encode(displayName)}",
                     )
                 },
+                onOpenImport = { sessionId -> navController.navigate("importSession/$sessionId") },
             )
         }
         slideComposable(
@@ -1245,6 +1313,12 @@ private fun MainNavGraph(
                             "&currency=${Uri.encode(account.currency ?: "")}",
                     )
                 },
+                onImported = { sessionId ->
+                    navController.navigate("importSession/$sessionId") {
+                        popUpTo(BINDING_SETUP_ROUTE) { inclusive = true }
+                    }
+                },
+                onOpenImport = { sessionId -> navController.navigate("importSession/$sessionId") },
             )
         }
         slideComposable(
@@ -1267,6 +1341,10 @@ private fun MainNavGraph(
             val connectionId = entry.arguments?.getString("connectionId") ?: return@slideComposable
             val providerAccountId =
                 entry.arguments?.getString("providerAccountId") ?: return@slideComposable
+            val linkSetup: BindingSetupViewModel? =
+                remember(entry) {
+                    navController.previousBackStackEntry?.takeIf { it.destination.route == BINDING_SETUP_ROUTE }
+                }?.let { viewModel(it, factory = SvertoViewModelFactory) }
             ProviderAccountDetailScreen(
                 connectionId = connectionId,
                 providerAccountId = providerAccountId,
@@ -1277,7 +1355,13 @@ private fun MainNavGraph(
                         .ifEmpty { providerAccountId },
                 currency = entry.arguments?.getString("currency")?.takeIf { it.isNotEmpty() },
                 onBack = { navController.popBackStack() },
-                onLinked = { navController.popBackStack() },
+                onChoose =
+                    linkSetup?.let { setup ->
+                        { account ->
+                            setup.choose(providerAccountId, account)
+                            navController.popBackStack()
+                        }
+                    },
             )
         }
         slideComposable(

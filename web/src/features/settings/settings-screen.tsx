@@ -69,7 +69,7 @@ export function SettingsScreen({
           intro={onDetail ? CONNECTION_INTRO : meta.intro}
         />
         {onDetail && connectionId !== undefined ? (
-          <ConnectionDetail connectionId={connectionId} />
+          <ConnectionDetail key={connectionId} connectionId={connectionId} />
         ) : (
           <SectionBody section={section} />
         )}

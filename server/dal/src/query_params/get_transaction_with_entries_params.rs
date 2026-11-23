@@ -145,6 +145,13 @@ impl GetTransactionWithEntriesParams {
     }
 }
 
+impl GetTransactionWithEntriesParams {
+    pub fn individual_only(mut self) -> Self {
+        self.group_filter = GroupFilter::IndividualOnly;
+        self
+    }
+}
+
 pub enum GetTransactionWithEntriesParamsSeachType {
     ByTransactionId(Uuid),
     ByTransactionIds(Vec<Uuid>),

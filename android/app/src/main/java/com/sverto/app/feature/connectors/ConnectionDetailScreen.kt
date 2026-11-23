@@ -73,6 +73,7 @@ fun ConnectionDetailScreen(
     onAddBinding: () -> Unit,
     onRevoked: () -> Unit,
     onOpenAccount: (providerAccountId: String, displayName: String) -> Unit,
+    onOpenImport: (sessionId: String) -> Unit,
     modifier: Modifier = Modifier,
     viewModel: ConnectionDetailViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
@@ -206,6 +207,7 @@ fun ConnectionDetailScreen(
                     Column {
                         state.bindings.forEachIndexed { index, binding ->
                             val paused = binding.status == "paused"
+                            val pending = binding.status == "pending"
                             val expanded = expandedBindingId == binding.id
                             val rawName =
                                 state.providerAccountNames[binding.providerAccountId]
@@ -253,10 +255,14 @@ fun ConnectionDetailScreen(
                                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                                 )
                                                 val sync =
-                                                    binding.lastSyncAt?.let {
-                                                        "Last synced ${relativeTime(it)}" +
-                                                            (binding.lastSyncStatus?.let { s -> " · $s" } ?: "")
-                                                    } ?: "Never synced"
+                                                    if (pending) {
+                                                        "Being imported"
+                                                    } else {
+                                                        binding.lastSyncAt?.let {
+                                                            "Last synced ${relativeTime(it)}" +
+                                                                (binding.lastSyncStatus?.let { s -> " · $s" } ?: "")
+                                                        } ?: "Never synced"
+                                                    }
                                                 Text(
                                                     text = binding.lastSyncError ?: sync,
                                                     color =
@@ -296,71 +302,92 @@ fun ConnectionDetailScreen(
                                                 )
                                             },
                                         )
-                                        ListItem(
-                                            colors =
-                                                ListItemDefaults.colors(
-                                                    containerColor = MaterialTheme.colorScheme.surfaceBright,
-                                                ),
-                                            headlineContent = { Text("Trusted writes") },
-                                            supportingContent = {
-                                                Text(
-                                                    "Off: imports arrive as ghosts pending your review. " +
-                                                        "On: imports are normal transactions.",
-                                                )
-                                            },
-                                            trailingContent = {
-                                                Switch(
-                                                    checked = binding.writeMode == BindingWriteMode.TRUSTED,
-                                                    onCheckedChange = { checked ->
-                                                        viewModel.updateBinding(
-                                                            binding,
-                                                            if (checked) BindingWriteMode.TRUSTED else BindingWriteMode.GHOST,
-                                                            if (paused) BindingStatus.PAUSED else BindingStatus.ACTIVE,
-                                                        )
+                                        if (pending) {
+                                            ListItem(
+                                                colors =
+                                                    ListItemDefaults.colors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceBright,
+                                                    ),
+                                                headlineContent = { Text("Being imported") },
+                                                supportingContent = {
+                                                    Text("Finish or delete its import to change or remove this account.")
+                                                },
+                                                trailingContent =
+                                                    binding.importSessionId?.let { sessionId ->
+                                                        {
+                                                            TextButton(onClick = { onOpenImport(sessionId) }) {
+                                                                Text("Open the import")
+                                                            }
+                                                        }
                                                     },
-                                                )
-                                            },
-                                        )
-                                        ListItem(
-                                            colors =
-                                                ListItemDefaults.colors(
-                                                    containerColor = MaterialTheme.colorScheme.surfaceBright,
-                                                ),
-                                            headlineContent = { Text("Enabled") },
-                                            supportingContent = { Text("Paused bindings are skipped when syncing.") },
-                                            trailingContent = {
-                                                Switch(
-                                                    checked = !paused,
-                                                    onCheckedChange = { checked ->
-                                                        viewModel.updateBinding(
-                                                            binding,
-                                                            binding.writeMode,
-                                                            if (checked) BindingStatus.ACTIVE else BindingStatus.PAUSED,
-                                                        )
-                                                    },
-                                                )
-                                            },
-                                        )
-                                        ListItem(
-                                            modifier = Modifier.clickable { deleteBindingId = binding.id },
-                                            colors =
-                                                ListItemDefaults.colors(
-                                                    containerColor = MaterialTheme.colorScheme.surfaceBright,
-                                                ),
-                                            headlineContent = {
-                                                Text(
-                                                    "Remove linked account",
-                                                    color = MaterialTheme.colorScheme.error,
-                                                )
-                                            },
-                                            trailingContent = {
-                                                Icon(
-                                                    Icons.Outlined.Delete,
-                                                    contentDescription = "Remove linked account",
-                                                    tint = MaterialTheme.colorScheme.error,
-                                                )
-                                            },
-                                        )
+                                            )
+                                        } else {
+                                            ListItem(
+                                                colors =
+                                                    ListItemDefaults.colors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceBright,
+                                                    ),
+                                                headlineContent = { Text("Trusted writes") },
+                                                supportingContent = {
+                                                    Text(
+                                                        "Off: imports arrive as ghosts pending your review. " +
+                                                            "On: imports are normal transactions.",
+                                                    )
+                                                },
+                                                trailingContent = {
+                                                    Switch(
+                                                        checked = binding.writeMode == BindingWriteMode.TRUSTED,
+                                                        onCheckedChange = { checked ->
+                                                            viewModel.updateBinding(
+                                                                binding,
+                                                                if (checked) BindingWriteMode.TRUSTED else BindingWriteMode.GHOST,
+                                                                if (paused) BindingStatus.PAUSED else BindingStatus.ACTIVE,
+                                                            )
+                                                        },
+                                                    )
+                                                },
+                                            )
+                                            ListItem(
+                                                colors =
+                                                    ListItemDefaults.colors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceBright,
+                                                    ),
+                                                headlineContent = { Text("Enabled") },
+                                                supportingContent = { Text("Paused bindings are skipped when syncing.") },
+                                                trailingContent = {
+                                                    Switch(
+                                                        checked = !paused,
+                                                        onCheckedChange = { checked ->
+                                                            viewModel.updateBinding(
+                                                                binding,
+                                                                binding.writeMode,
+                                                                if (checked) BindingStatus.ACTIVE else BindingStatus.PAUSED,
+                                                            )
+                                                        },
+                                                    )
+                                                },
+                                            )
+                                            ListItem(
+                                                modifier = Modifier.clickable { deleteBindingId = binding.id },
+                                                colors =
+                                                    ListItemDefaults.colors(
+                                                        containerColor = MaterialTheme.colorScheme.surfaceBright,
+                                                    ),
+                                                headlineContent = {
+                                                    Text(
+                                                        "Remove linked account",
+                                                        color = MaterialTheme.colorScheme.error,
+                                                    )
+                                                },
+                                                trailingContent = {
+                                                    Icon(
+                                                        Icons.Outlined.Delete,
+                                                        contentDescription = "Remove linked account",
+                                                        tint = MaterialTheme.colorScheme.error,
+                                                    )
+                                                },
+                                            )
+                                        }
                                     }
                                 }
                             }

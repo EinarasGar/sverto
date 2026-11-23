@@ -31,6 +31,13 @@ impl From<&ImportSessionSummaryModel> for ImportClassificationStatusDto {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ImportClassificationModeDto {
+    Ai,
+    WithoutAi,
+    RefuseWithoutAi,
+}
+
 pub struct ImportClassificationDto {
     pub status: ImportClassificationStatusDto,
     pub error_message: Option<String>,
@@ -48,12 +55,13 @@ impl From<&ImportSessionSummaryModel> for ImportClassificationDto {
 #[derive(Debug, Clone)]
 pub struct ImportParsedLineDto {
     pub id: Uuid,
-    pub file_id: Uuid,
+    pub source_id: Uuid,
     pub transaction_key: Option<String>,
     pub account_ref: String,
     pub date: OffsetDateTime,
     pub description: Option<String>,
     pub related_asset_ref: Option<String>,
+    pub external_id: Option<String>,
     pub legs: Vec<ImportParsedLegDto>,
 }
 

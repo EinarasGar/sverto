@@ -1,14 +1,14 @@
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 
-use ai::models::classification::{
-    ClassificationCategory, ClassificationLine, ClassifiedKind, LineClassification,
-};
+use ai::models::classification::{ClassificationCategory, ClassificationLine, LineClassification};
 use business::dtos::categories::category_dto::CategoryDto;
 use business::dtos::imports::import_classification_dto::{
     ImportLineTypeDto, ImportLineTypingDto, ImportParsedLegDto, ImportParsedLineDto,
 };
 use rust_decimal::Decimal;
 use uuid::Uuid;
+
+use crate::jobs::line_classification::{offered_categories, typing};
 
 pub struct FileClassification {
     lines: Vec<ImportParsedLineDto>,
@@ -47,15 +47,7 @@ impl FileClassification {
     }
 
     pub fn offered_categories(&self) -> Vec<ClassificationCategory> {
-        self.categories
-            .iter()
-            .filter(|category| !category.is_system)
-            .map(|category| ClassificationCategory {
-                id: category.id,
-                type_name: category.category_type_name.clone(),
-                name: category.category.clone(),
-            })
-            .collect()
+        offered_categories(&self.categories)
     }
 
     pub fn classification_lines(&self) -> Vec<(Uuid, ClassificationLine)> {
@@ -63,7 +55,7 @@ impl FileClassification {
         for line in &self.lines {
             if let Some(key) = line.transaction_key.as_deref() {
                 sides
-                    .entry((line.file_id, key, line.account_ref.as_str()))
+                    .entry((line.source_id, key, line.account_ref.as_str()))
                     .or_default()
                     .push(line);
             }
@@ -81,7 +73,7 @@ impl FileClassification {
                 }
                 if let Some(key) = line.transaction_key.as_deref() {
                     let others: BTreeSet<&str> = sides
-                        [&(line.file_id, key, line.account_ref.as_str())]
+                        [&(line.source_id, key, line.account_ref.as_str())]
                         .iter()
                         .filter(|other| other.id != line.id)
                         .flat_map(|other| main_legs(other))
@@ -112,12 +104,8 @@ impl FileClassification {
             let Some(classification) = self.classifications.get(&line.id) else {
                 continue;
             };
-            let line_type = type_of(classification.kind, total(&main_legs(line)) > Decimal::ZERO);
-            let category_id = classification
-                .confident
-                .then_some(classification.category_id)
-                .flatten()
-                .filter(|_| line_type == ImportLineTypeDto::Regular);
+            let (line_type, category_id) =
+                typing(classification, total(&main_legs(line)) > Decimal::ZERO);
             grouped
                 .entry((line_type, category_id))
                 .or_insert_with(|| ImportLineTypingDto {
@@ -130,23 +118,17 @@ impl FileClassification {
         }
         grouped.into_values().collect()
     }
-}
 
-fn type_of(kind: ClassifiedKind, money_in: bool) -> ImportLineTypeDto {
-    match (kind, money_in) {
-        (ClassifiedKind::Expense | ClassifiedKind::Refund, _) => ImportLineTypeDto::Regular,
-        (ClassifiedKind::BankFee, true) => ImportLineTypeDto::Regular,
-        (ClassifiedKind::BankFee | ClassifiedKind::Interest, false) => {
-            ImportLineTypeDto::AccountFees
-        }
-        (
-            ClassifiedKind::TransferIn | ClassifiedKind::TransferOut | ClassifiedKind::Interest,
-            true,
-        ) => ImportLineTypeDto::CashTransferIn,
-        (ClassifiedKind::TransferIn | ClassifiedKind::TransferOut, false) => {
-            ImportLineTypeDto::CashTransferOut
-        }
-        (ClassifiedKind::CurrencyExchange, _) => ImportLineTypeDto::AssetTrade,
+    pub fn uncategorized_typings(&self) -> Vec<ImportLineTypingDto> {
+        vec![ImportLineTypingDto {
+            line_type: ImportLineTypeDto::Regular,
+            category_id: None,
+            line_ids: self
+                .classification_lines()
+                .into_iter()
+                .map(|(line_id, _)| line_id)
+                .collect(),
+        }]
     }
 }
 
@@ -163,6 +145,7 @@ fn total(legs: &[&ImportParsedLegDto]) -> Decimal {
 
 #[cfg(test)]
 mod tests {
+    use ai::models::classification::ClassifiedKind;
     use business::dtos::fee_entry_types_dto::FeeEntryTypesDto;
 
     use super::*;
@@ -172,12 +155,13 @@ mod tests {
     fn line(description: &str, key: Option<&str>) -> ImportParsedLineDto {
         ImportParsedLineDto {
             id: Uuid::new_v4(),
-            file_id: Uuid::nil(),
+            source_id: Uuid::nil(),
             transaction_key: key.map(str::to_string),
             account_ref: "Current".to_string(),
             date: time::OffsetDateTime::UNIX_EPOCH,
             description: Some(description.to_string()),
             related_asset_ref: None,
+            external_id: None,
             legs: Vec::new(),
         }
     }
@@ -335,47 +319,6 @@ mod tests {
     }
 
     #[test]
-    fn every_answer_gives_a_type_the_ledger_accepts_for_the_direction() {
-        let kinds = [
-            ClassifiedKind::Expense,
-            ClassifiedKind::Refund,
-            ClassifiedKind::TransferOut,
-            ClassifiedKind::TransferIn,
-            ClassifiedKind::BankFee,
-            ClassifiedKind::CurrencyExchange,
-            ClassifiedKind::Interest,
-        ];
-        let types = |money_in: bool| -> Vec<ImportLineTypeDto> {
-            kinds.iter().map(|kind| type_of(*kind, money_in)).collect()
-        };
-
-        assert_eq!(
-            types(false),
-            vec![
-                ImportLineTypeDto::Regular,
-                ImportLineTypeDto::Regular,
-                ImportLineTypeDto::CashTransferOut,
-                ImportLineTypeDto::CashTransferOut,
-                ImportLineTypeDto::AccountFees,
-                ImportLineTypeDto::AssetTrade,
-                ImportLineTypeDto::AccountFees,
-            ]
-        );
-        assert_eq!(
-            types(true),
-            vec![
-                ImportLineTypeDto::Regular,
-                ImportLineTypeDto::Regular,
-                ImportLineTypeDto::CashTransferIn,
-                ImportLineTypeDto::CashTransferIn,
-                ImportLineTypeDto::Regular,
-                ImportLineTypeDto::AssetTrade,
-                ImportLineTypeDto::CashTransferIn,
-            ]
-        );
-    }
-
-    #[test]
     fn each_line_keeps_its_own_answer_and_only_a_confident_payment_keeps_its_category() {
         let lines = [
             line("Tesco", Some("t1")),
@@ -431,10 +374,34 @@ mod tests {
     }
 
     #[test]
+    fn without_ai_every_line_asked_about_is_a_payment_without_a_category() {
+        let lines = [
+            line("TESCO STORES 3297", None),
+            line("Salary", None),
+            line("Buy VUSA", None),
+        ];
+        let legs = vec![
+            leg(&lines[0], "GBP", "-12.40"),
+            leg(&lines[1], "GBP", "2000"),
+            leg(&lines[2], "GBP", "-550"),
+            leg(&lines[2], "VUSA", "3"),
+        ];
+
+        assert_eq!(
+            classification(&lines, legs).uncategorized_typings(),
+            vec![ImportLineTypingDto {
+                line_type: ImportLineTypeDto::Regular,
+                category_id: None,
+                line_ids: vec![lines[0].id, lines[1].id],
+            }]
+        );
+    }
+
+    #[test]
     fn the_same_transaction_key_in_two_files_is_two_transactions() {
-        let mut other_file = line("Coffee", Some("t1"));
-        other_file.file_id = Uuid::new_v4();
-        let lines = [line("Buy", Some("t1")), other_file];
+        let mut other_source = line("Coffee", Some("t1"));
+        other_source.source_id = Uuid::new_v4();
+        let lines = [line("Buy", Some("t1")), other_source];
         let legs = vec![leg(&lines[0], "VUSA", "3"), leg(&lines[1], "GBP", "-3")];
 
         assert_eq!(

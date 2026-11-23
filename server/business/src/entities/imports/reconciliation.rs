@@ -14,6 +14,7 @@ use crate::dtos::ledger_matching_dto::{
     SettledMovementDto, SourceKindDto,
 };
 use crate::dtos::transaction_dto::TransactionTypeDto;
+use crate::entities::ledger_matching::may_amend;
 
 pub fn parts_ask_key(row_id: Uuid) -> String {
     format!("parts:{row_id}")
@@ -89,7 +90,9 @@ impl<'a> SessionReconciliation<'a> {
         for row in rows {
             let mut movements = Vec::with_capacity(row.movements.len());
             for movement in &row.movements {
-                let first = first_dates.entry(movement.file_id).or_insert(movement.date);
+                let first = first_dates
+                    .entry(movement.source_id)
+                    .or_insert(movement.date);
                 *first = (*first).min(movement.date);
                 let external_ref = refs.next().expect("one reference per movement");
                 movements.push(observation(row, movement, external_ref));
@@ -97,7 +100,7 @@ impl<'a> SessionReconciliation<'a> {
             incoming.push(movements);
         }
 
-        let mut by_file: BTreeMap<(Date, Uuid), (LedgerMatchBatchDto, Vec<(usize, usize)>)> =
+        let mut by_source: BTreeMap<(Date, Uuid), (LedgerMatchBatchDto, Vec<(usize, usize)>)> =
             BTreeMap::new();
         for (row_index, (row, movements)) in rows.iter().zip(incoming).enumerate() {
             let decision = decisions.get(&row.id);
@@ -105,8 +108,8 @@ impl<'a> SessionReconciliation<'a> {
             for (movement_index, (staged, movement)) in
                 row.movements.iter().zip(movements).enumerate()
             {
-                let (batch, batch_positions) = by_file
-                    .entry((first_dates[&staged.file_id], staged.file_id))
+                let (batch, batch_positions) = by_source
+                    .entry((first_dates[&staged.source_id], staged.source_id))
                     .or_default();
                 if let Some(row_parts) = &row_parts {
                     batch
@@ -139,7 +142,7 @@ impl<'a> SessionReconciliation<'a> {
                 }
             }
         }
-        let (batches, positions) = by_file.into_values().unzip();
+        let (batches, positions) = by_source.into_values().unzip();
         Self {
             rows,
             positions,
@@ -237,8 +240,8 @@ fn resolve_row(
     ImportRowMatchDto::default()
 }
 
-pub fn statement_stream(file_id: Uuid) -> String {
-    format!("statement:{file_id}")
+pub fn statement_stream(source_id: Uuid) -> String {
+    format!("statement:{source_id}")
 }
 
 pub fn external_refs<'a>(
@@ -250,7 +253,7 @@ pub fn external_refs<'a>(
         .map(|movement| {
             let occurrence = occurrences
                 .entry((
-                    movement.file_id,
+                    movement.source_id,
                     movement.account_id,
                     movement.asset_id,
                     movement.date,
@@ -308,7 +311,7 @@ fn observation(
     IncomingMovementDto {
         id: row.id,
         kind: SourceKindDto::Statement,
-        stream: statement_stream(movement.file_id),
+        stream: statement_stream(movement.source_id),
         external_ref: Some(external_ref),
         account_id: Some(movement.account_id),
         asset_id: movement.asset_id,
@@ -374,12 +377,7 @@ fn near_miss(
             continue;
         }
         let legs = || offered.iter().filter(|(_, leg)| leg.id == target.id);
-        let correctable = legs().all(|(_, leg)| {
-            leg.in_ledger
-                && !leg.confirmed
-                && !leg.several_transactions
-                && !leg.leaves_movement_unrecorded
-        });
+        let correctable = legs().all(|(_, leg)| may_amend(leg));
         let agrees = row.movements.iter().enumerate().all(|(index, staged)| {
             legs().any(|(movement, leg)| *movement == index && leg.quantity == staged.quantity)
         });
@@ -406,29 +404,30 @@ mod tests {
     };
 
     const ACCOUNT: Uuid = Uuid::from_u128(1);
-    const FILE_A: Uuid = Uuid::from_u128(10);
-    const FILE_B: Uuid = Uuid::from_u128(11);
+    const SOURCE_A: Uuid = Uuid::from_u128(10);
+    const SOURCE_B: Uuid = Uuid::from_u128(11);
 
     fn day() -> Date {
         date!(2026 - 03 - 02)
     }
 
-    fn movement(file_id: Uuid, on: Date, quantity: &str) -> StagedMovementDto {
+    fn movement(source_id: Uuid, on: Date, quantity: &str) -> StagedMovementDto {
         StagedMovementDto {
             account_id: ACCOUNT,
             asset_id: 45,
             quantity: quantity.parse().unwrap(),
-            file_id,
+            source_id,
             date: on,
             description: Some("TESCO".to_string()),
             itemised_fee: None,
+            external_id: None,
         }
     }
 
     fn row(id: u128, movements: Vec<StagedMovementDto>) -> StagedTransactionDto {
         StagedTransactionDto {
             id: Uuid::from_u128(id),
-            file_ids: Vec::new(),
+            source_ids: Vec::new(),
             transaction: TransactionDto {
                 transaction_id: None,
                 date: datetime!(2026-03-01 0:00 UTC),
@@ -478,7 +477,7 @@ mod tests {
 
     #[test]
     fn a_matched_row_is_skipped_against_the_ledger_transaction() {
-        let rows = [row(1, vec![movement(FILE_A, day(), "-5")])];
+        let rows = [row(1, vec![movement(SOURCE_A, day(), "-5")])];
         let resolved = resolve_one(
             &rows,
             vec![MatchOutcomeDto::Same {
@@ -491,7 +490,7 @@ mod tests {
 
     #[test]
     fn a_skipped_row_claims_every_ledger_movement_it_matched() {
-        let rows = [row(1, vec![movement(FILE_A, day(), "-5")])];
+        let rows = [row(1, vec![movement(SOURCE_A, day(), "-5")])];
         let resolved = resolve_one(
             &rows,
             vec![MatchOutcomeDto::Same {
@@ -508,7 +507,7 @@ mod tests {
 
     #[test]
     fn a_row_matching_another_file_is_skipped_with_no_transaction() {
-        let rows = [row(1, vec![movement(FILE_A, day(), "-5")])];
+        let rows = [row(1, vec![movement(SOURCE_A, day(), "-5")])];
         let resolved = resolve_one(
             &rows,
             vec![MatchOutcomeDto::Same {
@@ -521,7 +520,7 @@ mod tests {
 
     #[test]
     fn an_ambiguous_row_stays_add_and_lists_its_candidates() {
-        let rows = [row(1, vec![movement(FILE_A, day(), "-5")])];
+        let rows = [row(1, vec![movement(SOURCE_A, day(), "-5")])];
         let resolved = resolve_one(
             &rows,
             vec![MatchOutcomeDto::Ambiguous {
@@ -543,9 +542,9 @@ mod tests {
             vec![
                 StagedMovementDto {
                     asset_id: 42,
-                    ..movement(FILE_A, day(), "10")
+                    ..movement(SOURCE_A, day(), "10")
                 },
-                movement(FILE_A, day(), "-1001.50"),
+                movement(SOURCE_A, day(), "-1001.50"),
             ],
         )];
         let units = MatchOutcomeDto::Same {
@@ -573,7 +572,7 @@ mod tests {
 
     #[test]
     fn a_target_standing_for_several_transactions_is_never_corrected() {
-        let rows = [row(1, vec![movement(FILE_A, day(), "-50.40")])];
+        let rows = [row(1, vec![movement(SOURCE_A, day(), "-50.40")])];
         let resolved = resolve_one(
             &rows,
             vec![MatchOutcomeDto::Ambiguous {
@@ -591,10 +590,10 @@ mod tests {
         let rows = [row(
             1,
             vec![
-                movement(FILE_A, day(), "-5"),
+                movement(SOURCE_A, day(), "-5"),
                 StagedMovementDto {
                     asset_id: 42,
-                    ..movement(FILE_A, day(), "6")
+                    ..movement(SOURCE_A, day(), "6")
                 },
             ],
         )];
@@ -617,10 +616,10 @@ mod tests {
         let rows = [row(
             1,
             vec![
-                movement(FILE_A, day(), "-500"),
+                movement(SOURCE_A, day(), "-500"),
                 StagedMovementDto {
                     account_id: Uuid::from_u128(2),
-                    ..movement(FILE_A, day(), "500")
+                    ..movement(SOURCE_A, day(), "500")
                 },
             ],
         )];
@@ -643,14 +642,14 @@ mod tests {
     fn a_row_staged_as_account_fees_or_made_of_a_fee_entry_is_a_fee() {
         let other_asset = StagedMovementDto {
             asset_id: 42,
-            ..movement(FILE_A, day(), "-0.01")
+            ..movement(SOURCE_A, day(), "-0.01")
         };
-        let mut purchase = row(1, vec![movement(FILE_A, day(), "-5"), other_asset]);
+        let mut purchase = row(1, vec![movement(SOURCE_A, day(), "-5"), other_asset]);
         purchase.transaction.fee_entries = vec![FeeEntryDto {
             entry: EntryDto::new(42, ACCOUNT, "-0.01".parse().unwrap()),
             entry_type: FeeEntryTypesDto::Transaction,
         }];
-        let mut charge = row(2, vec![movement(FILE_A, day(), "-1.50")]);
+        let mut charge = row(2, vec![movement(SOURCE_A, day(), "-1.50")]);
         charge.transaction.transaction_type =
             TransactionTypeDto::AccountFees(AccountFeesMetadataDto {
                 entry: EntryDto::new(45, ACCOUNT, "-1.50".parse().unwrap()),
@@ -670,10 +669,10 @@ mod tests {
     fn decided_rows_are_settled_in_their_files_place_and_never_rematched() {
         let later = date!(2026 - 03 - 05);
         let rows = [
-            row(1, vec![movement(FILE_A, day(), "-5")]),
-            row(2, vec![movement(FILE_B, later, "-5")]),
-            row(3, vec![movement(FILE_B, later, "-6")]),
-            row(4, vec![movement(FILE_B, later, "-7")]),
+            row(1, vec![movement(SOURCE_A, day(), "-5")]),
+            row(2, vec![movement(SOURCE_B, later, "-5")]),
+            row(3, vec![movement(SOURCE_B, later, "-6")]),
+            row(4, vec![movement(SOURCE_B, later, "-7")]),
         ];
         let decisions = [
             decision(2, ImportVerbDto::Add, None),
@@ -698,18 +697,24 @@ mod tests {
     fn identical_rows_get_different_references_and_files_go_in_date_order() {
         let later = date!(2026 - 03 - 05);
         let rows = [
-            row(1, vec![movement(FILE_B, later, "-5")]),
-            row(2, vec![movement(FILE_A, day(), "-5")]),
-            row(3, vec![movement(FILE_A, day(), "-5")]),
+            row(1, vec![movement(SOURCE_B, later, "-5")]),
+            row(2, vec![movement(SOURCE_A, day(), "-5")]),
+            row(3, vec![movement(SOURCE_A, day(), "-5")]),
         ];
         let reconciliation = SessionReconciliation::new(&rows, &[]);
         let batches = reconciliation.batches();
-        assert_eq!(batches[0].incoming[0].stream, format!("statement:{FILE_A}"));
+        assert_eq!(
+            batches[0].incoming[0].stream,
+            format!("statement:{SOURCE_A}")
+        );
         assert_ne!(
             batches[0].incoming[0].external_ref,
             batches[0].incoming[1].external_ref
         );
-        assert_eq!(batches[1].incoming[0].stream, format!("statement:{FILE_B}"));
+        assert_eq!(
+            batches[1].incoming[0].stream,
+            format!("statement:{SOURCE_B}")
+        );
     }
 
     fn purchase(id: u128, movements: Vec<StagedMovementDto>) -> StagedTransactionDto {
@@ -729,7 +734,7 @@ mod tests {
             candidate(7, true, false, "-20"),
             candidate(8, true, false, "-30"),
         ];
-        let rows = [purchase(1, vec![movement(FILE_A, day(), "-50")])];
+        let rows = [purchase(1, vec![movement(SOURCE_A, day(), "-50")])];
         let resolved = resolve_one(
             &rows,
             vec![MatchOutcomeDto::Parts {
@@ -745,14 +750,14 @@ mod tests {
         assert!(near.candidate.several_transactions && !near.amend);
         assert_eq!(near.parts, parts);
 
-        let transfer = [row(1, vec![movement(FILE_A, day(), "-50")])];
+        let transfer = [row(1, vec![movement(SOURCE_A, day(), "-50")])];
         let resolved = resolve_one(&transfer, vec![MatchOutcomeDto::Parts { parts }]);
         assert!(resolved.near_miss.is_empty());
     }
 
     #[test]
     fn a_row_answered_as_parts_is_settled_against_each_of_them() {
-        let rows = [purchase(1, vec![movement(FILE_A, day(), "-50")])];
+        let rows = [purchase(1, vec![movement(SOURCE_A, day(), "-50")])];
         let answer = |part: u128| ImportStagedDecisionDto {
             id: Uuid::from_u128(100 + part),
             ask_key: Some(parts_ask_key(Uuid::from_u128(1))),
@@ -778,8 +783,8 @@ mod tests {
         let rows = [row(
             1,
             vec![
-                movement(FILE_A, day(), "-50"),
-                movement(FILE_A, day(), "-1"),
+                movement(SOURCE_A, day(), "-50"),
+                movement(SOURCE_A, day(), "-1"),
             ],
         )];
         let resolved = resolve_one(
@@ -806,7 +811,7 @@ mod tests {
 
     #[test]
     fn a_parts_answer_with_one_part_left_is_matched_afresh() {
-        let rows = [purchase(1, vec![movement(FILE_A, day(), "-50")])];
+        let rows = [purchase(1, vec![movement(SOURCE_A, day(), "-50")])];
         let answer = ImportStagedDecisionDto {
             id: Uuid::from_u128(107),
             ask_key: Some(parts_ask_key(Uuid::from_u128(1))),

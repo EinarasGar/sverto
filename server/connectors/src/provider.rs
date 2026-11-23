@@ -31,6 +31,13 @@ impl ProviderKind {
         matches!(self, ProviderKind::EnableBanking)
     }
 
+    pub fn history_fits_import(self) -> bool {
+        match self {
+            ProviderKind::EnableBanking | ProviderKind::TrueLayer => true,
+            ProviderKind::Trading212 => false,
+        }
+    }
+
     pub fn map_item(self, stream: &str, item: &Value) -> Option<MappedTransaction> {
         match self {
             ProviderKind::Trading212 => match stream {
@@ -93,10 +100,6 @@ pub trait Provider: Send + Sync {
     ) -> Result<String>;
 
     async fn list_accounts(&self, store: &dyn ConnectorStore) -> Result<Vec<ProviderAccount>>;
-
-    fn needs_attended_backfill(&self) -> bool {
-        false
-    }
 
     async fn begin_oauth(
         &self,

@@ -1,8 +1,8 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
 import type {
-  IdentifiableImportFile,
   IdentifiableImportSessionResponse,
+  IdentifiableImportSource,
   ImportAnswer,
   ImportDateOrder,
   ImportItemVerbOverride,
@@ -84,6 +84,7 @@ export function useDeleteImportSession(userId: UserId) {
           previous?.filter((session) => session.id !== sessionId)
         ),
       ],
+      invalidate: [queryKeys.user(userId).connectors.all()],
       meta: { errorContext: "The import could not be deleted" },
     }),
     onSuccess: (_data, { sessionId }) => {
@@ -100,35 +101,19 @@ export function useAttachImportFiles(params: ImportSessionParams) {
   const { userId, sessionId } = params
 
   return useMutation({
-    ...optimisticMutationOptions<
-      IdentifiableImportFile[],
-      AttachImportFilesVariables
-    >({
-      queryClient,
-      mutationKey: mutationKeys.user(userId).imports(),
-      mutationFn: async ({ fileIds }) => {
-        const response = await api(ImportsApiFactory).attachFiles(
-          userId,
-          sessionId,
-          { file_ids: [...fileIds] }
-        )
-        return response.data
-      },
-      updates: [],
-      invalidate: [queryKeys.user(userId).imports.all()],
-      meta: { errorContext: "The file could not be added to the import" },
-    }),
-    onSuccess: (attached) => {
-      queryClient.setQueryData<ImportSessionDetailResponse>(
-        queryKeys.user(userId).imports.detail(sessionId),
-        (previous) => {
-          if (previous === undefined) return previous
-          const known = new Set(previous.files.map((file) => file.file_id))
-          const added = attached.filter((file) => !known.has(file.file_id))
-          return { ...previous, files: [...previous.files, ...added] }
-        }
+    mutationKey: mutationKeys.user(userId).imports(),
+    mutationFn: async ({ fileIds }: AttachImportFilesVariables) => {
+      await withNormalizedErrors(() =>
+        api(ImportsApiFactory).attachFiles(userId, sessionId, {
+          file_ids: [...fileIds],
+        })
       )
     },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: queryKeys.user(userId).imports.all(),
+      }),
+    meta: { errorContext: "The file could not be added to the import" },
   })
 }
 
@@ -153,7 +138,10 @@ export function useDetachImportFile(params: ImportSessionParams) {
             ? previous
             : {
                 ...previous,
-                files: previous.files.filter((file) => file.file_id !== fileId),
+                sources: previous.sources.filter(
+                  (source) =>
+                    source.kind !== "file" || source.file_id !== fileId
+                ),
               }
         ),
       ],
@@ -188,15 +176,16 @@ export function useRetryImportFile(params: ImportSessionParams) {
               ? previous
               : {
                   ...previous,
-                  files: previous.files.map((file): IdentifiableImportFile =>
-                    file.file_id === fileId
-                      ? {
-                          ...file,
-                          status: "pending",
-                          error_message: null,
-                          paused_until: null,
-                        }
-                      : file
+                  sources: previous.sources.map(
+                    (source): IdentifiableImportSource =>
+                      source.kind === "file" && source.file_id === fileId
+                        ? {
+                            ...source,
+                            status: "pending",
+                            error_message: null,
+                            paused_until: null,
+                          }
+                        : source
                   ),
                 }
         ),
@@ -230,10 +219,11 @@ export function useReadImportFileDates(params: ImportSessionParams) {
             ? previous
             : {
                 ...previous,
-                files: previous.files.map((file): IdentifiableImportFile =>
-                  file.file_id === fileId
-                    ? { ...file, status: "pending", date_order: dateOrder }
-                    : file
+                sources: previous.sources.map(
+                  (source): IdentifiableImportSource =>
+                    source.kind === "file" && source.file_id === fileId
+                      ? { ...source, status: "pending", date_order: dateOrder }
+                      : source
                 ),
               }
         ),
@@ -300,6 +290,7 @@ export function useApplyImportSession(params: ImportSessionParams) {
         queryKeys.user(userId).transactions.all(),
         queryKeys.user(userId).accounts.all(),
         queryKeys.user(userId).portfolio.all(),
+        queryKeys.user(userId).connectors.all(),
       ],
       meta: { errorContext: "The import could not be applied" },
     }),

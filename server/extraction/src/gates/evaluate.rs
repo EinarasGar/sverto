@@ -189,18 +189,11 @@ impl ExtractionOutput {
                     .join("\n"),
             })
             .collect();
-        let dates = self
-            .lines
-            .iter()
-            .map(|line| line.date)
-            .chain(self.period.iter().flat_map(|p| [p.from, p.to]));
-
         Ok(AcceptedExtraction {
             lines: self.lines.clone(),
             assertions: stated.into_iter().chain(derived).collect(),
             end_of_day_balances: balances.end_of_day,
             excluded,
-            coverage: dates.clone().min().zip(dates.max()),
             unsettled_date_order: unsettled_date_order(self),
         })
     }
@@ -339,10 +332,17 @@ mod tests {
         };
 
         let accepted = read("2026-11-17", "100.00", "2026-11-14").expect("accepted");
-        assert_eq!(accepted.lines.len(), 3);
         assert_eq!(
-            accepted.coverage,
-            Some((date!(2026 - 11 - 14), date!(2026 - 11 - 17)))
+            accepted
+                .lines
+                .iter()
+                .map(|line| line.date)
+                .collect::<Vec<_>>(),
+            [
+                date!(2026 - 11 - 17),
+                date!(2026 - 11 - 16),
+                date!(2026 - 11 - 14)
+            ]
         );
 
         let refused = |today, middle_balance, november| {

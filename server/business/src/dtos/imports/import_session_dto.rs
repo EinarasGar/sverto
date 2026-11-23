@@ -2,7 +2,7 @@ use time::OffsetDateTime;
 
 use super::import_ask_dto::ImportOpenAskDto;
 use super::import_classification_dto::ImportClassificationDto;
-use super::import_file_dto::ImportFileDto;
+use super::import_source_dto::ImportSourceDto;
 use uuid::Uuid;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -37,7 +37,7 @@ pub struct ImportSessionCountsDto {
 
 pub struct ImportSessionDetailDto {
     pub session: ImportSessionDto,
-    pub files: Vec<ImportFileDto>,
+    pub sources: Vec<ImportSourceDto>,
     pub counts: ImportSessionCountsDto,
     pub open_asks: Vec<ImportOpenAskDto>,
 }

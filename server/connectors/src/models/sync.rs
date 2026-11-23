@@ -27,3 +27,7 @@ pub struct RawPage {
     pub stream: String,
     pub payload: serde_json::Value,
 }
+
+#[derive(Debug, thiserror::Error)]
+#[error("the provider's rate limit was reached")]
+pub struct RateLimited;

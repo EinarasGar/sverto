@@ -4,8 +4,8 @@ use std::collections::{BTreeSet, HashSet};
 use dal::database_context::MyraDb;
 use dal::models::asset_models::asset_type_ids;
 use dal::models::import_models::{
-    ImportLineClassificationModel, ImportSessionLifecycle, ImportSessionModel,
-    ImportStagedDecisionModel, ImportVerb,
+    ImportLineClassificationModel, ImportSessionLifecycle, ImportSessionModel, ImportSourceKind,
+    ImportSourceModel, ImportStagedDecisionModel, ImportVerb,
 };
 use dal::queries::import_queries;
 use dal::query_params::import_params::GetImportSessionsParams;
@@ -95,11 +95,24 @@ impl ImportStagingService {
             .map(ImportLineClassificationDto::try_from)
             .collect::<anyhow::Result<_>>()?;
         let (mut printed, entered) = self.balance_service.assertions(session_id, user_id).await?;
+        let mut file_sources = HashSet::new();
+        for source in self
+            .db
+            .fetch_all::<ImportSourceModel>(import_queries::get_session_sources(
+                session_id, user_id,
+            ))
+            .await?
+        {
+            if source.source_kind()? == ImportSourceKind::File {
+                file_sources.insert(source.id);
+            }
+        }
         let owed = orientation::read_as_owed(
             &lines,
             &printed,
             &links.account_mappings,
             &links.account_types,
+            &file_sources,
         );
         orientation::read_lines_as_owed(&mut lines, &mut classifications, &owed);
         orientation::read_assertions_as_owed(&mut printed, &owed);
@@ -158,7 +171,7 @@ impl ImportStagingService {
         proposal.read_as_owed = links
             .account_mappings
             .iter()
-            .filter(|mapping| owed.contains(&(mapping.file_id, mapping.account_ref.clone())))
+            .filter(|mapping| owed.contains(&(mapping.source_id, mapping.account_ref.clone())))
             .filter_map(|mapping| mapping.account_id)
             .collect::<BTreeSet<Uuid>>()
             .into_iter()

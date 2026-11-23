@@ -104,6 +104,8 @@ service_state!(AiQuickUploadService);
 use business::service_collection::ai_usage_service::AiUsageService;
 service_state!(AiUsageService);
 
+use business::service_collection::connector_import_service::ConnectorImportService;
+service_state!(ConnectorImportService);
 use business::service_collection::connector_service::ConnectorService;
 service_state!(ConnectorService);
 use business::service_collection::connector_sync_service::ConnectorSyncService;
@@ -111,3 +113,6 @@ service_state!(ConnectorSyncService);
 
 use business::service_collection::property_service::PropertyService;
 service_state!(PropertyService);
+
+use business::service_collection::bank_ingestion_service::BankIngestionService;
+service_state!(BankIngestionService);

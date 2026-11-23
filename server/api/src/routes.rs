@@ -130,6 +130,7 @@ pub(crate) fn create_router(state: AppState) -> Router {
         .route("/connectors/connections/{connection_id}/accounts", get(handlers::connectors_handler::list_provider_accounts))
         .route("/connectors/connections/{connection_id}/accounts/{provider_account_id}/transactions", get(handlers::connectors_handler::list_provider_account_transactions))
         .route("/connectors/connections/{connection_id}/bindings", post(handlers::connectors_handler::create_binding))
+        .route("/connectors/connections/{connection_id}/imports", post(handlers::connectors_handler::create_connector_import))
         .route("/connectors/providers/{provider_kind}/aspsps", get(handlers::connectors_handler::list_aspsps))
         .route("/connectors/bindings",                           get(handlers::connectors_handler::list_bindings))
         .route("/connectors/bindings/{binding_id}",              get(handlers::connectors_handler::get_binding)
@@ -138,6 +139,8 @@ pub(crate) fn create_router(state: AppState) -> Router {
         .route("/connectors/bindings/{binding_id}/sync",         post(handlers::connectors_handler::sync_binding))
         .route("/connectors/bindings/{binding_id}/sync-checkpoint", get(handlers::connectors_handler::get_sync_checkpoint))
         .route("/connectors/bindings/{binding_id}/ingest",       post(handlers::connectors_handler::ingest_transactions))
+        .route("/held-transactions",                             get(handlers::held_transactions_handler::list_held_transactions))
+        .route("/held-transactions/{held_transaction_id}/decision", post(handlers::held_transactions_handler::decide_held_transaction))
 
         .layer(axum::middleware::from_fn(enforce_user_ownership));
 

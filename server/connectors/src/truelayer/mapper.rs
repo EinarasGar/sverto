@@ -123,5 +123,6 @@ pub fn map_transaction(tx: &Value) -> MappedTransaction {
         description,
         asset_identifier: None,
         quantity: None,
+        counterparty_iban: None,
     })
 }

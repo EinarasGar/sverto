@@ -165,20 +165,20 @@ impl AssetsService {
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
-    pub async fn currency_tickers(
+    pub async fn resolve_currency_tickers(
         &self,
         user_id: Uuid,
         tickers: HashSet<String>,
-    ) -> anyhow::Result<HashSet<String>> {
+    ) -> anyhow::Result<HashMap<String, i32>> {
         if tickers.is_empty() {
-            return Ok(HashSet::new());
+            return Ok(HashMap::new());
         }
         let query = asset_queries::get_asset_refs(
             GetAssetRefsParams::by_tickers(user_id, tickers.into_iter().collect())
                 .with_asset_type(asset_type_ids::CURRENCY),
         );
         let rows = self.db.fetch_all::<AssetRefModel>(query).await?;
-        Ok(rows.into_iter().map(|row| row.ticker).collect())
+        Ok(rows.into_iter().map(|row| (row.ticker, row.id)).collect())
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(pair1, pair2))]

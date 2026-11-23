@@ -49,8 +49,9 @@ export {
 
 export type {
   CompleteOauthVariables,
-  CreateBindingVariables,
+  CreateBindingsVariables,
   CreateConnectionVariables,
+  CreateConnectorImportVariables,
   DeleteBindingVariables,
   OauthSession,
   RevokeConnectionVariables,
@@ -62,8 +63,9 @@ export type {
 } from "./mutations"
 export {
   useCompleteOauthSession,
-  useCreateBinding,
+  useCreateBindings,
   useCreateConnection,
+  useCreateConnectorImport,
   useDeleteBinding,
   useRevokeConnection,
   useSetBaseCurrency,

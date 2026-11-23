@@ -40,6 +40,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
+import uniffi.sverto_core.AccountListItem
+import uniffi.sverto_core.ProviderAccountHistory
 import uniffi.sverto_core.ProviderAccountTransaction
 import uniffi.sverto_core.formatMoney
 import java.text.DecimalFormat
@@ -53,7 +55,7 @@ fun ProviderAccountDetailScreen(
     displayName: String,
     currency: String?,
     onBack: () -> Unit,
-    onLinked: () -> Unit,
+    onChoose: ((AccountListItem) -> Unit)?,
     modifier: Modifier = Modifier,
     viewModel: ProviderAccountDetailViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
@@ -61,10 +63,8 @@ fun ProviderAccountDetailScreen(
     LaunchedEffect(connectionId, providerAccountId) {
         viewModel.load(connectionId, providerAccountId)
     }
-    LaunchedEffect(state.justLinked) {
-        if (state.justLinked) onLinked()
-    }
     var picking by remember { mutableStateOf(false) }
+    val canLink = state.linkedTo == null && onChoose != null
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -91,7 +91,7 @@ fun ProviderAccountDetailScreen(
             )
         },
         bottomBar = {
-            if (!state.loading && state.linkedTo == null) {
+            if (!state.loading && canLink) {
                 HeroButton(
                     text = "Link account",
                     onClick = { picking = true },
@@ -117,6 +117,7 @@ fun ProviderAccountDetailScreen(
                         listOfNotNull(
                             currency,
                             state.linkedTo?.let { "Linked to $it" } ?: "Not linked",
+                            historyLabel(state.history),
                         ).joinToString(" · "),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -137,12 +138,21 @@ fun ProviderAccountDetailScreen(
                 item { BindingRowsSkeleton() }
             } else if (state.transactions.isEmpty() && state.error == null) {
                 item {
-                    EmptyState(
-                        icon = "inbox",
-                        title = "No transactions fetched yet",
-                        body = "Transactions appear here after this account's history has been fetched.",
-                        modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
-                    )
+                    if (state.history == ProviderAccountHistory.FETCHING) {
+                        EmptyState(
+                            icon = "loader",
+                            title = "Fetching history…",
+                            body = "Your bank is sending this account's transactions. They appear here as they arrive.",
+                            modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+                        )
+                    } else {
+                        EmptyState(
+                            icon = "inbox",
+                            title = "No transactions fetched yet",
+                            body = "Transactions appear here after this account's history has been fetched.",
+                            modifier = Modifier.fillMaxWidth().padding(top = 48.dp),
+                        )
+                    }
                 }
             } else {
                 itemsIndexed(state.transactions) { index, tx ->
@@ -173,7 +183,7 @@ fun ProviderAccountDetailScreen(
         AccountPickerSheet(
             accounts = state.svertoAccounts,
             onSelect = { sverto ->
-                viewModel.bind(connectionId, providerAccountId, sverto.id)
+                onChoose?.invoke(sverto)
                 picking = false
             },
             onDismiss = { picking = false },

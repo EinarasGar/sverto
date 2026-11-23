@@ -116,7 +116,7 @@ impl SessionStaging {
     pub fn add_account_mappings(&mut self, mappings: &[ImportAccountMappingModel]) {
         self.accounts.extend(mappings.iter().map(|mapping| {
             (
-                (mapping.file_id, mapping.account_ref.clone()),
+                (mapping.source_id, mapping.account_ref.clone()),
                 mapping.account_id,
             )
         }));
@@ -259,7 +259,10 @@ impl SessionStaging {
     }
 
     fn link(&self, line: &ImportParsedLineDto) -> LineLink {
-        match self.accounts.get(&(line.file_id, line.account_ref.clone())) {
+        match self
+            .accounts
+            .get(&(line.source_id, line.account_ref.clone()))
+        {
             None => LineLink::Blocked,
             Some(None) => LineLink::Excluded,
             Some(Some(account_id)) => {
@@ -290,7 +293,7 @@ impl SessionStaging {
         let mut keyed: HashMap<(Uuid, &str), Vec<&ImportParsedLineDto>> = HashMap::new();
         for line in lines.iter().copied() {
             if let Some(key) = line.transaction_key.as_deref() {
-                keyed.entry((line.file_id, key)).or_default().push(line);
+                keyed.entry((line.source_id, key)).or_default().push(line);
             }
         }
         let is_fee = |line: &ImportParsedLineDto| {
@@ -299,7 +302,7 @@ impl SessionStaging {
         let moved = |line: &ImportParsedLineDto| -> HashMap<(Option<Uuid>, Option<i32>), Decimal> {
             let account = self
                 .accounts
-                .get(&(line.file_id, line.account_ref.clone()))
+                .get(&(line.source_id, line.account_ref.clone()))
                 .copied()
                 .flatten();
             let mut moved = HashMap::new();
@@ -720,7 +723,7 @@ impl SessionStaging {
         };
         Ok(Some(StagedTransactionDto {
             id: staged_id(group),
-            file_ids: file_ids(group),
+            source_ids: source_ids(group),
             transaction: TransactionDto {
                 transaction_id: None,
                 date: line.date,
@@ -743,19 +746,21 @@ impl SessionStaging {
                     account_id: key.0,
                     asset_id: key.1,
                     quantity: Decimal::ZERO,
-                    file_id: line.file_id,
+                    source_id: line.source_id,
                     date: line.date.date(),
                     description: line.description.clone(),
                     itemised_fee: None,
+                    external_id: line.external_id.clone(),
                 });
                 movement.quantity += leg.quantity;
                 *per_line.entry(key).or_default().entry(line.id).or_default() += leg.quantity;
                 if leg.fee_type.is_some() && has_main_legs {
                     *movement.itemised_fee.get_or_insert(Decimal::ZERO) += leg.quantity;
                 } else if with_main_leg.insert(key) {
-                    movement.file_id = line.file_id;
+                    movement.source_id = line.source_id;
                     movement.date = line.date.date();
                     movement.description = line.description.clone();
+                    movement.external_id = line.external_id.clone();
                 }
             }
         }
@@ -792,7 +797,7 @@ fn unmarked_fee(lines: &BTreeMap<Uuid, Decimal>, total: Decimal) -> Option<Decim
 
 fn group_key(line: &ImportParsedLineDto) -> GroupKey {
     match &line.transaction_key {
-        Some(key) => GroupKey::Keyed(line.file_id, key.clone()),
+        Some(key) => GroupKey::Keyed(line.source_id, key.clone()),
         None => GroupKey::Single(line.id),
     }
 }
@@ -871,10 +876,10 @@ fn staged_id(group: &[LinkedLine]) -> Uuid {
     Uuid::new_v5(&Uuid::NAMESPACE_OID, &name)
 }
 
-fn file_ids(group: &[LinkedLine]) -> Vec<Uuid> {
+fn source_ids(group: &[LinkedLine]) -> Vec<Uuid> {
     group
         .iter()
-        .map(|(line, _)| line.file_id)
+        .map(|(line, _)| line.source_id)
         .collect::<BTreeSet<_>>()
         .into_iter()
         .collect()
@@ -884,7 +889,7 @@ fn unstageable(group: &[LinkedLine], reason: String) -> UnstageableGroupDto {
     let line = main_line(group).unwrap_or(group[0].0);
     UnstageableGroupDto {
         id: staged_id(group),
-        file_ids: file_ids(group),
+        source_ids: source_ids(group),
         date: line.date,
         description: line.description.clone(),
         reason,
@@ -923,7 +928,7 @@ mod tests {
     }
 
     fn line(
-        file_id: Uuid,
+        source_id: Uuid,
         account_ref: &str,
         key: Option<&str>,
         description: &str,
@@ -931,12 +936,13 @@ mod tests {
     ) -> ImportParsedLineDto {
         ImportParsedLineDto {
             id: Uuid::now_v7(),
-            file_id,
+            source_id,
             transaction_key: key.map(str::to_string),
             account_ref: account_ref.to_string(),
             date: datetime!(2026-02-01 10:00 UTC),
             description: Some(description.to_string()),
             related_asset_ref: None,
+            external_id: None,
             legs,
         }
     }
@@ -953,12 +959,12 @@ mod tests {
     }
 
     fn account(
-        file_id: Uuid,
+        source_id: Uuid,
         account_ref: &str,
         account_id: Option<Uuid>,
     ) -> ImportAccountMappingModel {
         ImportAccountMappingModel {
-            file_id,
+            source_id,
             account_ref: account_ref.to_string(),
             account_id,
         }
@@ -978,13 +984,13 @@ mod tests {
         }
     }
 
-    fn staging(file_id: Uuid, lines: Vec<ImportParsedLineDto>) -> SessionStaging {
+    fn staging(source_id: Uuid, lines: Vec<ImportParsedLineDto>) -> SessionStaging {
         load_dynamic_enums();
         let mut staging = SessionStaging::new(Uuid::nil());
         staging.add_account_mappings(&[
-            account(file_id, "Current", Some(CURRENT)),
-            account(file_id, "Savings", Some(SAVINGS)),
-            account(file_id, "Pocket", None),
+            account(source_id, "Current", Some(CURRENT)),
+            account(source_id, "Savings", Some(SAVINGS)),
+            account(source_id, "Pocket", None),
         ]);
         staging.add_asset_mappings(&[
             asset("GBP", GBP),
@@ -1065,9 +1071,9 @@ mod tests {
 
     #[test]
     fn fees_of_one_kind_sum_into_one_entry_and_a_fee_only_group_is_an_account_fee() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let payment = line(
-            file,
+            source,
             "Current",
             None,
             "Card",
@@ -1078,20 +1084,20 @@ mod tests {
             ],
         );
         let monthly = line(
-            file,
+            source,
             "Current",
             None,
             "Monthly fee",
             vec![fee("GBP", "-2", FeeEntryTypesDto::Transaction)],
         );
         let withholding = line(
-            file,
+            source,
             "Current",
             None,
             "Tax",
             vec![fee("GBP", "-0.30", FeeEntryTypesDto::WithholdingTax)],
         );
-        let stage = staging(file, vec![payment, monthly, withholding])
+        let stage = staging(source, vec![payment, monthly, withholding])
             .stage()
             .unwrap();
 
@@ -1118,32 +1124,32 @@ mod tests {
 
     #[test]
     fn exchange_sides_pair_into_a_trade_and_a_lone_side_is_a_transfer() {
-        let gbp_file = Uuid::now_v7();
-        let eur_file = Uuid::now_v7();
+        let gbp_source = Uuid::now_v7();
+        let eur_source = Uuid::now_v7();
         let out = line(
-            gbp_file,
+            gbp_source,
             "Current",
             None,
             "Exchanged to EUR",
             vec![leg("GBP", "-100")],
         );
         let back = line(
-            eur_file,
+            eur_source,
             "Current",
             None,
             "Exchanged from GBP",
             vec![leg("EUR", "115")],
         );
         let mut lone = line(
-            gbp_file,
+            gbp_source,
             "Current",
             None,
             "Exchanged to EUR",
             vec![leg("GBP", "-50")],
         );
         lone.date = datetime!(2026-02-03 9:00 UTC);
-        let mut staging = staging(gbp_file, vec![out.clone(), back.clone(), lone.clone()]);
-        staging.add_account_mappings(&[account(eur_file, "Current", Some(CURRENT))]);
+        let mut staging = staging(gbp_source, vec![out.clone(), back.clone(), lone.clone()]);
+        staging.add_account_mappings(&[account(eur_source, "Current", Some(CURRENT))]);
         staging.add_classifications(vec![
             typed(&out, ImportLineTypeDto::AssetTrade),
             typed(&back, ImportLineTypeDto::AssetTrade),
@@ -1156,7 +1162,7 @@ mod tests {
             stage.staged[0].transaction.transaction_type,
             TransactionTypeDto::AssetTrade(_)
         ));
-        assert_eq!(stage.staged[0].file_ids.len(), 2);
+        assert_eq!(stage.staged[0].source_ids.len(), 2);
         assert!(matches!(
             stage.staged[1].transaction.transaction_type,
             TransactionTypeDto::CashTransferOut(_)
@@ -1165,17 +1171,23 @@ mod tests {
 
     #[test]
     fn an_ambiguous_exchange_stays_lone() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let out = line(
-            file,
+            source,
             "Current",
             None,
             "Exchanged to EUR",
             vec![leg("GBP", "-100")],
         );
-        let first = line(file, "Current", None, "Exchanged", vec![leg("EUR", "115")]);
-        let second = line(file, "Current", None, "Exchanged", vec![leg("EUR", "57")]);
-        let mut staging = staging(file, vec![out.clone(), first.clone(), second.clone()]);
+        let first = line(
+            source,
+            "Current",
+            None,
+            "Exchanged",
+            vec![leg("EUR", "115")],
+        );
+        let second = line(source, "Current", None, "Exchanged", vec![leg("EUR", "57")]);
+        let mut staging = staging(source, vec![out.clone(), first.clone(), second.clone()]);
         staging.add_classifications(vec![
             typed(&out, ImportLineTypeDto::AssetTrade),
             typed(&first, ImportLineTypeDto::AssetTrade),
@@ -1202,13 +1214,25 @@ mod tests {
 
     #[test]
     fn exchange_sides_without_a_printed_time_or_at_different_times_stay_lone() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let stage_at = |out_date: OffsetDateTime, back_date: OffsetDateTime| {
-            let mut out = line(file, "Current", None, "Exchanged", vec![leg("GBP", "-100")]);
+            let mut out = line(
+                source,
+                "Current",
+                None,
+                "Exchanged",
+                vec![leg("GBP", "-100")],
+            );
             out.date = out_date;
-            let mut back = line(file, "Current", None, "Exchanged", vec![leg("EUR", "115")]);
+            let mut back = line(
+                source,
+                "Current",
+                None,
+                "Exchanged",
+                vec![leg("EUR", "115")],
+            );
             back.date = back_date;
-            let mut staging = staging(file, vec![out.clone(), back.clone()]);
+            let mut staging = staging(source, vec![out.clone(), back.clone()]);
             staging.add_classifications(vec![
                 typed(&out, ImportLineTypeDto::AssetTrade),
                 typed(&back, ImportLineTypeDto::AssetTrade),
@@ -1242,9 +1266,9 @@ mod tests {
 
     #[test]
     fn a_fee_row_keyed_to_an_exchange_side_pairs_like_an_inline_fee() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let inline_out = line(
-            file,
+            source,
             "Current",
             None,
             "Exchanged to EUR",
@@ -1254,32 +1278,32 @@ mod tests {
             ],
         );
         let keyed_out = line(
-            file,
+            source,
             "Current",
             Some("x1"),
             "Exchanged to EUR",
             vec![leg("GBP", "-100")],
         );
         let fee_row = line(
-            file,
+            source,
             "Current",
             Some("x1"),
             "Exchange fee",
             vec![fee("GBP", "-1", FeeEntryTypesDto::Exchange)],
         );
         let back = line(
-            file,
+            source,
             "Current",
             None,
             "Exchanged from GBP",
             vec![leg("EUR", "115")],
         );
-        let mut one = staging(file, vec![inline_out.clone(), back.clone()]);
+        let mut one = staging(source, vec![inline_out.clone(), back.clone()]);
         one.add_classifications(vec![
             typed(&inline_out, ImportLineTypeDto::AssetTrade),
             typed(&back, ImportLineTypeDto::AssetTrade),
         ]);
-        let mut two = staging(file, vec![keyed_out.clone(), fee_row, back.clone()]);
+        let mut two = staging(source, vec![keyed_out.clone(), fee_row, back.clone()]);
         two.add_classifications(vec![
             typed(&keyed_out, ImportLineTypeDto::AssetTrade),
             typed(&back, ImportLineTypeDto::AssetTrade),
@@ -1301,23 +1325,25 @@ mod tests {
 
     #[test]
     fn a_blocked_line_holds_back_its_group_and_a_dont_import_line_is_dropped() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let trade = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Buy ZZZQ",
             vec![leg("GBP", "-10"), leg("ZZZQ", "1")],
         );
         let fee_row = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Fee",
             vec![fee("GBP", "-1", FeeEntryTypesDto::Transaction)],
         );
-        let pocket = line(file, "Pocket", None, "Pocket", vec![leg("GBP", "-3")]);
-        let stage = staging(file, vec![trade, fee_row, pocket]).stage().unwrap();
+        let pocket = line(source, "Pocket", None, "Pocket", vec![leg("GBP", "-3")]);
+        let stage = staging(source, vec![trade, fee_row, pocket])
+            .stage()
+            .unwrap();
 
         assert!(stage.staged.is_empty());
         assert!(stage.unstageable.is_empty());
@@ -1325,22 +1351,22 @@ mod tests {
 
     #[test]
     fn a_dont_import_line_leaves_the_rest_of_its_group() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let out = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "To pocket",
             vec![leg("GBP", "-100")],
         );
         let pocket = line(
-            file,
+            source,
             "Pocket",
             Some("t1"),
             "From current",
             vec![leg("GBP", "100")],
         );
-        let mut staging = staging(file, vec![out.clone(), pocket.clone()]);
+        let mut staging = staging(source, vec![out.clone(), pocket.clone()]);
         staging.add_classifications(vec![
             typed(&out, ImportLineTypeDto::CashTransferOut),
             typed(&pocket, ImportLineTypeDto::CashTransferIn),
@@ -1361,9 +1387,9 @@ mod tests {
 
     #[test]
     fn cash_paid_for_or_received_from_a_left_out_asset_is_a_transfer() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let buy = line(
-            file,
+            source,
             "Current",
             None,
             "Buy SPX500",
@@ -1374,15 +1400,15 @@ mod tests {
             ],
         );
         let sell = line(
-            file,
+            source,
             "Current",
             None,
             "Sell SPX500",
             vec![leg("GBP", "560"), leg("SPX500", "-1")],
         );
-        let mut payout = line(file, "Current", None, "Adjustment", vec![leg("GBP", "2")]);
+        let mut payout = line(source, "Current", None, "Adjustment", vec![leg("GBP", "2")]);
         payout.related_asset_ref = Some("SPX500".to_string());
-        let mut staging = staging(file, vec![buy.clone(), sell, payout]);
+        let mut staging = staging(source, vec![buy.clone(), sell, payout]);
         staging.add_asset_mappings(&[left_out("SPX500")]);
         staging.add_classifications(vec![typed(&buy, ImportLineTypeDto::Regular)]);
 
@@ -1412,10 +1438,10 @@ mod tests {
 
     #[test]
     fn payments_sharing_a_reference_with_a_left_out_trade_keep_their_own_types() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let payment = |description: &str, amount: &str| {
             line(
-                file,
+                source,
                 "Current",
                 Some("NOTPROVIDED"),
                 description,
@@ -1424,13 +1450,13 @@ mod tests {
         };
         let (tesco, shell) = (payment("TESCO", "-50"), payment("SHELL", "-20"));
         let buy = line(
-            file,
+            source,
             "Current",
             Some("NOTPROVIDED"),
             "Buy SPX500",
             vec![leg("GBP", "-300"), leg("SPX500", "3")],
         );
-        let mut staging = staging(file, vec![tesco.clone(), shell.clone(), buy]);
+        let mut staging = staging(source, vec![tesco.clone(), shell.clone(), buy]);
         staging.add_asset_mappings(&[left_out("SPX500")]);
         staging.add_classifications(vec![
             typed(&tesco, ImportLineTypeDto::Regular),
@@ -1450,18 +1476,18 @@ mod tests {
 
     #[test]
     fn tax_withheld_on_a_left_out_assets_payout_is_a_transfer_out() {
-        let file = Uuid::now_v7();
-        let mut payout = line(file, "Current", None, "Dividend", vec![leg("GBP", "10")]);
+        let source = Uuid::now_v7();
+        let mut payout = line(source, "Current", None, "Dividend", vec![leg("GBP", "10")]);
         payout.related_asset_ref = Some("SPX500".to_string());
         let mut tax = line(
-            file,
+            source,
             "Current",
             None,
             "Tax",
             vec![fee("GBP", "-1.50", FeeEntryTypesDto::WithholdingTax)],
         );
         tax.related_asset_ref = Some("SPX500".to_string());
-        let mut staging = staging(file, vec![payout, tax]);
+        let mut staging = staging(source, vec![payout, tax]);
         staging.add_asset_mappings(&[left_out("SPX500")]);
 
         let stage = staging.stage().unwrap();
@@ -1477,23 +1503,29 @@ mod tests {
 
     #[test]
     fn a_line_moving_only_a_left_out_asset_disappears_and_holds_nothing_back() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let units = line(
-            file,
+            source,
             "Unanswered",
             Some("t1"),
             "Buy SPX500",
             vec![leg("SPX500", "1")],
         );
         let cash = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Transaction Related",
             vec![leg("GBP", "-550")],
         );
-        let held = line(file, "Current", None, "Position", vec![leg("SPX500", "3")]);
-        let mut staging = staging(file, vec![units, cash, held]);
+        let held = line(
+            source,
+            "Current",
+            None,
+            "Position",
+            vec![leg("SPX500", "3")],
+        );
+        let mut staging = staging(source, vec![units, cash, held]);
         staging.add_asset_mappings(&[left_out("SPX500")]);
 
         let stage = staging.stage().unwrap();
@@ -1506,61 +1538,61 @@ mod tests {
 
     #[test]
     fn one_key_in_two_files_is_two_groups() {
-        let first_file = Uuid::now_v7();
-        let second_file = Uuid::now_v7();
+        let first_source = Uuid::now_v7();
+        let second_source = Uuid::now_v7();
         let coffee = line(
-            first_file,
+            first_source,
             "Current",
             Some("t1"),
             "Coffee",
             vec![leg("GBP", "-3")],
         );
         let lunch = line(
-            second_file,
+            second_source,
             "Current",
             Some("t1"),
             "Lunch",
             vec![leg("GBP", "-9")],
         );
-        let mut staging = staging(first_file, vec![coffee, lunch]);
-        staging.add_account_mappings(&[account(second_file, "Current", Some(CURRENT))]);
+        let mut staging = staging(first_source, vec![coffee, lunch]);
+        staging.add_account_mappings(&[account(second_source, "Current", Some(CURRENT))]);
 
         assert_eq!(staging.stage().unwrap().staged.len(), 2);
     }
 
     #[test]
     fn a_keyed_transfer_is_one_balance_transfer_whatever_its_lines_were_called() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let out = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "To savings",
             vec![leg("GBP", "-100")],
         );
         let into = line(
-            file,
+            source,
             "Savings",
             Some("t1"),
             "From current",
             vec![leg("GBP", "100")],
         );
         let goal = line(
-            file,
+            source,
             "Current",
             Some("t2"),
             "Savings goal",
             vec![leg("GBP", "-40")],
         );
         let saved = line(
-            file,
+            source,
             "Savings",
             Some("t2"),
             "From current",
             vec![leg("GBP", "40")],
         );
         let mut staging = staging(
-            file,
+            source,
             vec![out.clone(), into.clone(), goal.clone(), saved.clone()],
         );
         staging.add_classifications(vec![
@@ -1589,44 +1621,44 @@ mod tests {
 
     #[test]
     fn a_keyed_transfer_that_is_not_one_amount_stages_each_account_by_itself() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let out = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "To savings",
             vec![leg("GBP", "-100")],
         );
         let short = line(
-            file,
+            source,
             "Savings",
             Some("t1"),
             "From current",
             vec![leg("GBP", "99")],
         );
         let charge = line(
-            file,
+            source,
             "Savings",
             Some("t1"),
             "Transfer charge",
             vec![fee("GBP", "-0.50", FeeEntryTypesDto::Transaction)],
         );
         let fx_out = line(
-            file,
+            source,
             "Current",
             Some("t2"),
             "To savings",
             vec![leg("GBP", "-100")],
         );
         let fx_in = line(
-            file,
+            source,
             "Savings",
             Some("t2"),
             "From current",
             vec![leg("EUR", "115")],
         );
         let mut staging = staging(
-            file,
+            source,
             vec![
                 out.clone(),
                 short.clone(),
@@ -1667,23 +1699,23 @@ mod tests {
 
     #[test]
     fn a_transfer_between_two_names_of_one_account_stages_nothing() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let out = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "To pot",
             vec![leg("GBP", "-100")],
         );
         let into = line(
-            file,
+            source,
             "Pot",
             Some("t1"),
             "From current",
             vec![leg("GBP", "100")],
         );
-        let mut staging = staging(file, vec![out.clone(), into.clone()]);
-        staging.add_account_mappings(&[account(file, "Pot", Some(CURRENT))]);
+        let mut staging = staging(source, vec![out.clone(), into.clone()]);
+        staging.add_account_mappings(&[account(source, "Pot", Some(CURRENT))]);
         staging.add_classifications(vec![
             typed(&out, ImportLineTypeDto::CashTransferOut),
             typed(&into, ImportLineTypeDto::CashTransferIn),
@@ -1696,30 +1728,30 @@ mod tests {
 
     #[test]
     fn a_fee_on_a_transfer_that_cancels_inside_one_account_is_an_account_fee() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let out = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "To pot",
             vec![leg("GBP", "-100")],
         );
         let into = line(
-            file,
+            source,
             "Pot",
             Some("t1"),
             "From current",
             vec![leg("GBP", "100")],
         );
         let charge = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Transfer charge",
             vec![fee("GBP", "-0.50", FeeEntryTypesDto::Transaction)],
         );
-        let mut staging = staging(file, vec![out, into, charge]);
-        staging.add_account_mappings(&[account(file, "Pot", Some(CURRENT))]);
+        let mut staging = staging(source, vec![out, into, charge]);
+        staging.add_account_mappings(&[account(source, "Pot", Some(CURRENT))]);
 
         let stage = staging.stage().unwrap();
         assert!(stage.unstageable.is_empty());
@@ -1735,40 +1767,40 @@ mod tests {
 
     #[test]
     fn two_currencies_are_a_trade_on_one_account_and_across_two_only_as_a_named_exchange() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let out = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "To EUR balance",
             vec![leg("GBP", "-100")],
         );
         let into = line(
-            file,
+            source,
             "Pot",
             Some("t1"),
             "From GBP balance",
             vec![leg("EUR", "115")],
         );
         let sent = line(
-            file,
+            source,
             "Current",
             Some("t2"),
             "To EUR account",
             vec![leg("GBP", "-50")],
         );
         let arrived = line(
-            file,
+            source,
             "Savings",
             Some("t2"),
             "From GBP account",
             vec![leg("EUR", "57")],
         );
         let mut staging = staging(
-            file,
+            source,
             vec![out.clone(), into.clone(), sent.clone(), arrived.clone()],
         );
-        staging.add_account_mappings(&[account(file, "Pot", Some(CURRENT))]);
+        staging.add_account_mappings(&[account(source, "Pot", Some(CURRENT))]);
         staging.add_classifications(vec![
             typed(&out, ImportLineTypeDto::CashTransferOut),
             typed(&into, ImportLineTypeDto::CashTransferIn),
@@ -1795,19 +1827,31 @@ mod tests {
 
     #[test]
     fn money_in_that_names_a_paying_asset_is_a_dividend() {
-        let file = Uuid::now_v7();
-        let mut dividend = line(file, "Current", None, "Dividend", vec![leg("GBP", "4.20")]);
+        let source = Uuid::now_v7();
+        let mut dividend = line(
+            source,
+            "Current",
+            None,
+            "Dividend",
+            vec![leg("GBP", "4.20")],
+        );
         dividend.related_asset_ref = Some("VUSA".to_string());
         let mut reversal = line(
-            file,
+            source,
             "Current",
             None,
             "Dividend reversal",
             vec![leg("GBP", "-4.20")],
         );
         reversal.related_asset_ref = Some("VUSA".to_string());
-        let interest = line(file, "Current", None, "Interest", vec![leg("GBP", "1.20")]);
-        let mut staging = staging(file, vec![dividend, reversal, interest.clone()]);
+        let interest = line(
+            source,
+            "Current",
+            None,
+            "Interest",
+            vec![leg("GBP", "1.20")],
+        );
+        let mut staging = staging(source, vec![dividend, reversal, interest.clone()]);
         staging.add_classifications(vec![typed(&interest, ImportLineTypeDto::CashTransferIn)]);
 
         let stage = staging.stage().unwrap();
@@ -1829,10 +1873,10 @@ mod tests {
 
     #[test]
     fn a_lone_withholding_row_joins_the_one_dividend_of_its_asset_account_and_day() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let dividend_of = |asset_ref: &str, quantity: &str| {
             let mut dividend = line(
-                file,
+                source,
                 "Current",
                 None,
                 "Dividend",
@@ -1843,7 +1887,7 @@ mod tests {
         };
         let tax_of = |asset_ref: &str, quantity: &str| {
             let mut tax = line(
-                file,
+                source,
                 "Current",
                 None,
                 "Withholding tax",
@@ -1857,9 +1901,9 @@ mod tests {
             .legs
             .push(fee("GBP", "-0.63", FeeEntryTypesDto::WithholdingTax));
 
-        let one = first_staged(staging(file, vec![inline]));
+        let one = first_staged(staging(source, vec![inline]));
         let two = staging(
-            file,
+            source,
             vec![
                 dividend_of("VUSA", "4.20"),
                 tax_of("VUSA", "-0.63"),
@@ -1881,15 +1925,15 @@ mod tests {
 
     #[test]
     fn a_sale_puts_the_security_in_sale_and_the_cash_in_proceeds() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let sale = line(
-            file,
+            source,
             "Current",
             None,
             "Sell VUSA",
             vec![leg("GBP", "610"), leg("VUSA", "-2")],
         );
-        let mut staging = staging(file, vec![sale.clone()]);
+        let mut staging = staging(source, vec![sale.clone()]);
         staging.add_classifications(vec![typed(&sale, ImportLineTypeDto::AssetSale)]);
 
         match first_staged(staging).transaction.transaction_type {
@@ -1908,43 +1952,43 @@ mod tests {
 
     #[test]
     fn a_reference_shared_by_separate_payments_stages_each_line() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let shop = line(
-            file,
+            source,
             "Current",
             Some("NOTPROVIDED"),
             "Shop",
             vec![leg("GBP", "-12.40")],
         );
         let rent = line(
-            file,
+            source,
             "Current",
             Some("NOTPROVIDED"),
             "Rent",
             vec![leg("GBP", "-900")],
         );
         let salary = line(
-            file,
+            source,
             "Current",
             Some("NOTPROVIDED"),
             "Salary",
             vec![leg("GBP", "2500")],
         );
         let debit = line(
-            file,
+            source,
             "Current",
             Some("ref9"),
             "Gym",
             vec![leg("GBP", "-30")],
         );
         let reversal = line(
-            file,
+            source,
             "Current",
             Some("ref9"),
             "Gym reversal",
             vec![leg("GBP", "30")],
         );
-        let mut staging = staging(file, vec![shop, rent, salary.clone(), debit, reversal]);
+        let mut staging = staging(source, vec![shop, rent, salary.clone(), debit, reversal]);
         staging.add_classifications(vec![typed(&salary, ImportLineTypeDto::CashTransferIn)]);
 
         let stage = staging.stage().unwrap();
@@ -1963,16 +2007,16 @@ mod tests {
 
     #[test]
     fn a_group_the_ledger_rejects_is_unstageable_with_its_message() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let contribution = line(
-            file,
+            source,
             "Current",
             None,
             "Contribution",
             vec![leg("GBP", "200"), leg("VUSA", "12.3")],
         );
 
-        let stage = staging(file, vec![contribution]).stage().unwrap();
+        let stage = staging(source, vec![contribution]).stage().unwrap();
         assert!(stage.staged.is_empty());
         assert_eq!(
             stage.unstageable[0].reason,
@@ -1982,22 +2026,22 @@ mod tests {
 
     #[test]
     fn a_payment_and_an_unmarked_fee_on_one_reference_itemise_the_smaller_line() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let payment = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Card",
             vec![leg("GBP", "-200")],
         );
         let unmarked = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Fee",
             vec![leg("GBP", "-0.41")],
         );
-        let movement = first_staged(staging(file, vec![payment, unmarked])).movements[0].clone();
+        let movement = first_staged(staging(source, vec![payment, unmarked])).movements[0].clone();
 
         assert_eq!(movement.quantity, "-200.41".parse().unwrap());
         assert_eq!(movement.itemised_fee, Some("-0.41".parse().unwrap()));
@@ -2006,23 +2050,23 @@ mod tests {
 
     #[test]
     fn ids_are_stable_and_the_content_follows_the_lines() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let a = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Buy",
             vec![leg("GBP", "-10"), leg("VUSA", "1")],
         );
         let b = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Fee",
             vec![fee("GBP", "-1", FeeEntryTypesDto::Transaction)],
         );
         let stage_of = |lines: Vec<ImportParsedLineDto>| {
-            let mut staging = staging(file, lines);
+            let mut staging = staging(source, lines);
             staging.add_classifications(vec![typed(&a, ImportLineTypeDto::AssetPurchase)]);
             first_staged(staging)
         };
@@ -2044,16 +2088,16 @@ mod tests {
 
     #[test]
     fn a_conversion_keyed_to_a_purchase_nets_out_and_leftover_change_keeps_the_rows_apart() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let buy = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Buy VUSA",
             vec![leg("EUR", "-500"), leg("VUSA", "3")],
         );
         let conversion = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "FX",
@@ -2062,13 +2106,13 @@ mod tests {
         let mut with_change = conversion.clone();
         with_change.legs[1] = leg("EUR", "500.37");
 
-        let exact = staging(file, vec![conversion.clone(), buy.clone()])
+        let exact = staging(source, vec![conversion.clone(), buy.clone()])
             .stage()
             .unwrap();
-        let reordered = staging(file, vec![buy.clone(), conversion])
+        let reordered = staging(source, vec![buy.clone(), conversion])
             .stage()
             .unwrap();
-        let apart = staging(file, vec![buy, with_change]).stage().unwrap();
+        let apart = staging(source, vec![buy, with_change]).stage().unwrap();
 
         assert_eq!(
             shapes(&exact),
@@ -2096,23 +2140,23 @@ mod tests {
 
     #[test]
     fn securities_moved_between_two_accounts_are_two_asset_transfers() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let out = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Transfer out",
             vec![leg("VUSA", "-10")],
         );
         let into = line(
-            file,
+            source,
             "Savings",
             Some("t1"),
             "Transfer in",
             vec![leg("VUSA", "10")],
         );
 
-        let stage = staging(file, vec![out, into]).stage().unwrap();
+        let stage = staging(source, vec![out, into]).stage().unwrap();
         assert!(stage.unstageable.is_empty());
         assert_eq!(
             shapes(&stage),
@@ -2125,19 +2169,19 @@ mod tests {
 
     #[test]
     fn a_type_that_contradicts_the_direction_of_the_money_follows_the_money() {
-        let file = Uuid::now_v7();
-        let paid = line(file, "Current", None, "J Smith", vec![leg("GBP", "-20")]);
-        let received = line(file, "Current", None, "J Smith", vec![leg("GBP", "20")]);
-        let refunded = line(file, "Current", None, "Fee refund", vec![leg("GBP", "5")]);
+        let source = Uuid::now_v7();
+        let paid = line(source, "Current", None, "J Smith", vec![leg("GBP", "-20")]);
+        let received = line(source, "Current", None, "J Smith", vec![leg("GBP", "20")]);
+        let refunded = line(source, "Current", None, "Fee refund", vec![leg("GBP", "5")]);
         let returned = line(
-            file,
+            source,
             "Current",
             None,
             "Fee returned",
             vec![fee("GBP", "2", FeeEntryTypesDto::Transaction)],
         );
         let mut staging = staging(
-            file,
+            source,
             vec![paid.clone(), received.clone(), refunded.clone(), returned],
         );
         staging.add_classifications(vec![
@@ -2161,9 +2205,9 @@ mod tests {
 
     #[test]
     fn a_keyed_line_the_classifier_called_a_fee_is_a_fee_entry_of_its_payment() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let inline = line(
-            file,
+            source,
             "Current",
             None,
             "Card",
@@ -2173,23 +2217,32 @@ mod tests {
             ],
         );
         let payment = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Card",
             vec![leg("GBP", "-200")],
         );
         let charge = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Bank charge",
             vec![leg("GBP", "-0.41")],
         );
-        let monthly = line(file, "Current", None, "Monthly fee", vec![leg("GBP", "-2")]);
-        let mut one = staging(file, vec![inline.clone()]);
+        let monthly = line(
+            source,
+            "Current",
+            None,
+            "Monthly fee",
+            vec![leg("GBP", "-2")],
+        );
+        let mut one = staging(source, vec![inline.clone()]);
         one.add_classifications(vec![typed(&inline, ImportLineTypeDto::Regular)]);
-        let mut two = staging(file, vec![charge.clone(), payment.clone(), monthly.clone()]);
+        let mut two = staging(
+            source,
+            vec![charge.clone(), payment.clone(), monthly.clone()],
+        );
         two.add_classifications(vec![
             typed(&payment, ImportLineTypeDto::Regular),
             typed(&charge, ImportLineTypeDto::AccountFees),
@@ -2216,23 +2269,23 @@ mod tests {
 
     #[test]
     fn a_fee_taken_in_units_is_unstageable() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let charge = line(
-            file,
+            source,
             "Current",
             None,
             "Platform fee",
             vec![fee("VUSA", "-0.012", FeeEntryTypesDto::Transaction)],
         );
         let rebate = line(
-            file,
+            source,
             "Current",
             None,
             "Fee rebate",
             vec![fee("VWRL", "0.004", FeeEntryTypesDto::Transaction)],
         );
         let mixed = line(
-            file,
+            source,
             "Current",
             None,
             "Custody",
@@ -2242,7 +2295,9 @@ mod tests {
             ],
         );
 
-        let stage = staging(file, vec![charge, rebate, mixed]).stage().unwrap();
+        let stage = staging(source, vec![charge, rebate, mixed])
+            .stage()
+            .unwrap();
         assert!(stage.staged.is_empty());
         assert_eq!(
             stage
@@ -2260,24 +2315,24 @@ mod tests {
 
     #[test]
     fn a_keyed_line_called_a_fee_beside_two_other_assets_is_the_trades_fee_entry_in_a_currency() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let trade = |charged_in: &str, amount: &str, called_a_fee: bool| {
-            let bought = line(file, "Current", Some("t1"), "Buy", vec![leg("VUSA", "3")]);
+            let bought = line(source, "Current", Some("t1"), "Buy", vec![leg("VUSA", "3")]);
             let paid = line(
-                file,
+                source,
                 "Current",
                 Some("t1"),
                 "Transaction Related",
                 vec![leg("GBP", "-550")],
             );
             let charge = line(
-                file,
+                source,
                 "Current",
                 Some("t1"),
                 "Fee",
                 vec![leg(charged_in, amount)],
             );
-            let mut staging = staging(file, vec![bought, paid, charge.clone()]);
+            let mut staging = staging(source, vec![bought, paid, charge.clone()]);
             if called_a_fee {
                 staging.add_classifications(vec![typed(&charge, ImportLineTypeDto::AccountFees)]);
             }
@@ -2313,29 +2368,29 @@ mod tests {
 
     #[test]
     fn a_line_called_a_fee_beside_a_conversion_that_nets_out_stays_a_main_leg() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let buy = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Buy VUSA",
             vec![leg("EUR", "-600"), leg("VUSA", "3")],
         );
         let debit = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "FX debit",
             vec![leg("GBP", "-520")],
         );
         let credit = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "FX credit",
             vec![leg("EUR", "600")],
         );
-        let mut staging = staging(file, vec![buy, debit.clone(), credit]);
+        let mut staging = staging(source, vec![buy, debit.clone(), credit]);
         staging.add_classifications(vec![typed(&debit, ImportLineTypeDto::AccountFees)]);
 
         let stage = staging.stage().unwrap();
@@ -2351,23 +2406,23 @@ mod tests {
 
     #[test]
     fn the_largest_line_gives_the_date_the_description_and_the_category() {
-        let file = Uuid::now_v7();
+        let source = Uuid::now_v7();
         let charge = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Bank charge",
             vec![leg("GBP", "-0.41")],
         );
         let mut payment = line(
-            file,
+            source,
             "Current",
             Some("t1"),
             "Tesco",
             vec![leg("GBP", "-200")],
         );
         payment.date = datetime!(2026-02-02 9:00 UTC);
-        let mut staging = staging(file, vec![charge, payment.clone()]);
+        let mut staging = staging(source, vec![charge, payment.clone()]);
         staging.add_classifications(vec![ImportLineClassificationDto {
             parsed_line_id: payment.id,
             line_type: ImportLineTypeDto::Regular,

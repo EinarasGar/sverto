@@ -8,7 +8,7 @@ use shared::view_models::{
         get_transactions::CombinedTransactionItemViewModel,
         transaction_types::{
             RequiredIdentifiableTransactionWithIdentifiableEntries as TxEnum,
-            RequiredTransactionWithIdentifiableEntries as ReqTxEnum,
+            RequiredTransactionWithIdentifiableEntries as ReqTxEnum, TransactionWithId,
         },
     },
 };
@@ -27,10 +27,6 @@ pub fn build_search_transactions_path(user_id: &str, query: &str, cursor: Option
     }
     path
 }
-
-type Entry = shared::view_models::transactions::base_models::account_asset_entry::IdentifiableAccountAssetEntry<
-    shared::view_models::transactions::base_models::entry_id::RequiredEntryId,
->;
 
 pub fn extract_page(body: &str) -> Result<TransactionsPage, String> {
     let page: CombinedTransactionsPage = serde_json::from_str(body).map_err(|e| e.to_string())?;
@@ -169,9 +165,12 @@ fn build_list_item(
     }
 }
 
-type ET = (String, i32, f64, bool);
+pub(crate) type ET = (String, i32, f64, bool);
 
-fn entry(e: &Entry, out: bool) -> ET {
+fn entry<I>(
+    e: &shared::view_models::transactions::base_models::account_asset_entry::IdentifiableAccountAssetEntry<I>,
+    out: bool,
+) -> ET {
     (
         e.entry.account_id.0.to_string(),
         e.entry.asset_id.0,
@@ -236,6 +235,88 @@ fn flatten_required(tx: &ReqTxEnum) -> (i64, &str, Option<String>, Option<i32>, 
             ]
         ),
         ReqTxEnum::CashBalanceTransfer(t) => base!(
+            t,
+            "cash_balance_transfer",
+            vec![
+                entry(&t.outgoing_change, true),
+                entry(&t.incoming_change, false)
+            ]
+        ),
+    }
+}
+
+pub(crate) fn flatten_identifiable(
+    tx: &TransactionWithId,
+) -> (i64, &str, Option<String>, Option<i32>, Vec<ET>) {
+    macro_rules! base {
+        ($t:expr, $type:expr, $entries:expr) => {
+            (
+                $t.base.base.date.unix_timestamp(),
+                $type,
+                None,
+                None,
+                $entries,
+            )
+        };
+    }
+
+    match tx {
+        TransactionWithId::RegularTransaction(t) => (
+            t.base.base.date.unix_timestamp(),
+            "regular",
+            t.description.as_ref().map(|d| d.as_str().to_string()),
+            Some(t.category_id.0),
+            vec![entry(&t.entry, false)],
+        ),
+        TransactionWithId::CashTransferIn(t) => {
+            base!(t, "cash_transfer_in", vec![entry(&t.entry, false)])
+        }
+        TransactionWithId::CashTransferOut(t) => {
+            base!(t, "cash_transfer_out", vec![entry(&t.entry, true)])
+        }
+        TransactionWithId::CashDividend(t) => {
+            base!(t, "cash_dividend", vec![entry(&t.entry, false)])
+        }
+        TransactionWithId::AssetDividend(t) => {
+            base!(t, "asset_dividend", vec![entry(&t.entry, false)])
+        }
+        TransactionWithId::AssetTransferIn(t) => {
+            base!(t, "asset_transfer_in", vec![entry(&t.entry, false)])
+        }
+        TransactionWithId::AssetTransferOut(t) => {
+            base!(t, "asset_transfer_out", vec![entry(&t.entry, true)])
+        }
+        TransactionWithId::AccountFees(t) => base!(t, "account_fees", vec![entry(&t.entry, true)]),
+        TransactionWithId::AssetPurchase(t) => base!(
+            t,
+            "asset_purchase",
+            vec![
+                entry(&t.cash_outgoings_change, true),
+                entry(&t.purchase_change, false)
+            ]
+        ),
+        TransactionWithId::AssetSale(t) => base!(
+            t,
+            "asset_sale",
+            vec![entry(&t.sale_entry, true), entry(&t.proceeds_entry, false)]
+        ),
+        TransactionWithId::AssetTrade(t) => base!(
+            t,
+            "asset_trade",
+            vec![
+                entry(&t.outgoing_entry, true),
+                entry(&t.incoming_entry, false)
+            ]
+        ),
+        TransactionWithId::AssetBalanceTransfer(t) => base!(
+            t,
+            "asset_balance_transfer",
+            vec![
+                entry(&t.outgoing_change, true),
+                entry(&t.incoming_change, false)
+            ]
+        ),
+        TransactionWithId::CashBalanceTransfer(t) => base!(
             t,
             "cash_balance_transfer",
             vec![
@@ -441,7 +522,7 @@ fn entry_display(tables: &MetadataLookupTables, asset_id: i32, amount: f64) -> S
     }
 }
 
-fn find_ticker(t: &MetadataLookupTables, id: i32) -> String {
+pub(crate) fn find_ticker(t: &MetadataLookupTables, id: i32) -> String {
     t.assets
         .iter()
         .find(|a| a.asset_id.0 == id)
@@ -465,7 +546,7 @@ pub(crate) fn find_category_icon(t: &MetadataLookupTables, id: i32) -> Option<St
 
 /// The headline amount: the whole amount for single-entry transactions, or the
 /// outgoing leg for two-entry transactions (purchase/sale/trade).
-fn primary_display(entries: &[ET], tables: &MetadataLookupTables) -> String {
+pub(crate) fn primary_display(entries: &[ET], tables: &MetadataLookupTables) -> String {
     match entries.first() {
         None => String::new(),
         Some(e) => entry_display(tables, e.1, e.2),
@@ -473,11 +554,11 @@ fn primary_display(entries: &[ET], tables: &MetadataLookupTables) -> String {
 }
 
 /// The incoming leg for two-entry transactions; `None` for single-entry.
-fn secondary_display(entries: &[ET], tables: &MetadataLookupTables) -> Option<String> {
+pub(crate) fn secondary_display(entries: &[ET], tables: &MetadataLookupTables) -> Option<String> {
     entries.get(1).map(|e| entry_display(tables, e.1, e.2))
 }
 
-fn type_label(t: &str) -> &str {
+pub(crate) fn type_label(t: &str) -> &str {
     match t {
         "asset_purchase" => "Asset Buy",
         "asset_sale" => "Asset Sell",

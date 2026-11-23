@@ -3,7 +3,9 @@ import { RotateCw, Trash2 } from "lucide-react"
 import { Link, useNavigate } from "@tanstack/react-router"
 
 import type {
+  ImportBankAccountSource,
   ImportClassification,
+  ImportFileSource,
   ImportSessionCounts,
   ImportSessionDetailResponse,
 } from "@/api"
@@ -18,7 +20,6 @@ import {
   PanelTitle,
 } from "@/components/primitives"
 import { Button } from "@/components/ui/button"
-import { useAiFeaturesGate } from "@/features/ai-features"
 import { EM_DASH, formatCount, formatDateTimeStamp } from "@/lib/format"
 import type { ImportSessionId } from "@/lib/query"
 import { cn } from "@/lib/utils"
@@ -30,6 +31,8 @@ import {
   useRefetchWithDetail,
   useRetryImportClassification,
 } from "./api"
+import { bankSourceLabel } from "./bank-source"
+import { ImportBankSources } from "./import-bank-sources"
 import { ImportDeleteDialog } from "./import-delete-dialog"
 import { ImportFiles } from "./import-files"
 import { type BalanceAsk, ImportItems } from "./import-items"
@@ -39,9 +42,12 @@ import { ImportStatusChip } from "./import-status-chip"
 import { importSessionTitle, useAccountNames } from "./session-title"
 import {
   acceptsFiles,
+  BANK_SOURCE_COPY,
   CLASSIFICATION_COPY,
+  FILE_SOURCE_COPY,
   isFinished,
   SESSION_STATUS_COPY,
+  type SourceCopy,
 } from "./status"
 
 type CountKey = Exclude<keyof ImportSessionCounts, "staged_available">
@@ -76,14 +82,11 @@ function ClassificationFact({
   classification: ImportClassification
 }) {
   const retry = useRetryImportClassification(params)
-  const aiGate = useAiFeaturesGate(params.userId)
-  const retryAsync = retry.mutateAsync
   const copy = CLASSIFICATION_COPY[classification.status]
 
   return (
     <FactRow label="Categories">
       <div data-slot="import-classification">
-        {aiGate.dialog}
         <div className="flex items-start justify-between gap-3">
           <span className="text-ink-2">{copy.summary}</span>
           <ImportStatusChip tone={copy.tone} label={copy.label} />
@@ -98,7 +101,7 @@ function ClassificationFact({
               aria-label="Retry categorizing"
               disabled={retry.isPending}
               onClick={() => {
-                aiGate.runWithAiConsent(() => retryAsync())
+                retry.mutate()
               }}
               className={cn(
                 "flex h-7 flex-none items-center gap-1 rounded-button px-2 text-[11px] font-medium text-ink-2 outline-none hover:bg-surface-2 hover:text-ink disabled:opacity-50",
@@ -119,10 +122,12 @@ function SessionFacts({
   params,
   detail,
   accountNames,
+  sourceCopy,
 }: {
   params: ImportSessionParams
   detail: ImportSessionDetailResponse
   accountNames: readonly string[]
+  sourceCopy: SourceCopy
 }) {
   const { session, counts } = detail
   const unavailable = (key: CountKey) =>
@@ -172,10 +177,7 @@ function SessionFacts({
         </FactRow>
       ) : null}
       {isFinished(session.status) ? null : (
-        <PanelFootnote>
-          Accounts are linked after the files are read. Nothing is written to
-          your ledger until you approve the proposal.
-        </PanelFootnote>
+        <PanelFootnote>{sourceCopy.linkingFootnote}</PanelFootnote>
       )}
     </Panel>
   )
@@ -191,7 +193,25 @@ export function ImportSessionDetail({
   useRefetchWithDetail({ userId, sessionId }, detail)
   const { session } = detail
   const accountNames = useAccountNames(session.accounts)
-  const views = useImportFileViews(userId, detail.files)
+  const files = detail.sources.filter(
+    (source): source is ImportFileSource => source.kind === "file"
+  )
+  const banks = detail.sources.filter(
+    (source): source is ImportBankAccountSource =>
+      source.kind === "bank_account"
+  )
+  const views = useImportFileViews(userId, files)
+  const sourceNames: Record<string, string> = {}
+  for (const view of views) {
+    if (view.details !== undefined) {
+      sourceNames[view.file.id] = view.details.original_name
+    }
+  }
+  for (const bank of banks) {
+    sourceNames[bank.id] = bankSourceLabel(bank).title
+  }
+  const bankOnly = files.length === 0 && banks.length > 0
+  const sourceCopy = bankOnly ? BANK_SOURCE_COPY : FILE_SOURCE_COPY
   const status = SESSION_STATUS_COPY[session.status]
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
@@ -207,7 +227,11 @@ export function ImportSessionDetail({
         eyebrow="Import"
         title={importSessionTitle(session.created_at, accountNames)}
         meta={<ImportStatusChip tone={status.tone} label={status.label} />}
-        intro={status.summary}
+        intro={
+          session.status === "reconciling"
+            ? sourceCopy.reconciling
+            : status.summary
+        }
         actions={
           <Button
             variant="outline"
@@ -227,7 +251,7 @@ export function ImportSessionDetail({
           <ImportQuestions
             params={{ userId, sessionId }}
             asks={detail.open_asks}
-            views={views}
+            sourceNames={sourceNames}
             pending={detail.counts.pending}
           />
           <ImportPending
@@ -241,23 +265,30 @@ export function ImportSessionDetail({
             balanceAsks={detail.open_asks.filter(
               (ask): ask is BalanceAsk => ask.kind === "no_checkpoint"
             )}
+            sourceCopy={sourceCopy}
           />
-          <ImportFiles
-            params={{ userId, sessionId }}
-            files={detail.files}
-            acceptsFiles={acceptsFiles(session.status)}
-          />
+          <ImportBankSources sources={banks} />
+          {bankOnly ? null : (
+            <ImportFiles
+              params={{ userId, sessionId }}
+              files={files}
+              acceptsFiles={acceptsFiles(session.status)}
+            />
+          )}
         </div>
         <SessionFacts
           params={{ userId, sessionId }}
           detail={detail}
           accountNames={accountNames}
+          sourceCopy={sourceCopy}
         />
       </div>
 
       <ImportDeleteDialog
         userId={userId}
         sessionId={sessionId}
+        lost={sourceCopy.deleted}
+        pendingBankLinks={isFinished(session.status) ? 0 : banks.length}
         open={deleting}
         onOpenChange={setDeleting}
         onDeleted={() => {

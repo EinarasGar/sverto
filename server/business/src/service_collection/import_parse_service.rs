@@ -110,6 +110,23 @@ impl ImportParseService {
         user_id: Uuid,
         accepted: &AcceptedExtraction,
     ) -> anyhow::Result<()> {
+        let date_order = accepted
+            .unsettled_date_order
+            .map(|date_order| match date_order {
+                DateOrder::DayFirst => ImportDateOrder::DayFirst,
+                DateOrder::MonthFirst => ImportDateOrder::MonthFirst,
+            });
+        let claimed: Vec<Uuid> = self
+            .db
+            .fetch_all_scalar(import_queries::finish_file_parse(
+                session_id, file_id, user_id, date_order,
+            ))
+            .await?;
+        let Some(&source_id) = claimed.first() else {
+            tracing::info!("discarded the parse of a file that changed while it was read");
+            return Ok(());
+        };
+
         let mut lines = Vec::with_capacity(accepted.lines.len());
         let mut legs = Vec::new();
         for line in &accepted.lines {
@@ -127,7 +144,7 @@ impl ImportParseService {
             lines.push(ImportParsedLineInsert {
                 id,
                 session_id,
-                file_id,
+                source_id,
                 transaction_key: line.transaction_key.clone(),
                 account_ref: line.account_ref.clone(),
                 date_transacted: line
@@ -145,7 +162,7 @@ impl ImportParseService {
             .chain(&accepted.end_of_day_balances)
             .map(|assertion| ImportAssertionInsert {
                 session_id,
-                file_id,
+                source_id,
                 account_ref: assertion.account_ref.clone(),
                 asset_ref: assertion.asset_ref.clone(),
                 kind: match assertion.kind {
@@ -158,38 +175,14 @@ impl ImportParseService {
                 quantity: assertion.quantity,
             })
             .collect();
-        let (coverage_from, coverage_to) = accepted.coverage.unzip();
-        let date_order = accepted
-            .unsettled_date_order
-            .map(|date_order| match date_order {
-                DateOrder::DayFirst => ImportDateOrder::DayFirst,
-                DateOrder::MonthFirst => ImportDateOrder::MonthFirst,
-            });
-
-        let claimed = self
-            .db
-            .execute_with_rows_affected(import_queries::finish_file_parse(
-                session_id,
-                file_id,
-                user_id,
-                coverage_from,
-                coverage_to,
-                date_order,
-            ))
-            .await?;
-        if claimed == 0 {
-            tracing::info!("discarded the parse of a file that changed while it was read");
-            return Ok(());
-        }
-
         self.db
-            .execute(import_queries::delete_file_parsed_lines(
-                session_id, file_id, user_id,
+            .execute(import_queries::delete_source_parsed_lines(
+                session_id, source_id, user_id,
             ))
             .await?;
         self.db
-            .execute(import_queries::delete_file_assertions(
-                session_id, file_id, user_id,
+            .execute(import_queries::delete_source_assertions(
+                session_id, source_id, user_id,
             ))
             .await?;
         for chunk in lines.chunks(INSERT_CHUNK) {

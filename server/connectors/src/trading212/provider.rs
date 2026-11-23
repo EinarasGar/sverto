@@ -23,21 +23,20 @@ impl Provider for Trading212Provider {
         let api_key_id = store
             .provider_key_id()
             .ok_or_else(|| anyhow::anyhow!("trading212 connection has no provider_key_id"))?;
-        let api_secret = match credential {
-            CredentialSource::Transient(secret) => secret,
+        let client = match credential {
+            CredentialSource::Transient(secret) => {
+                Trading212Client::new(api_key_id, secret, Trading212Env::Live)
+            }
             CredentialSource::Stored => {
                 let bytes = store
                     .get_credential()
                     .await?
                     .ok_or_else(|| anyhow::anyhow!("Credential not found"))?;
-                String::from_utf8(bytes)?
+                Trading212Client::new(api_key_id, String::from_utf8(bytes)?, Trading212Env::Live)
+                    .waiting_for_rate_limits()
             }
         };
-        Ok(Box::new(Trading212Client::new(
-            api_key_id,
-            api_secret,
-            Trading212Env::Live,
-        )))
+        Ok(Box::new(client))
     }
 
     fn resolve_provider_account_id(
@@ -58,6 +57,10 @@ impl Provider for Trading212Provider {
             display_name: "Trading212".to_string(),
             currency: None,
             account_type: None,
+            account_number_last4: None,
+            balance: None,
+            booked_balance: None,
+            iban: None,
         }])
     }
 }

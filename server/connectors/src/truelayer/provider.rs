@@ -15,10 +15,6 @@ impl Provider for TrueLayerProvider {
         ProviderKind::TrueLayer
     }
 
-    fn needs_attended_backfill(&self) -> bool {
-        true
-    }
-
     async fn build_connector(
         &self,
         provider_account_id: &str,

@@ -113,7 +113,7 @@ pub async fn list_import_sessions(
 
 /// Get Import Session
 ///
-/// Gets a single import session with its files, open asks and verb counts.
+/// Gets a single import session with its sources, open asks and verb counts.
 #[utoipa::path(
     get,
     path = "/api/users/{user_id}/import-sessions/{import_session_id}",
@@ -308,9 +308,10 @@ pub async fn read_file_dates(
 
 /// Retry Import Classification
 ///
-/// Classifies the session's lines again after the last classification failed.
-/// Refused with 403 while the user has AI features turned off: the import reads
-/// and categorizes with AI.
+/// Classifies the session's lines again after the last classification failed. Refused with 403
+/// while the user has AI features turned off and the session has files: the import reads and
+/// categorizes them with AI. A session of bank accounts alone is classified without AI, its lines
+/// left uncategorized.
 #[utoipa::path(
     post,
     path = "/api/users/{user_id}/import-sessions/{import_session_id}/classification/retry",

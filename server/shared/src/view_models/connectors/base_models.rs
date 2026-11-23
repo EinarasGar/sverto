@@ -41,6 +41,7 @@ pub struct ConnectorConnectionViewModel {
     pub id: uuid::Uuid,
     pub provider_kind: String,
     pub credential_mode: CredentialMode,
+    pub links_by_import: bool,
     pub provider_key_id: Option<String>,
     pub status: String,
     #[serde(with = "timestamp::option")]
@@ -76,12 +77,16 @@ pub struct ConnectorBindingViewModel {
     #[serde(with = "timestamp")]
     #[schema(value_type = i64)]
     pub updated_at: time::OffsetDateTime,
+    pub import_session_id: Option<uuid::Uuid>,
 }
 
 #[cfg(feature = "backend")]
-impl From<ConnectorConnectionDto> for ConnectorConnectionViewModel {
-    fn from(dto: ConnectorConnectionDto) -> Self {
-        Self {
+impl TryFrom<ConnectorConnectionDto> for ConnectorConnectionViewModel {
+    type Error = anyhow::Error;
+
+    fn try_from(dto: ConnectorConnectionDto) -> Result<Self, Self::Error> {
+        Ok(Self {
+            links_by_import: dto.links_by_import()?,
             id: dto.id,
             provider_kind: dto.provider_kind,
             credential_mode: dto.credential_mode.into(),
@@ -90,7 +95,7 @@ impl From<ConnectorConnectionDto> for ConnectorConnectionViewModel {
             consent_expires_at: dto.consent_expires_at,
             created_at: dto.created_at,
             updated_at: dto.updated_at,
-        }
+        })
     }
 }
 
@@ -110,6 +115,7 @@ impl From<ConnectorBindingDto> for ConnectorBindingViewModel {
             last_sync_error: dto.last_sync_error,
             created_at: dto.created_at,
             updated_at: dto.updated_at,
+            import_session_id: dto.import_session_id,
         }
     }
 }

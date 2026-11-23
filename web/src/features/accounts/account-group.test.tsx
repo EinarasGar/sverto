@@ -56,6 +56,7 @@ const CONNECTOR = {
   lastSyncError: null,
   syncedThrough: null,
   writesPostDirectly: false,
+  importSessionId: null,
 }
 
 beforeEach(() => {

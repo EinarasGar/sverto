@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use shared::view_models::connectors::base_models::CredentialMode as VmCredentialMode;
 use shared::view_models::connectors::create_binding::CreateBindingRequestViewModel;
 use shared::view_models::connectors::create_connection::CreateConnectionRequestViewModel;
@@ -12,45 +10,22 @@ use shared::view_models::connectors::update_binding::{
     BindingUpdateStatus, UpdateBindingRequestViewModel,
 };
 
+use super::accounts::account_names;
 use super::connector_local;
 use super::infra::SharedInfra;
+use super::{ok_or_err, user_id};
 use crate::api::connectors::*;
+use crate::api::held_transactions::{decision_body, extract_held_transactions};
 use crate::error::{server_error, ApiError};
 use crate::models::{
     Aspsp, BindingStatus, BindingWriteMode, CompleteOAuthResult, ConnectorBinding,
-    ConnectorConnection, CreateConnectionInput, CredentialMode, OAuthSessionStart, ProviderAccount,
+    ConnectorConnection, ConnectorImportFrom, CreateConnectionInput, CredentialMode,
+    HeldTransaction, HeldTransactionDecision, OAuthSessionStart, ProviderAccount,
     ProviderAccountTransaction, SyncOutcome,
 };
 
-fn user_id(infra: &SharedInfra) -> Result<String, ApiError> {
-    infra.user_id().ok_or_else(|| ApiError::Parse {
-        reason: "no user_id".into(),
-    })
-}
-
-fn ok_or_err(status: u16, body: &str) -> Result<(), ApiError> {
-    if status >= 400 {
-        return Err(server_error(status, body));
-    }
-    Ok(())
-}
-
 fn evict_connectors(infra: &SharedInfra, uid: &str) {
     infra.evict_memory_cache_prefix(&format!("/api/users/{uid}/connectors"));
-}
-
-async fn account_names(
-    infra: &SharedInfra,
-    auth_token: Option<&str>,
-) -> Result<HashMap<String, String>, ApiError> {
-    let uid = user_id(infra)?;
-    let resp = infra
-        .get(&format!("/api/users/{uid}/accounts"), auth_token)
-        .await?;
-    ok_or_err(resp.status, &resp.body)?;
-    let accounts = crate::api::accounts::extract_accounts(&resp.body)
-        .map_err(|e| ApiError::Parse { reason: e })?;
-    Ok(accounts.into_iter().map(|a| (a.id, a.name)).collect())
 }
 
 pub async fn list_connections(
@@ -249,12 +224,9 @@ pub async fn list_provider_accounts(
     auth_token: Option<&str>,
 ) -> Result<Vec<ProviderAccount>, ApiError> {
     let uid = user_id(infra)?;
-    let resp = infra
-        .get(
-            &format!("/api/users/{uid}/connectors/connections/{connection_id}/accounts"),
-            auth_token,
-        )
-        .await?;
+    let path = format!("/api/users/{uid}/connectors/connections/{connection_id}/accounts");
+    infra.evict_memory_cache(&path);
+    let resp = infra.get(&path, auth_token).await?;
     ok_or_err(resp.status, &resp.body)?;
     extract_provider_accounts(&resp.body).map_err(|e| ApiError::Parse { reason: e })
 }
@@ -266,14 +238,11 @@ pub async fn list_provider_account_transactions(
     auth_token: Option<&str>,
 ) -> Result<Vec<ProviderAccountTransaction>, ApiError> {
     let uid = user_id(infra)?;
-    let resp = infra
-        .get(
-            &format!(
-                "/api/users/{uid}/connectors/connections/{connection_id}/accounts/{provider_account_id}/transactions"
-            ),
-            auth_token,
-        )
-        .await?;
+    let path = format!(
+        "/api/users/{uid}/connectors/connections/{connection_id}/accounts/{provider_account_id}/transactions"
+    );
+    infra.evict_memory_cache(&path);
+    let resp = infra.get(&path, auth_token).await?;
     ok_or_err(resp.status, &resp.body)?;
     extract_provider_account_transactions(&resp.body).map_err(|e| ApiError::Parse { reason: e })
 }
@@ -296,6 +265,7 @@ pub async fn create_binding(
     connection_id: &str,
     sverto_account_id: &str,
     provider_account_id: Option<String>,
+    import_from: ConnectorImportFrom,
     auth_token: Option<&str>,
 ) -> Result<String, ApiError> {
     let uid = user_id(infra)?;
@@ -305,6 +275,7 @@ pub async fn create_binding(
     let body = serde_json::to_string(&CreateBindingRequestViewModel {
         sverto_account_id: account_uuid,
         provider_account_id,
+        import_from: import_from_to_vm(import_from).map_err(|e| ApiError::Parse { reason: e })?,
     })
     .map_err(|e| ApiError::Parse {
         reason: e.to_string(),
@@ -400,4 +371,36 @@ pub async fn sync_binding(
     evict_connectors(infra, &uid);
     super::transactions::evict_transaction_caches(infra, &uid);
     extract_sync_outcome(&resp.body).map_err(|e| ApiError::Parse { reason: e })
+}
+
+pub async fn list_held_transactions(
+    infra: &SharedInfra,
+    auth_token: Option<&str>,
+) -> Result<Vec<HeldTransaction>, ApiError> {
+    let uid = user_id(infra)?;
+    let path = format!("/api/users/{uid}/held-transactions");
+    infra.evict_memory_cache(&path);
+    let resp = infra.get(&path, auth_token).await?;
+    ok_or_err(resp.status, &resp.body)?;
+    extract_held_transactions(&resp.body).map_err(|e| ApiError::Parse { reason: e })
+}
+
+pub async fn decide_held_transaction(
+    infra: &SharedInfra,
+    held_transaction_id: &str,
+    decision: HeldTransactionDecision,
+    auth_token: Option<&str>,
+) -> Result<(), ApiError> {
+    let uid = user_id(infra)?;
+    let body = decision_body(decision).map_err(|e| ApiError::Parse { reason: e })?;
+    let resp = infra
+        .post(
+            &format!("/api/users/{uid}/held-transactions/{held_transaction_id}/decision"),
+            &body,
+            auth_token,
+        )
+        .await?;
+    ok_or_err(resp.status, &resp.body)?;
+    super::transactions::evict_transaction_caches(infra, &uid);
+    Ok(())
 }

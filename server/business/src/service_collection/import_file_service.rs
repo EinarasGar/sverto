@@ -5,10 +5,12 @@ use dal::database_context::MyraDb;
 use dal::job_queue::JobQueueHandle;
 use dal::models::file_models::FileStatus;
 use dal::models::import_models::{
-    ImportDateOrder, ImportFileModel, ImportSessionLifecycle, ImportSessionModel,
+    ImportDateOrder, ImportFileModel, ImportSessionLifecycle, ImportSessionModel, ImportSourceKind,
 };
 use dal::queries::import_queries;
-use dal::query_params::import_params::{GetImportFilesParams, GetImportSessionsParams};
+use dal::query_params::import_params::{
+    DeleteImportSourcesParams, GetImportFilesParams, GetImportSessionsParams,
+};
 use itertools::Itertools;
 use uuid::Uuid;
 
@@ -105,11 +107,26 @@ impl ImportFileService {
                 .conversation_service
                 .create_conversation(user_id)
                 .await?;
+            let source_id = Uuid::now_v7();
+            let added = self
+                .db
+                .execute_with_rows_affected(import_queries::insert_sources(
+                    session_id,
+                    user_id,
+                    ImportSourceKind::File,
+                    vec![source_id],
+                ))
+                .await?;
+            if added == 0 {
+                self.db.rollback_transaction().await?;
+                return Err(not_mutable().into());
+            }
             let file: Option<ImportFileModel> = self
                 .db
                 .fetch_optional(import_queries::attach_file(
                     session_id,
                     user_id,
+                    source_id,
                     *file_id,
                     conversation_id,
                 ))
@@ -197,7 +214,7 @@ impl ImportFileService {
                 user_id,
                 files
                     .iter()
-                    .map(|file| statement_stream(file.file_id))
+                    .map(|file| statement_stream(file.source_id))
                     .collect(),
             )
             .await?;
@@ -205,7 +222,7 @@ impl ImportFileService {
             .into_iter()
             .map(|file| {
                 let recorded = counts
-                    .get(&statement_stream(file.file_id))
+                    .get(&statement_stream(file.source_id))
                     .copied()
                     .unwrap_or(0);
                 ImportFileDto::new(file, recorded)
@@ -255,16 +272,21 @@ impl ImportFileService {
     ) -> anyhow::Result<()> {
         self.ensure_active(session_id, user_id).await?;
         self.db.start_transaction().await?;
-        let conversation_ids: Vec<Uuid> = self
+        let file: Option<ImportFileModel> = self
             .db
-            .fetch_all_scalar(import_queries::detach_file(session_id, file_id, user_id))
+            .fetch_optional(import_queries::detach_file(session_id, file_id, user_id))
             .await?;
-        if conversation_ids.is_empty() {
+        let Some(file) = file else {
             self.db.rollback_transaction().await?;
             return Err(not_attached().into());
-        }
+        };
+        self.db
+            .execute(import_queries::delete_sources(
+                DeleteImportSourcesParams::by_id(session_id, file.source_id, user_id),
+            ))
+            .await?;
         self.conversation_service
-            .delete_conversations(conversation_ids, user_id)
+            .delete_conversations(vec![file.conversation_id], user_id)
             .await?;
         self.db.commit_transaction().await?;
 

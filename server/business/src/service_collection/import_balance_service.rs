@@ -40,7 +40,7 @@ impl ImportBalanceService {
             .fetch_all::<ImportAssertionModel>(import_queries::get_assertions(session_id, user_id))
             .await?
             .into_iter()
-            .partition(|assertion| assertion.file_id.is_some());
+            .partition(|assertion| assertion.source_id.is_some());
         Ok((
             printed
                 .into_iter()

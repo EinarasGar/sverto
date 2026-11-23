@@ -17,6 +17,12 @@ nonisolated struct GroupTransactionItem: Hashable {
     var categoryName: String = ""
 }
 
+nonisolated struct PendingBindingChoice: Equatable {
+    var connectionId: String
+    var providerAccountId: String
+    var account: AccountListItem
+}
+
 @Observable
 final class ShellState {
     var selectedTab: AppTab = .portfolio
@@ -36,6 +42,7 @@ final class ShellState {
 
     var pendingSharedImages: [Data] = []
     var pendingOAuthReturn: AppRoute?
+    var pendingBindingChoice: PendingBindingChoice?
 
     func path(for tab: AppTab) -> [AppRoute] {
         switch tab {
@@ -113,5 +120,6 @@ final class ShellState {
         groupChildDrafts = []
         pendingSharedImages = []
         pendingOAuthReturn = nil
+        pendingBindingChoice = nil
     }
 }

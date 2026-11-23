@@ -1,8 +1,11 @@
+pub mod backfill_connection;
+pub mod categorize_synced_transactions;
 pub mod cron;
 pub mod embeddings;
 pub mod file_processing;
 pub mod import_classify;
 pub mod import_parse;
+mod line_classification;
 pub mod quick_upload;
 pub mod sync_connector;
 

@@ -119,26 +119,6 @@ struct ServerFileUrl {
     media_type: String,
 }
 
-#[derive(serde::Serialize)]
-struct FileCreateBody {
-    mime_type: String,
-    original_name: String,
-    size_bytes: u64,
-}
-
-#[derive(serde::Deserialize)]
-struct ServerFileRecord {
-    id: String,
-    upload_metadata: UploadMetadata,
-}
-
-#[derive(serde::Deserialize)]
-struct UploadMetadata {
-    upload_url: String,
-    upload_headers: std::collections::HashMap<String, String>,
-    upload_method: String,
-}
-
 // ── Public functions ────────────────────────────────────────────────────────
 
 pub async fn load_conversations(
@@ -487,61 +467,6 @@ fn server_content_to_parts(
     merged
 }
 
-pub async fn upload_file(
-    infra: &Arc<SharedInfra>,
-    user_id: &str,
-    image_data: &[u8],
-    mime_type: &str,
-    file_name: &str,
-    auth_token: Option<&str>,
-) -> Result<String, ApiError> {
-    let create_path = format!("/api/users/{}/files", user_id);
-    let create_body = serde_json::to_string(&FileCreateBody {
-        mime_type: mime_type.to_string(),
-        original_name: file_name.to_string(),
-        size_bytes: image_data.len() as u64,
-    })
-    .map_err(|e| ApiError::Parse {
-        reason: e.to_string(),
-    })?;
-
-    let create_resp = infra.post(&create_path, &create_body, auth_token).await?;
-    let file_record: ServerFileRecord =
-        serde_json::from_str(&create_resp.body).map_err(|e| ApiError::Parse {
-            reason: e.to_string(),
-        })?;
-
-    let method = reqwest::Method::from_bytes(file_record.upload_metadata.upload_method.as_bytes())
-        .unwrap_or(reqwest::Method::PUT);
-
-    let mut upload_req = infra
-        .http
-        .request(method, &file_record.upload_metadata.upload_url);
-
-    for (key, value) in &file_record.upload_metadata.upload_headers {
-        upload_req = upload_req.header(key, value);
-    }
-
-    let upload_resp = upload_req
-        .body(image_data.to_vec())
-        .send()
-        .await
-        .map_err(|e| ApiError::Network {
-            reason: e.to_string(),
-        })?;
-
-    if !upload_resp.status().is_success() {
-        return Err(ApiError::Server {
-            reason: format!("S3 upload failed: {}", upload_resp.status()),
-            status: upload_resp.status().as_u16(),
-        });
-    }
-
-    let confirm_path = format!("/api/users/{}/files/{}/confirm", user_id, file_record.id);
-    infra.post(&confirm_path, "{}", auth_token).await?;
-
-    Ok(file_record.id)
-}
 // ── Streaming & tool approval ───────────────────────────────────────────────
 
 use crate::store::sse;

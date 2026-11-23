@@ -12,6 +12,10 @@ enum ConnectorNames {
             .joined(separator: " ")
     }
 
+    static func providerName(_ providerKind: String) -> String {
+        ConnectorKind(rawValue: providerKind)?.info.name ?? providerKind
+    }
+
     nonisolated static func quantity(_ value: Double) -> String {
         QuantityText.format(value, locale: .current)
     }

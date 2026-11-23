@@ -35,7 +35,13 @@ const SESSION: AuthSession = {
   signOut: () => Promise.resolve(),
 }
 
-const PATHS = ["/", "/settings", "/portfolio/$assetId", "/login"] as const
+const PATHS = [
+  "/",
+  "/settings",
+  "/portfolio/$assetId",
+  "/imports/$sessionId",
+  "/login",
+] as const
 
 export function stubViewport(viewportWidth: number) {
   window.matchMedia = ((query: string) => {
@@ -93,5 +99,5 @@ export async function renderSettings(
     <RouterProvider router={router as unknown as RegisteredRouter} />
   )
   await screen.findByTestId("harness")
-  return result
+  return { ...result, router }
 }

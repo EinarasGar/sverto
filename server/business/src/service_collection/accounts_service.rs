@@ -6,7 +6,6 @@ use dal::{
     models::account_models::{
         Account, AccountCreationModel, AccountIdentifierInsert, AccountIdentifierRow,
         AccountLiquidityTypeModel, AccountTypeModel, AccountUpdateModel, AccountWithMetadata,
-        ConflictingIdentifierModel,
     },
     queries::{account_identifier_queries, account_queries},
     query_params::get_accounts_params::GetAccountsParams,
@@ -46,15 +45,12 @@ impl AccountsService {
             return Ok(());
         }
         let values: Vec<String> = identifiers.iter().map(|i| i.value.clone()).collect();
-        let query = account_identifier_queries::find_conflicting_identifiers(
+        let query = account_identifier_queries::find_identifiers_by_value(
             user_id,
             exclude_account_id,
-            &values,
+            values,
         );
-        let rows = self
-            .db
-            .fetch_all::<ConflictingIdentifierModel>(query)
-            .await?;
+        let rows = self.db.fetch_all::<AccountIdentifierRow>(query).await?;
         let existing: HashSet<(&str, &str)> = rows
             .iter()
             .map(|r| (r.kind.as_str(), r.value.as_str()))
@@ -73,23 +69,62 @@ impl AccountsService {
 
     async fn insert_identifiers(
         &self,
-        account_id: Uuid,
-        identifiers: Vec<AccountIdentifierDto>,
+        user_id: Uuid,
+        identifiers: Vec<(Uuid, AccountIdentifierDto)>,
     ) -> anyhow::Result<()> {
         if identifiers.is_empty() {
             return Ok(());
         }
         let rows = identifiers
             .into_iter()
-            .map(|i| AccountIdentifierInsert {
+            .map(|(account_id, identifier)| AccountIdentifierInsert {
                 account_id,
-                kind: i.kind.as_str().to_string(),
-                value: i.value,
+                kind: identifier.kind.as_str().to_string(),
+                value: identifier.value,
             })
             .collect();
-        let query = account_identifier_queries::insert_account_identifiers(rows);
+        let query = account_identifier_queries::insert_account_identifiers(user_id, rows);
         self.db.execute(query).await?;
         Ok(())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn accounts_by_iban(
+        &self,
+        user_id: Uuid,
+        ibans: Vec<String>,
+    ) -> anyhow::Result<HashMap<String, Uuid>> {
+        let query = account_identifier_queries::find_identifiers_by_value(user_id, None, ibans);
+        Ok(self
+            .db
+            .fetch_all::<AccountIdentifierRow>(query)
+            .await?
+            .into_iter()
+            .filter(|row| {
+                AccountIdentifierKind::from_db_str(&row.kind) == Some(AccountIdentifierKind::Iban)
+            })
+            .map(|row| (row.value, row.account_id))
+            .collect())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn add_ibans(&self, user_id: Uuid, ibans: Vec<(Uuid, String)>) -> anyhow::Result<()> {
+        self.insert_identifiers(
+            user_id,
+            ibans
+                .into_iter()
+                .map(|(account_id, value)| {
+                    (
+                        account_id,
+                        AccountIdentifierDto {
+                            kind: AccountIdentifierKind::Iban,
+                            value,
+                        },
+                    )
+                })
+                .collect(),
+        )
+        .await
     }
 
     async fn load_identifiers(
@@ -279,8 +314,15 @@ impl AccountsService {
                 account_id,
             ))
             .await?;
-        self.insert_identifiers(account_id, amendment.identifiers)
-            .await
+        self.insert_identifiers(
+            user_id,
+            amendment
+                .identifiers
+                .into_iter()
+                .map(|identifier| (account_id, identifier))
+                .collect(),
+        )
+        .await
     }
 
     pub(crate) async fn add_user_account_inner(
@@ -317,8 +359,15 @@ impl AccountsService {
                     anyhow::Error::new(e)
                 }
             })?;
-        self.insert_identifiers(new_id, amendment.identifiers)
-            .await?;
+        self.insert_identifiers(
+            user_id,
+            amendment
+                .identifiers
+                .into_iter()
+                .map(|identifier| (new_id, identifier))
+                .collect(),
+        )
+        .await?;
         Ok(new_id)
     }
 }

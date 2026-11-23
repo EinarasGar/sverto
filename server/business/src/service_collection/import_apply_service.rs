@@ -7,6 +7,7 @@ use dal::queries::import_queries;
 use dal::query_params::import_params::GetImportSessionsParams;
 use uuid::Uuid;
 
+use super::connector_import_service::ConnectorImportService;
 use super::import_file_service::ImportFileService;
 use super::import_link_service::ImportLinkService;
 use super::import_staging_service::ImportStagingService;
@@ -23,6 +24,7 @@ const INSERT_CHUNK: usize = 500;
 
 pub struct ImportApplyService {
     db: MyraDb,
+    connector_import_service: ConnectorImportService,
     file_service: ImportFileService,
     link_service: ImportLinkService,
     staging_service: ImportStagingService,
@@ -35,6 +37,7 @@ impl ImportApplyService {
     pub fn new(providers: &super::ServiceProviders) -> Self {
         Self {
             db: providers.db.clone(),
+            connector_import_service: ConnectorImportService::new(providers),
             file_service: ImportFileService::new(providers),
             link_service: ImportLinkService::new(providers),
             staging_service: ImportStagingService::new(providers),
@@ -107,6 +110,10 @@ impl ImportApplyService {
 
         let amended = apply.amended()?;
         let (row_ids, mut transactions) = apply.inserts(user_id)?;
+        let ibans = self
+            .connector_import_service
+            .linked_account_ibans(user_id, session_id)
+            .await?;
 
         self.db.start_transaction().await?;
         for deletes in apply.deleted().chunks(INSERT_CHUNK) {
@@ -151,6 +158,9 @@ impl ImportApplyService {
 
         self.ledger_matching_service
             .record_sources(user_id, apply.sources(&created))
+            .await?;
+        self.connector_import_service
+            .record_applied(user_id, session_id, apply.external_lines(&created), ibans)
             .await?;
 
         let completed = self

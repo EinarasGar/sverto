@@ -1,26 +1,20 @@
-mod classification;
+pub(crate) mod classification;
 
-use std::sync::Arc;
-
-use ai::config::{AiConfig, ImportClassifier, SystemOneConfig};
 use ai::models::classification::{ClassificationLine, ClassificationOutcome};
 use ai::models::error::AiError;
-use ai::workflows::line_classification;
 use async_trait::async_trait;
 use business::dtos::ai_error_dto::AiErrorDto;
+use business::dtos::imports::import_classification_dto::ImportClassificationModeDto;
 use business::jobs::ImportClassifyJob;
 use business::providers::import_run_conversations::ImportRunConversations;
-use business::providers::user_rate_limiter::UserRateLimiter;
-use business::rate_limiting::rate_limiter::RateLimiter;
 use business::service_collection::category_service::CategoryService;
 use business::service_collection::import_classify_service::ImportClassifyService;
-use business::service_collection::user_service::UsersService;
 use business::service_collection::ServiceProviders;
 use uuid::Uuid;
 
 use classification::FileClassification;
 
-use crate::jobs::WorkerJob;
+use crate::jobs::{line_classification, WorkerJob};
 use crate::retry::RetryDecision;
 
 const GLOBAL_CATEGORIES: u64 = 1000;
@@ -32,20 +26,32 @@ impl WorkerJob for ImportClassifyJob {
     #[tracing::instrument(level = "info", skip_all, fields(session_id = %self.session_id, run_id = %self.run_id, user_id = %self.user_id))]
     async fn run(&self, providers: &ServiceProviders) -> anyhow::Result<()> {
         let service = ImportClassifyService::new(providers);
-        if !UsersService::new(providers)
-            .is_ai_features_enabled(self.user_id)
-            .await?
-        {
-            return service
-                .fail(
-                    self.session_id,
-                    self.run_id,
-                    self.user_id,
-                    "AI features are turned off, so the transactions weren't categorized. Turn them on in Settings, then retry.".to_string(),
-                )
-                .await;
+        let mut classification = FileClassification::new();
+        classification.add_lines(service.parsed_lines(self.session_id, self.user_id).await?);
+        match service.mode(self.session_id, self.user_id).await? {
+            ImportClassificationModeDto::Ai => {}
+            ImportClassificationModeDto::WithoutAi => {
+                tracing::info!("AI features are off: bank lines saved uncategorized");
+                return service
+                    .save(
+                        self.session_id,
+                        self.run_id,
+                        self.user_id,
+                        classification.uncategorized_typings(),
+                    )
+                    .await;
+            }
+            ImportClassificationModeDto::RefuseWithoutAi => {
+                return service
+                    .fail(
+                        self.session_id,
+                        self.run_id,
+                        self.user_id,
+                        "AI features are turned off, so the transactions weren't categorized. Turn them on in Settings, then retry.".to_string(),
+                    )
+                    .await;
+            }
         }
-        let lines = service.parsed_lines(self.session_id, self.user_id).await?;
         let category_service = CategoryService::new(providers);
         let global_categories = category_service
             .search_categories(0, GLOBAL_CATEGORIES, None, None)
@@ -55,8 +61,6 @@ impl WorkerJob for ImportClassifyJob {
             .get_all_user_categories(self.user_id)
             .await?;
 
-        let mut classification = FileClassification::new();
-        classification.add_lines(lines);
         classification.add_categories(global_categories);
         classification.add_categories(user_categories);
         let (line_ids, classification_lines): (Vec<Uuid>, Vec<ClassificationLine>) =
@@ -70,34 +74,14 @@ impl WorkerJob for ImportClassifyJob {
             self.run_id,
             self.user_id,
         );
-        let classified = match ImportClassifier::try_from_env()? {
-            ImportClassifier::Llm => {
-                let rate_limit = Arc::new(
-                    UserRateLimiter::new(
-                        RateLimiter::new(ai_providers.redis.clone(), ai_providers.db.clone()),
-                        self.user_id,
-                    )
-                    .waiting_for_slot(),
-                );
-                line_classification::llm_classify(
-                    &AiConfig::try_from_env()?,
-                    &conversations,
-                    rate_limit,
-                    &classification_lines,
-                    &categories,
-                )
-                .await?
-            }
-            ImportClassifier::SystemOne => {
-                line_classification::system_one_classify(
-                    &SystemOneConfig::try_from_env()?,
-                    &conversations,
-                    &classification_lines,
-                    &categories,
-                )
-                .await?
-            }
-        };
+        let classified = line_classification::classify(
+            &ai_providers,
+            self.user_id,
+            &conversations,
+            &classification_lines,
+            &categories,
+        )
+        .await?;
         let run = match classified {
             ClassificationOutcome::Classified(run) => run,
             ClassificationOutcome::Stopped => {

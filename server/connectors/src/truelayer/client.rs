@@ -135,6 +135,10 @@ fn parse_accounts(body: &serde_json::Value) -> Vec<ProviderAccount> {
                     .or_else(|| item.get("card_type"))
                     .and_then(|v| v.as_str())
                     .map(str::to_string),
+                account_number_last4: None,
+                balance: None,
+                booked_balance: None,
+                iban: None,
             })
         })
         .collect()

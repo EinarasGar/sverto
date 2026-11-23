@@ -42,7 +42,7 @@ pub fn merge(
         let answered = parts_of(&staged, &parts);
         let StagedTransactionDto {
             id,
-            file_ids,
+            source_ids,
             mut transaction,
             movements,
         } = staged;
@@ -74,7 +74,7 @@ pub fn merge(
                 ImportProposalRowDto {
                     id,
                     kind,
-                    file_ids,
+                    source_ids,
                     ask_key: None,
                     verb: ImportVerbDto::Skip,
                     verb_locked: true,
@@ -98,7 +98,7 @@ pub fn merge(
                 ImportProposalRowDto {
                     id,
                     kind,
-                    file_ids,
+                    source_ids,
                     ask_key: None,
                     verb: matched.verb,
                     verb_locked: false,
@@ -150,7 +150,7 @@ pub fn merge(
                 ImportProposalRowDto {
                     id,
                     kind,
-                    file_ids,
+                    source_ids,
                     ask_key: None,
                     verb: decision.verb,
                     verb_locked: true,
@@ -178,7 +178,7 @@ pub fn merge(
             rows.push(ImportProposalRowDto {
                 id: decision.id,
                 kind: ImportRowKindDto::Movement,
-                file_ids: Vec::new(),
+                source_ids: Vec::new(),
                 ask_key: decision.ask_key,
                 verb: ImportVerbDto::Delete,
                 verb_locked: true,
@@ -229,7 +229,7 @@ pub fn add_starting_balances(
         rows.push(ImportProposalRowDto {
             id,
             kind: ImportRowKindDto::StartingBalance(starting),
-            file_ids: vec![starting.file_id],
+            source_ids: vec![starting.source_id],
             ask_key: None,
             verb: match pin.map(|pin| pin.verb) {
                 Some(ImportVerbDto::Skip) => ImportVerbDto::Skip,
@@ -290,7 +290,7 @@ pub fn add_adjustments(
         rows.push(ImportProposalRowDto {
             id,
             kind: ImportRowKindDto::Adjustment(adjustment),
-            file_ids: Vec::new(),
+            source_ids: Vec::new(),
             ask_key: None,
             verb: match pin.map(|pin| pin.verb) {
                 Some(ImportVerbDto::Add) => ImportVerbDto::Add,
@@ -423,7 +423,7 @@ mod tests {
 
     const ACCOUNT: Uuid = Uuid::from_u128(1);
     const SESSION: Uuid = Uuid::from_u128(2);
-    const FILE: Uuid = Uuid::from_u128(3);
+    const SOURCE: Uuid = Uuid::from_u128(3);
     const GBP: i32 = 10;
     const USD: i32 = 11;
     const SHARES: i32 = 12;
@@ -444,7 +444,7 @@ mod tests {
     fn staged(id: u128) -> StagedTransactionDto {
         StagedTransactionDto {
             id: Uuid::from_u128(id),
-            file_ids: vec![Uuid::nil()],
+            source_ids: vec![Uuid::nil()],
             transaction: transaction(None),
             movements: Vec::new(),
         }
@@ -480,16 +480,17 @@ mod tests {
     fn statement_row(transaction: TransactionDto, net: Decimal) -> StagedTransactionDto {
         StagedTransactionDto {
             id: Uuid::from_u128(1),
-            file_ids: vec![Uuid::nil()],
+            source_ids: vec![Uuid::nil()],
             transaction,
             movements: vec![StagedMovementDto {
                 account_id: ACCOUNT,
                 asset_id: GBP,
                 quantity: net,
-                file_id: Uuid::nil(),
+                source_id: Uuid::nil(),
                 date: date!(2026 - 03 - 03),
                 description: Some("TESCO STORES".to_string()),
                 itemised_fee: None,
+                external_id: None,
             }],
         }
     }
@@ -727,7 +728,7 @@ mod tests {
         ImportStartingBalanceDto {
             account_id: ACCOUNT,
             asset_id,
-            file_id: FILE,
+            source_id: SOURCE,
             date: on,
             quantity,
         }
@@ -772,16 +773,17 @@ mod tests {
         transaction.date = on.midnight().assume_utc();
         StagedTransactionDto {
             id: Uuid::from_u128(id),
-            file_ids: vec![FILE],
+            source_ids: vec![SOURCE],
             transaction,
             movements: vec![StagedMovementDto {
                 account_id: ACCOUNT,
                 asset_id: GBP,
                 quantity,
-                file_id: FILE,
+                source_id: SOURCE,
                 date: on,
                 description: Some("TESCO STORES".to_string()),
                 itemised_fee: None,
+                external_id: None,
             }],
         }
     }
@@ -839,7 +841,7 @@ mod tests {
         quantity: Decimal,
     ) -> ImportAssertionDto {
         ImportAssertionDto {
-            file_id: FILE,
+            source_id: SOURCE,
             account_ref: "Current".to_string(),
             asset_ref: Some(asset.to_string()),
             kind,
@@ -864,7 +866,7 @@ mod tests {
         );
         let mut balances = SessionBalances::new(assertions);
         balances.add_account_mappings(&[ImportAccountMappingModel {
-            file_id: FILE,
+            source_id: SOURCE,
             account_ref: "Current".to_string(),
             account_id: Some(ACCOUNT),
         }]);

@@ -1,6 +1,11 @@
 import type { FigureIntent } from "@/components/figure"
+import type { AccountRef } from "@/lib/domain/refs"
 import type { MockId } from "@/lib/mock"
-import type { QuickUploadId, TransactionId } from "@/lib/query"
+import type {
+  HeldTransactionId,
+  QuickUploadId,
+  TransactionId,
+} from "@/lib/query"
 
 import type { LedgerTransactionRow, NativeAmount } from "../../api"
 
@@ -92,4 +97,19 @@ export interface ReviewQueueView {
   readonly receiptsUnavailable: boolean
   readonly receiptsWorking: number
   readonly receiptsFailed: number
+}
+
+export interface HeldTransaction {
+  readonly id: HeldTransactionId
+  readonly providerName: string
+  readonly account: AccountRef
+  readonly date: Date
+  readonly description: string
+  readonly amount: NativeAmount
+  readonly candidates: readonly HeldCandidate[]
+}
+
+export interface HeldCandidate {
+  readonly row: LedgerTransactionRow
+  readonly amount: NativeAmount | null
 }

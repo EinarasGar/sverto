@@ -157,6 +157,7 @@ describe("buildAccountIndex", () => {
           lastSyncError: null,
           syncedThrough: null,
           writesPostDirectly: false,
+          importSessionId: null,
         },
       },
       count: 1,
@@ -186,6 +187,7 @@ describe("buildAccountIndex", () => {
       lastSyncError: "Consent expired",
       syncedThrough: null,
       writesPostDirectly: false,
+      importSessionId: null,
     }
     const house = account({
       accountId: "house",

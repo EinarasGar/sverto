@@ -93,6 +93,7 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import kotlin.math.roundToInt
 
+@Suppress("LongMethod")
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SettingsScreen(
@@ -100,6 +101,7 @@ fun SettingsScreen(
     onCustomAssets: () -> Unit,
     onCustomCategories: () -> Unit,
     onConnectors: () -> Unit,
+    onImports: () -> Unit,
     aiFeaturesGate: AiFeaturesGate,
     modifier: Modifier = Modifier,
     aiUsageViewModel: AiUsageViewModel = viewModel(factory = SvertoViewModelFactory),
@@ -219,6 +221,11 @@ fun SettingsScreen(
                     icon = "cable",
                     label = "Connected Services",
                     onClick = onConnectors,
+                )
+                SettingsRow(
+                    icon = "file-up",
+                    label = "Import statements",
+                    onClick = onImports,
                 )
                 if (serverOrigin == ServerOrigin.SELF_HOSTED) {
                     SettingsRow(

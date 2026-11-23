@@ -6,6 +6,7 @@ import type {
   ConnectorConnection,
   GetConnectionsResponse,
   ListProviderAccountsResponse,
+  ProviderAccountHistory,
 } from "@/api"
 import { ConnectorsApiFactory } from "@/api"
 import { api } from "@/lib/api"
@@ -64,6 +65,12 @@ export interface ProviderAccountRef {
   readonly displayName: string
   readonly accountType: string | null
   readonly currency: string | null
+  readonly accountNumberLast4: string | null
+  readonly balance: {
+    readonly amount: number
+    readonly currency: string
+  } | null
+  readonly history: ProviderAccountHistory
 }
 
 export interface ConnectionSummary {
@@ -72,7 +79,7 @@ export interface ConnectionSummary {
   readonly providerLabel: string
   readonly status: ConnectionStatus
   readonly statusWord: StatusWord
-  readonly credentialMode: string
+  readonly linksByImport: boolean
   /** Epoch MILLISECONDS. The wire sends unix seconds. */
   readonly createdAt: number
   readonly consentExpiresAt: number | null
@@ -105,7 +112,7 @@ function toSummary(
     providerLabel: providerName(row.provider_kind),
     status,
     statusWord: connectionStatusWord(status),
-    credentialMode: row.credential_mode,
+    linksByImport: row.links_by_import,
     createdAt: row.created_at * 1000,
     consentExpiresAt: toMilliseconds(row.consent_expires_at),
     bindings,
@@ -186,7 +193,20 @@ export function buildProviderAccounts(
     displayName: account.display_name,
     accountType: account.account_type ?? null,
     currency: account.currency ?? null,
+    accountNumberLast4: account.account_number_last4 ?? null,
+    balance: account.balance ?? null,
+    history: account.history,
   }))
+}
+
+const HISTORY_REFETCH_MS = 5000
+
+function historyRefetchInterval(
+  accounts: readonly ProviderAccountRef[] | undefined
+): number | false {
+  return accounts?.some((account) => account.history === "fetching")
+    ? HISTORY_REFETCH_MS
+    : false
 }
 
 export function providerAccountsQueryOptions(
@@ -206,6 +226,7 @@ export function providerAccountsQueryOptions(
       )
       return buildProviderAccounts(response.data)
     },
+    refetchInterval: historyRefetchInterval,
     meta: { errorContext: "The provider's accounts could not be loaded" },
   })
 }

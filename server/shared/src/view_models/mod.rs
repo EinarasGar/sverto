@@ -10,6 +10,7 @@ pub mod connectors;
 pub mod errors;
 pub mod exports;
 pub mod files;
+pub mod held_transactions;
 pub mod imports;
 pub mod portfolio;
 pub mod properties;

@@ -15,3 +15,10 @@ pub struct EntriesAssetIntervalSum {
     pub sum: Decimal,
     pub start_time: OffsetDateTime,
 }
+
+#[derive(Debug, sqlx::FromRow)]
+pub struct LatestEntryDateModel {
+    pub account_id: Uuid,
+    pub asset_id: i32,
+    pub date_transacted: OffsetDateTime,
+}

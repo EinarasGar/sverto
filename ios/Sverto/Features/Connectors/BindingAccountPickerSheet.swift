@@ -12,15 +12,19 @@ struct BindingAccountPickerSheet: View {
                 if accounts.isEmpty {
                     ContentUnavailableView("No accounts available", systemImage: "building.columns")
                 } else {
-                    List(accounts, id: \.id) { account in
-                        Button {
-                            onSelect(account)
-                            dismiss()
-                        } label: {
-                            Text(account.name)
-                                .frame(maxWidth: .infinity, alignment: .leading)
+                    List {
+                        Section("Write into") {
+                            ForEach(accounts, id: \.id) { account in
+                                Button {
+                                    onSelect(account)
+                                    dismiss()
+                                } label: {
+                                    Text(account.name)
+                                        .frame(maxWidth: .infinity, alignment: .leading)
+                                }
+                                .foregroundStyle(.primary)
+                            }
                         }
-                        .foregroundStyle(.primary)
                     }
                     .listStyle(.insetGrouped)
                 }

@@ -56,6 +56,9 @@ private struct SettingsList: View {
                 SettingsRow(title: "Connected Services", systemImage: "cable.connector", showsChevron: true) {
                     shell.push(.connectors)
                 }
+                SettingsRow(title: "Import Statements", systemImage: "arrow.up.doc", showsChevron: true) {
+                    shell.push(.imports)
+                }
             }
             Section {
                 if session.isSelfHosted {

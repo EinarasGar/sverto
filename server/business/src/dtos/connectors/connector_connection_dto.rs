@@ -1,3 +1,4 @@
+use connectors::provider::ProviderKind;
 use dal::models::connector_models::ConnectorConnectionRow;
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -70,6 +71,16 @@ pub struct ConnectorConnectionDto {
     pub consent_expires_at: Option<OffsetDateTime>,
     pub created_at: OffsetDateTime,
     pub updated_at: OffsetDateTime,
+}
+
+impl ConnectorConnectionDto {
+    pub fn links_by_import(&self) -> anyhow::Result<bool> {
+        Ok(self.credential_mode == CredentialModeDto::Stored
+            && self
+                .provider_kind
+                .parse::<ProviderKind>()?
+                .history_fits_import())
+    }
 }
 
 impl From<ConnectorConnectionRow> for ConnectorConnectionDto {

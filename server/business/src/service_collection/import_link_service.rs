@@ -2,7 +2,8 @@
 use dal::database_context::MyraDb;
 use dal::models::base::Count;
 use dal::models::import_models::{
-    ImportAssertionModel, ImportSessionLifecycle, ImportSessionModel,
+    ImportAccountMappingModel, ImportAssertionModel, ImportAssetMappingModel,
+    ImportSessionLifecycle, ImportSessionModel,
 };
 use dal::queries::{asset_queries, import_queries};
 use dal::query_params::get_asset_refs_params::GetAssetRefsParams;
@@ -79,7 +80,7 @@ impl ImportLinkService {
                     ))
                     .await?
                     .into_iter()
-                    .filter(|assertion| assertion.file_id.is_some())
+                    .filter(|assertion| assertion.source_id.is_some())
                     .map(ImportAssertionDto::try_from)
                     .collect::<anyhow::Result<_>>()?,
             );
@@ -192,9 +193,15 @@ impl ImportLinkService {
                 import_queries::insert_account_answers(
                     session_id,
                     user_id,
-                    links.files_answered_with(ask.file_id, &ask.raw_account),
-                    ask.raw_account.clone(),
-                    account_id,
+                    links
+                        .sources_answered_with(ask.source_id, &ask.raw_account)
+                        .into_iter()
+                        .map(|source_id| ImportAccountMappingModel {
+                            source_id,
+                            account_ref: ask.raw_account.clone(),
+                            account_id,
+                        })
+                        .collect(),
                 )
             }
             (ImportAskDto::AssetMapping(ask), ImportAnswerDto::AssetMapping(choice)) => {
@@ -223,7 +230,14 @@ impl ImportLinkService {
                         None
                     }
                 };
-                import_queries::insert_asset_answer(session_id, user_id, ask.raw.clone(), asset_id)
+                import_queries::insert_asset_answers(
+                    session_id,
+                    user_id,
+                    vec![ImportAssetMappingModel {
+                        asset_ref: ask.raw.clone(),
+                        asset_id,
+                    }],
+                )
             }
             _ => {
                 return Err(

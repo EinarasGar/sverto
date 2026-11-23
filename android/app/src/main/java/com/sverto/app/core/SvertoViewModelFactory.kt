@@ -20,6 +20,9 @@ import com.sverto.app.feature.connectors.ConnectTrueLayerViewModel
 import com.sverto.app.feature.connectors.ConnectionDetailViewModel
 import com.sverto.app.feature.connectors.ConnectorsViewModel
 import com.sverto.app.feature.connectors.ProviderAccountDetailViewModel
+import com.sverto.app.feature.imports.ImportItemsViewModel
+import com.sverto.app.feature.imports.ImportSessionViewModel
+import com.sverto.app.feature.imports.ImportsViewModel
 import com.sverto.app.feature.onboarding.OnboardingViewModel
 import com.sverto.app.feature.portfolio.HomeViewModel
 import com.sverto.app.feature.properties.AddPropertyViewModel
@@ -32,6 +35,7 @@ import com.sverto.app.feature.transactions.TransactionSearchViewModel
 import com.sverto.app.feature.transactions.TransactionsViewModel
 import com.sverto.app.feature.transactions.create.CreateTransactionViewModel
 import com.sverto.app.feature.transactions.group.CreateTransactionGroupViewModel
+import com.sverto.app.feature.transactions.held.HeldTransactionsViewModel
 import com.sverto.app.feature.transactions.quickupload.QuickUploadViewModel
 import com.sverto.app.feature.assets.AssetDetailViewModel as MarketAssetDetailViewModel
 
@@ -56,6 +60,8 @@ object SvertoViewModelFactory : ViewModelProvider.Factory {
                 CreateTransactionGroupViewModel(appStore, app.categorySuggester) as T
             modelClass.isAssignableFrom(QuickUploadViewModel::class.java) ->
                 QuickUploadViewModel(appStore) as T
+            modelClass.isAssignableFrom(HeldTransactionsViewModel::class.java) ->
+                HeldTransactionsViewModel(appStore) as T
             modelClass.isAssignableFrom(AccountsViewModel::class.java) ->
                 AccountsViewModel(appStore) as T
             modelClass.isAssignableFrom(AccountDetailViewModel::class.java) ->
@@ -104,6 +110,12 @@ object SvertoViewModelFactory : ViewModelProvider.Factory {
                 ConnectEnableBankingViewModel(appStore) as T
             modelClass.isAssignableFrom(ConnectTrading212ViewModel::class.java) ->
                 ConnectTrading212ViewModel(appStore) as T
+            modelClass.isAssignableFrom(ImportsViewModel::class.java) ->
+                ImportsViewModel(appStore) as T
+            modelClass.isAssignableFrom(ImportSessionViewModel::class.java) ->
+                ImportSessionViewModel(appStore) as T
+            modelClass.isAssignableFrom(ImportItemsViewModel::class.java) ->
+                ImportItemsViewModel(appStore) as T
             else -> throw IllegalArgumentException("Unknown ViewModel: ${modelClass.name}")
         }
     }

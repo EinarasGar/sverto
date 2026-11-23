@@ -97,9 +97,7 @@ pub struct ImportNearMissCandidateViewModel {
 pub struct IdentifiableStagedTransactionViewModel {
     pub id: Uuid,
     pub kind: ImportItemKind,
-    /// Files the row's evidence came from. Several when lines from different
-    /// files compose one transaction; empty for rows created by answering an ask.
-    pub file_ids: Vec<Uuid>,
+    pub source_ids: Vec<Uuid>,
     pub verb: ImportItemVerb,
     pub verb_locked: bool,
     /// Transactions this row may duplicate, best first. Empty unless the match
@@ -124,7 +122,7 @@ pub struct IdentifiableStagedTransactionViewModel {
 #[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct ImportUnstageableGroupViewModel {
     pub id: Uuid,
-    pub file_ids: Vec<Uuid>,
+    pub source_ids: Vec<Uuid>,
     #[serde(with = "rfc3339")]
     pub date: OffsetDateTime,
     pub description: Option<String>,
@@ -229,7 +227,7 @@ impl From<ImportProposalRowDto> for IdentifiableStagedTransactionViewModel {
         Self {
             id: row.id,
             kind: row.kind.into(),
-            file_ids: row.file_ids,
+            source_ids: row.source_ids,
             verb: row.verb.into(),
             verb_locked: row.verb_locked,
             near_miss_candidates: row.near_miss.into_iter().map(Into::into).collect(),
@@ -249,7 +247,7 @@ impl From<UnstageableGroupDto> for ImportUnstageableGroupViewModel {
     fn from(group: UnstageableGroupDto) -> Self {
         Self {
             id: group.id,
-            file_ids: group.file_ids,
+            source_ids: group.source_ids,
             date: group.date,
             description: group.description,
             reason: group.reason,

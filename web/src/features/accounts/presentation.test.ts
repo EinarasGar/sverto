@@ -72,6 +72,7 @@ function connector(
     lastSyncError: null,
     syncedThrough: null,
     writesPostDirectly: false,
+    importSessionId: null,
     ...overrides,
   }
 }

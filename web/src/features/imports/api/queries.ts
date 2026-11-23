@@ -8,9 +8,9 @@ import {
 
 import type {
   GetFileResponse,
-  IdentifiableImportFile,
   IdentifiableImportPendingTransaction,
   IdentifiableImportSessionResponse,
+  ImportFileSource,
   ImportItemsResponse,
   ImportSessionDetailResponse,
 } from "@/api"
@@ -26,7 +26,7 @@ export interface ImportSessionParams {
 }
 
 export interface ImportFileView {
-  readonly file: IdentifiableImportFile
+  readonly file: ImportFileSource
   readonly details: GetFileResponse | undefined
 }
 
@@ -48,8 +48,10 @@ const READING_REFETCH_MS = 3000
 export function readingRefetchInterval(
   detail: ImportSessionDetailResponse | undefined
 ): number | false {
-  const reading = detail?.files.some(
-    (file) => file.status === "pending" || file.status === "processing"
+  const reading = detail?.sources.some(
+    (source) =>
+      source.kind === "file" &&
+      (source.status === "pending" || source.status === "processing")
   )
   const classification = detail?.session.classification.status
   const categorizing =
@@ -86,7 +88,7 @@ export function useImportSessionSuspense(params: ImportSessionParams) {
 
 export function useImportFileViews(
   userId: UserId,
-  files: readonly IdentifiableImportFile[]
+  files: readonly ImportFileSource[]
 ): ImportFileView[] {
   return useQueries({
     queries: files.map((file) => fileQueryOptions(userId, file.file_id)),

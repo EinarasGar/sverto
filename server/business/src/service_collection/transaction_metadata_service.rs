@@ -59,7 +59,7 @@ impl TransactionMetadataService {
 
         if !models.is_empty() {
             self.db
-                .execute(connector_queries::insert_connector_transactions(models))
+                .execute(connector_queries::insert_connector_transactions(&models))
                 .await?;
         }
         Ok(())

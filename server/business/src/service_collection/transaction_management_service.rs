@@ -109,27 +109,11 @@ impl TransactionManagementService {
         if transaction_ids.is_empty() {
             return Ok(Vec::new());
         }
-
-        let query_params = GetTransactionWithEntriesParams::by_transaction_ids(transaction_ids);
-        let query = transaction_queries::get_transaction_with_entries(query_params);
-        let models = self
-            .db
-            .fetch_all::<TransactionWithEntriesModel>(query)
-            .await?;
-
-        if !models.iter().all(|x| x.user_id == user_id) {
-            return Err(anyhow::anyhow!("User_id is not the owner of transaction"));
-        }
-
-        let mut transactions = create_transactions_from_transaction_with_entries_models(models)?;
-        self.transaction_metadata_service
-            .load_metadata(&mut transactions, MetadataKinds::all())
-            .await?;
-
-        transactions
-            .into_iter()
-            .map(|x| x.try_into_dto())
-            .collect::<anyhow::Result<Vec<TransactionDto>>>()
+        self.read_transactions(
+            user_id,
+            GetTransactionWithEntriesParams::by_transaction_ids(transaction_ids),
+        )
+        .await
     }
 
     // pub async fn get_transactions(&self, user_id: Uuid) -> anyhow::Result<Vec<TransactionDto>> {
@@ -570,6 +554,44 @@ impl TransactionManagementService {
 // Inner methods used by both this service and TransactionGroupService.
 // Kept outside #[automock] to avoid generating mock variants.
 impl TransactionManagementService {
+    async fn read_transactions(
+        &self,
+        user_id: Uuid,
+        params: GetTransactionWithEntriesParams,
+    ) -> anyhow::Result<Vec<TransactionDto>> {
+        let query = transaction_queries::get_transaction_with_entries(params);
+        let models = self
+            .db
+            .fetch_all::<TransactionWithEntriesModel>(query)
+            .await?;
+
+        if !models.iter().all(|x| x.user_id == user_id) {
+            return Err(anyhow::anyhow!("User_id is not the owner of transaction"));
+        }
+
+        let mut transactions = create_transactions_from_transaction_with_entries_models(models)?;
+        self.transaction_metadata_service
+            .load_metadata(&mut transactions, MetadataKinds::all())
+            .await?;
+
+        transactions
+            .into_iter()
+            .map(|x| x.try_into_dto())
+            .collect::<anyhow::Result<Vec<TransactionDto>>>()
+    }
+
+    pub(crate) async fn get_ungrouped_transactions_by_ids(
+        &self,
+        user_id: Uuid,
+        transaction_ids: Vec<Uuid>,
+    ) -> anyhow::Result<Vec<TransactionDto>> {
+        self.read_transactions(
+            user_id,
+            GetTransactionWithEntriesParams::by_transaction_ids(transaction_ids).individual_only(),
+        )
+        .await
+    }
+
     pub(crate) async fn add_individual_transaction_inner(
         &self,
         user_id: Uuid,

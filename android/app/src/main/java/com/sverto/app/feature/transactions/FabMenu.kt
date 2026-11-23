@@ -5,6 +5,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.outlined.CameraAlt
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.UploadFile
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
@@ -27,6 +28,7 @@ fun FabMenu(
     onToggle: () -> Unit,
     onQuickUpload: () -> Unit,
     onManualEntry: () -> Unit,
+    onImportStatements: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     FloatingActionButtonMenu(
@@ -58,6 +60,14 @@ fun FabMenu(
             }
         },
     ) {
+        FloatingActionButtonMenuItem(
+            onClick = {
+                onToggle()
+                onImportStatements()
+            },
+            icon = { Icon(Icons.Outlined.UploadFile, contentDescription = null) },
+            text = { Text("Import Statements") },
+        )
         FloatingActionButtonMenuItem(
             onClick = {
                 onToggle()

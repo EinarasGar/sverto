@@ -4,7 +4,13 @@ import type { ConnectorBinding, GetBindingsResponse } from "@/api"
 import { ConnectorsApiFactory } from "@/api"
 import type { StatusWord } from "@/components/primitives"
 import { api } from "@/lib/api"
-import type { AccountId, BindingId, ConnectionId, UserId } from "@/lib/query"
+import type {
+  AccountId,
+  BindingId,
+  ConnectionId,
+  ImportSessionId,
+  UserId,
+} from "@/lib/query"
 import { apiQueryOptions, queryKeys, STALE_TIMES } from "@/lib/query"
 
 export const BINDING_STATUSES = [
@@ -39,6 +45,7 @@ export interface AccountConnector {
   lastSyncError: string | null
   syncedThrough: number | null
   writesPostDirectly: boolean
+  importSessionId: ImportSessionId | null
 }
 
 export interface AccountConnectorsView {
@@ -101,6 +108,7 @@ export function toAccountConnector(row: ConnectorBinding): AccountConnector {
     lastSyncError: row.last_sync_error ?? null,
     syncedThrough: toMilliseconds(row.synced_through),
     writesPostDirectly: row.write_mode === "trusted",
+    importSessionId: row.import_session_id ?? null,
   }
 }
 

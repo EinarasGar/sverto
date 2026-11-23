@@ -2,11 +2,17 @@ import { cleanup, screen, waitFor, within } from "@testing-library/react"
 import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { IdentifiableQuickUploadResponse } from "@/api"
+import type {
+  IdentifiableHeldTransaction,
+  IdentifiableQuickUploadResponse,
+} from "@/api"
 import { columnTrackCount } from "@/components/primitives"
 import { SHELL_WIDTHS, type ShellWidth } from "@/components/layout/breakpoints"
 
 import {
+  ACCOUNT_CURRENT,
+  ASSET_GBP,
+  entry,
   ghostTransfer,
   individualItem,
   lookupTables,
@@ -20,12 +26,26 @@ const completeMutate = vi.fn()
 const applyIntent = vi.fn()
 const deleteMutate = vi.fn()
 const postAiFeatures = vi.fn()
+const listHeldTransactions = vi.fn()
+const decideHeldTransaction = vi.fn()
+const toastAdd = vi.fn()
+
+vi.mock("@/components/ui/toast", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/components/ui/toast")>()),
+  toast: { add: toastAdd, close: vi.fn(), update: vi.fn(), promise: vi.fn() },
+}))
 
 vi.mock("@/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/api")>()),
   UsersApiFactory: () => ({
     postAiFeatures: (userId: string, body: unknown) =>
       postAiFeatures(userId, body) as unknown,
+  }),
+  HeldTransactionsApiFactory: () => ({
+    listHeldTransactions: (userId: string) =>
+      listHeldTransactions(userId) as unknown,
+    decideHeldTransaction: (userId: string, id: string, body: unknown) =>
+      decideHeldTransaction(userId, id, body) as unknown,
   }),
 }))
 
@@ -135,10 +155,39 @@ function card(): HTMLElement {
   return node as HTMLElement
 }
 
+function heldRow(
+  overrides: Partial<IdentifiableHeldTransaction> = {}
+): IdentifiableHeldTransaction {
+  return {
+    id: "h1",
+    provider_kind: "enablebanking",
+    date: "2025-07-31T09:00:00Z",
+    description: "TESCO STORES 3021",
+    account_id: ACCOUNT_CURRENT,
+    asset_id: ASSET_GBP,
+    amount: -42.18,
+    candidates: [
+      regular({ transaction_id: "c1", description: "Tesco" }),
+      regular({
+        transaction_id: "c2",
+        description: "Tesco Express",
+        entry: entry(ACCOUNT_CURRENT, ASSET_GBP, -42.18),
+      }),
+    ],
+    ...overrides,
+  }
+}
+
+function heldList(rows: IdentifiableHeldTransaction[]) {
+  return { data: { held_transactions: rows, lookup_tables: lookupTables } }
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   stubViewport(1440)
   useReviewItems.mockReturnValue(queue())
+  listHeldTransactions.mockResolvedValue(heldList([]))
+  decideHeldTransaction.mockResolvedValue({ data: undefined })
 })
 
 describe("ReviewScreen states", () => {
@@ -429,6 +478,29 @@ describe("ReviewScreen actions", () => {
     expect(screen.getByText("That's the end of this pass")).toBeVisible()
     await userEvent.click(screen.getByRole("button", { name: "Start over" }))
     expect(card()).toHaveAttribute("data-source", "import")
+  })
+})
+
+describe("ReviewScreen possible duplicates", () => {
+  async function heldCard(description: string): Promise<HTMLElement> {
+    return screen.findByRole("listitem", { name: new RegExp(description) })
+  }
+
+  it("records the bank row on the candidate the user switched to", async () => {
+    listHeldTransactions.mockResolvedValue(heldList([heldRow()]))
+    await renderTransactions(<ReviewHost />)
+    const card = await heldCard("TESCO STORES 3021")
+
+    await userEvent.click(within(card).getByRole("button", { name: "Match 2" }))
+    expect(within(card).getByText("Tesco Express")).toBeVisible()
+    await userEvent.click(
+      within(card).getByRole("button", { name: "Same transaction" })
+    )
+
+    expect(decideHeldTransaction).toHaveBeenCalledWith(TEST_USER_ID, "h1", {
+      decision: "same",
+      transaction_id: "c2",
+    })
   })
 })
 

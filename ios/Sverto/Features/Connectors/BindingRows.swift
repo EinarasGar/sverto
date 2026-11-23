@@ -6,12 +6,14 @@ struct BindingRows: View {
     let rawName: String
     @Binding var isExpanded: Bool
     let onOpenTransactions: () -> Void
+    let onOpenImport: (String) -> Void
     let onUpdate: (BindingWriteMode, BindingStatus) -> Void
     let onRemove: () -> Void
 
     private var isPaused: Bool { binding.isPaused }
 
     private var syncLine: String {
+        if binding.isWaitingForImport { return "Being imported" }
         guard let lastSyncAt = binding.lastSyncAt else { return "Never synced" }
         let status = binding.lastSyncStatus.map { " · \($0)" } ?? ""
         return "Last synced \(ConnectorTimeFormat.relative(lastSyncAt))\(status)"
@@ -31,6 +33,13 @@ struct BindingRows: View {
         )
     }
 
+    private var importNote: some View {
+        Text("Finish or delete its import to change or remove this account.")
+            .font(.footnote)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+    }
+
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             Button(action: onOpenTransactions) {
@@ -44,29 +53,50 @@ struct BindingRows: View {
                 }
             }
             .foregroundStyle(.primary)
-            Toggle(isOn: isTrusted) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Trusted writes")
-                    Text("Off: imports arrive as ghosts pending your review. On: imports are normal transactions.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+            if binding.isWaitingForImport {
+                if let sessionId = binding.importSessionId {
+                    Button { onOpenImport(sessionId) } label: {
+                        HStack {
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Open the import")
+                                importNote
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.forward")
+                                .font(.footnote.weight(.semibold))
+                                .foregroundStyle(.tertiary)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .foregroundStyle(.primary)
+                } else {
+                    importNote
                 }
-            }
-            Toggle(isOn: isEnabled) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Enabled")
-                    Text("Paused bindings are skipped when syncing.")
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
+            } else {
+                Toggle(isOn: isTrusted) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Trusted writes")
+                        Text("Off: imports arrive as ghosts pending your review. On: imports are normal transactions.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
                 }
-            }
-            Button(role: .destructive, action: onRemove) {
-                Label {
-                    Text("Remove linked account")
-                        .foregroundStyle(Color.loss)
-                } icon: {
-                    Image(systemName: "trash")
-                        .foregroundStyle(Color.loss)
+                Toggle(isOn: isEnabled) {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("Enabled")
+                        Text("Paused bindings are skipped when syncing.")
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Button(role: .destructive, action: onRemove) {
+                    Label {
+                        Text("Remove linked account")
+                            .foregroundStyle(Color.loss)
+                    } icon: {
+                        Image(systemName: "trash")
+                            .foregroundStyle(Color.loss)
+                    }
                 }
             }
         } label: {

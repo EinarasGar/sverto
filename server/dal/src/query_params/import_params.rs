@@ -59,3 +59,32 @@ pub enum ClassificationRunOutcome {
     Classified,
     Failed(String),
 }
+
+pub struct DeleteImportSourcesParams {
+    pub session_id: Uuid,
+    pub user_id: Uuid,
+    pub search_type: DeleteImportSourcesSearchType,
+}
+
+pub enum DeleteImportSourcesSearchType {
+    ById(Uuid),
+    All,
+}
+
+impl DeleteImportSourcesParams {
+    pub fn by_id(session_id: Uuid, source_id: Uuid, user_id: Uuid) -> Self {
+        Self {
+            session_id,
+            user_id,
+            search_type: DeleteImportSourcesSearchType::ById(source_id),
+        }
+    }
+
+    pub fn all(session_id: Uuid, user_id: Uuid) -> Self {
+        Self {
+            session_id,
+            user_id,
+            search_type: DeleteImportSourcesSearchType::All,
+        }
+    }
+}

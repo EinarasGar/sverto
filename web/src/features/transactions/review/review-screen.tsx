@@ -24,7 +24,12 @@ import { TransactionPanel } from "../drawer"
 import { deletedToast, markedReviewedToast, restoredToast } from "../drawer"
 import type { TransactionEditorController } from "../editor"
 import type { ReviewItem, ReviewQueueView } from "./api"
-import { useCompleteQuickUpload, useReviewItems } from "./api"
+import {
+  useCompleteQuickUpload,
+  useHeldTransactions,
+  useReviewItems,
+} from "./api"
+import { HeldTransactionsSection } from "./held-transactions-section"
 import { ReviewCard } from "./review-card"
 import { ReviewProgress } from "./review-progress"
 import { ReviewQueueList, ReviewQueueNote } from "./review-queue-list"
@@ -68,6 +73,7 @@ export function ReviewScreen({
   const userId = useUserId()
   const navigate = useNavigate()
   const queue = useReviewItems(userId)
+  const held = useHeldTransactions(userId)
   const [localUploadOpen, setLocalUploadOpen] = useState(false)
   const { runWithAiConsent, dialog: aiFeaturesDialog } =
     useAiFeaturesGate(userId)
@@ -254,9 +260,12 @@ export function ReviewScreen({
     </>
   )
 
+  const heldSection = <HeldTransactionsSection userId={userId} held={held} />
+
   if (queue.isPending) {
     return (
       <>
+        {heldSection}
         <ReviewSkeleton />
         {chrome}
       </>
@@ -266,6 +275,7 @@ export function ReviewScreen({
   if (queue.isError) {
     return (
       <>
+        {heldSection}
         <ErrorStateFor error={queue.error} onRetry={queue.refetch} />
         {chrome}
       </>
@@ -289,6 +299,15 @@ export function ReviewScreen({
       ? "Myra proposals are illustrative: nothing lists pending proposals across conversations yet, so those cards cannot be approved or denied from here."
       : null,
   ].filter((note): note is string => note !== null)
+
+  if (queue.view.count === 0 && held.length > 0) {
+    return (
+      <>
+        {heldSection}
+        {chrome}
+      </>
+    )
+  }
 
   if (queue.view.count === 0) {
     return (
@@ -338,6 +357,7 @@ export function ReviewScreen({
   if (cursor.isDone || item === null) {
     return (
       <>
+        {heldSection}
         <ConfirmState
           headline="That's the end of this pass"
           body={
@@ -359,6 +379,7 @@ export function ReviewScreen({
 
   return (
     <div data-slot="review-screen">
+      {heldSection}
       <div className="flex justify-end pb-[10px]">
         <Button variant="outline" size="lg" onClick={openUpload}>
           <Camera data-icon="inline-start" aria-hidden />

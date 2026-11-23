@@ -3,3 +3,4 @@ pub mod config;
 pub mod jwt;
 pub mod mapper;
 pub mod provider;
+pub mod session;

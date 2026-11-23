@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 tokio = { version = "1", features = ["full"] }
+futures = "0.3"
 reqwest = { version = "0.13", default-features = false, features = ["json"] }
 async-trait = "0.1"
 serde = { version = "1", features = ["derive"] }

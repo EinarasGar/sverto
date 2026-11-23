@@ -64,12 +64,6 @@ pub struct AccountIdentifierRow {
     pub value: String,
 }
 
-#[derive(sqlx::FromRow, Debug)]
-pub struct ConflictingIdentifierModel {
-    pub kind: String,
-    pub value: String,
-}
-
 pub struct AccountIdentifierInsert {
     pub account_id: Uuid,
     pub kind: String,

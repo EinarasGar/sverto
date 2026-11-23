@@ -16,12 +16,16 @@ import { useDeleteImportSession } from "./api"
 export function ImportDeleteDialog({
   userId,
   sessionId,
+  lost,
+  pendingBankLinks,
   open,
   onOpenChange,
   onDeleted,
 }: {
   userId: UserId
   sessionId: ImportSessionId
+  lost: string
+  pendingBankLinks: number
   open: boolean
   onOpenChange: (open: boolean) => void
   onDeleted: () => void
@@ -43,7 +47,12 @@ export function ImportDeleteDialog({
         </AlertDialogHeader>
         <div className="rounded-panel border border-negative-dim bg-surface px-[18px] pt-4 pb-[17px]">
           <AlertDialogDescription className="text-[11.5px] leading-[1.6] text-pretty text-ink-2 sm:text-left">
-            The import and the files uploaded to it are deleted.
+            {lost}
+            {pendingBankLinks === 0
+              ? null
+              : pendingBankLinks === 1
+                ? " The bank account link waiting for it is removed too."
+                : ` The ${String(pendingBankLinks)} bank account links waiting for it are removed too.`}
           </AlertDialogDescription>
           <p className="mt-[7px] text-[11.5px] leading-[1.6] text-pretty text-ink-3 sm:text-left">
             Nothing in your ledger changes, including transactions this import

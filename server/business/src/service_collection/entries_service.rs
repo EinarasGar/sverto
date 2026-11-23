@@ -1,7 +1,8 @@
 #[mockall_double::double]
 use dal::database_context::MyraDb;
 use itertools::Itertools;
-use time::OffsetDateTime;
+use std::collections::HashMap;
+use time::{Date, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::{
@@ -10,7 +11,7 @@ use crate::{
 };
 use dal::{
     models::{
-        entry_models::{AddEntryModel, EntriesAssetIntervalSum},
+        entry_models::{AddEntryModel, EntriesAssetIntervalSum, LatestEntryDateModel},
         transaction_models::UpdateEntryModel,
     },
     queries::{
@@ -178,5 +179,46 @@ impl EntriesService {
     ) -> anyhow::Result<Option<OffsetDateTime>> {
         let query = get_oldest_entry_date(user_id, account_id);
         Ok(self.db.fetch_one_scalar(query).await?)
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn get_latest_entry_dates(
+        &self,
+        user_id: Uuid,
+        account_ids: Vec<Uuid>,
+    ) -> anyhow::Result<HashMap<(Uuid, i32), Date>> {
+        let rows: Vec<LatestEntryDateModel> = self
+            .db
+            .fetch_all(entries_queries::get_latest_entry_dates(
+                user_id,
+                account_ids,
+            ))
+            .await?;
+        Ok(rows
+            .into_iter()
+            .map(|row| ((row.account_id, row.asset_id), row.date_transacted.date()))
+            .collect())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, count = categories.len()))]
+    pub async fn replace_categories(
+        &self,
+        user_id: Uuid,
+        from_category_id: i32,
+        categories: Vec<(Uuid, i32)>,
+    ) -> anyhow::Result<u64> {
+        if categories.is_empty() {
+            return Ok(0);
+        }
+        let (transaction_ids, category_ids) = categories.into_iter().unzip();
+        Ok(self
+            .db
+            .execute_with_rows_affected(entries_queries::update_entry_categories(
+                user_id,
+                from_category_id,
+                transaction_ids,
+                category_ids,
+            ))
+            .await?)
     }
 }

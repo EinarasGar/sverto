@@ -69,6 +69,30 @@ impl Target {
         self.sources.iter().any(|source| source.stream == stream)
     }
 
+    fn already_holds(&self, movement: &IncomingMovementDto) -> bool {
+        (movement.kind.traits().proves_movement && self.has_stream(&movement.stream))
+            || (movement.kind.traits().one_per_transaction
+                && self
+                    .sources
+                    .iter()
+                    .any(|source| source.kind == movement.kind))
+    }
+
+    fn summary(&self) -> MatchCandidateDto {
+        MatchCandidateDto {
+            id: self.id,
+            in_ledger: self.in_ledger,
+            confirmed: self.is_confirmed(),
+            several_transactions: self.several_transactions,
+            leaves_movement_unrecorded: false,
+            account_id: self.account_id,
+            asset_id: self.asset_id,
+            quantity: self.quantity,
+            date: self.date,
+            description: self.description.clone(),
+        }
+    }
+
     fn may_be_rounded(&self) -> bool {
         !self.is_confirmed()
             && (self.sources.is_empty()
@@ -173,6 +197,13 @@ pub fn ledger_roots(
             (member(movement), root)
         })
         .collect()
+}
+
+pub fn may_amend(target: &MatchCandidateDto) -> bool {
+    target.in_ledger
+        && !target.confirmed
+        && !target.several_transactions
+        && !target.leaves_movement_unrecorded
 }
 
 pub struct LedgerMatching {
@@ -372,6 +403,24 @@ impl LedgerMatching {
             matching.push_target(target);
         }
         matching
+    }
+
+    pub fn summary(
+        &self,
+        transaction_id: Uuid,
+        movement: &IncomingMovementDto,
+    ) -> Option<MatchCandidateDto> {
+        let index =
+            self.ledger_targets
+                .get(&(transaction_id, movement.account_id?, movement.asset_id))?;
+        Some(self.targets[*index].summary())
+    }
+
+    pub fn already_holds(&self, transaction_id: Uuid, movement: &IncomingMovementDto) -> bool {
+        self.ledger_targets
+            .iter()
+            .filter(|((member, _, _), _)| *member == transaction_id)
+            .any(|(_, &index)| self.targets[index].already_holds(movement))
     }
 
     pub fn add_transaction_types(&mut self, types: &HashMap<Uuid, DatabaseTransactionTypes>) {
@@ -892,14 +941,7 @@ impl LedgerMatching {
         let mut candidates = Vec::new();
         for index in self.near(movement.date, WINDOW_DAYS) {
             let target = &self.targets[index];
-            if taken.contains(&index)
-                || (movement.kind.traits().proves_movement && target.has_stream(&movement.stream))
-                || (movement.kind.traits().one_per_transaction
-                    && target
-                        .sources
-                        .iter()
-                        .any(|source| source.kind == movement.kind))
-            {
+            if taken.contains(&index) || target.already_holds(movement) {
                 continue;
             }
             let at_edge = match self.coverage_of(movement, target, batch_range) {
@@ -1441,21 +1483,7 @@ impl LedgerMatching {
         let candidates = |targets: &[usize]| -> Vec<MatchCandidateDto> {
             targets
                 .iter()
-                .map(|&index| {
-                    let target = &self.targets[index];
-                    MatchCandidateDto {
-                        id: target.id,
-                        in_ledger: target.in_ledger,
-                        confirmed: target.is_confirmed(),
-                        several_transactions: target.several_transactions,
-                        leaves_movement_unrecorded: false,
-                        account_id: target.account_id,
-                        asset_id: target.asset_id,
-                        quantity: target.quantity,
-                        date: target.date,
-                        description: target.description.clone(),
-                    }
-                })
+                .map(|&index| self.targets[index].summary())
                 .collect()
         };
         match decision {

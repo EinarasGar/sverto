@@ -22,16 +22,35 @@ impl Iden for ImportSessionsIden {
     }
 }
 
+pub enum ImportSourcesIden {
+    Table,
+    Id,
+    SessionId,
+    Kind,
+    CreatedAt,
+}
+
+impl Iden for ImportSourcesIden {
+    fn unquoted(&self) -> &str {
+        match self {
+            Self::Table => "import_sources",
+            Self::Id => "id",
+            Self::SessionId => "session_id",
+            Self::Kind => "kind",
+            Self::CreatedAt => "created_at",
+        }
+    }
+}
+
 pub enum ImportFilesIden {
     Table,
     SessionId,
+    SourceId,
     FileId,
     ConversationId,
     Status,
     ErrorMessage,
     PausedUntil,
-    CoverageFrom,
-    CoverageTo,
     DateOrder,
     CreatedAt,
 }
@@ -41,15 +60,34 @@ impl Iden for ImportFilesIden {
         match self {
             Self::Table => "import_files",
             Self::SessionId => "session_id",
+            Self::SourceId => "source_id",
             Self::FileId => "file_id",
             Self::ConversationId => "conversation_id",
             Self::Status => "status",
             Self::ErrorMessage => "error_message",
             Self::PausedUntil => "paused_until",
-            Self::CoverageFrom => "coverage_from",
-            Self::CoverageTo => "coverage_to",
             Self::DateOrder => "date_order",
             Self::CreatedAt => "created_at",
+        }
+    }
+}
+
+pub enum ImportBankAccountsIden {
+    Table,
+    SessionId,
+    SourceId,
+    BindingId,
+    CutoffPageId,
+}
+
+impl Iden for ImportBankAccountsIden {
+    fn unquoted(&self) -> &str {
+        match self {
+            Self::Table => "import_bank_accounts",
+            Self::SessionId => "session_id",
+            Self::SourceId => "source_id",
+            Self::BindingId => "binding_id",
+            Self::CutoffPageId => "cutoff_page_id",
         }
     }
 }
@@ -57,7 +95,7 @@ impl Iden for ImportFilesIden {
 pub enum ImportAccountMappingsIden {
     Table,
     SessionId,
-    FileId,
+    SourceId,
     AccountRef,
     AccountId,
 }
@@ -67,7 +105,7 @@ impl Iden for ImportAccountMappingsIden {
         match self {
             Self::Table => "import_account_mappings",
             Self::SessionId => "session_id",
-            Self::FileId => "file_id",
+            Self::SourceId => "source_id",
             Self::AccountRef => "account_ref",
             Self::AccountId => "account_id",
         }
@@ -97,7 +135,7 @@ pub enum ImportParsedLinesIden {
     Table,
     Id,
     SessionId,
-    FileId,
+    SourceId,
     TransactionKey,
     AccountRef,
     DateTransacted,
@@ -112,7 +150,7 @@ impl Iden for ImportParsedLinesIden {
             Self::Table => "import_parsed_lines",
             Self::Id => "id",
             Self::SessionId => "session_id",
-            Self::FileId => "file_id",
+            Self::SourceId => "source_id",
             Self::TransactionKey => "transaction_key",
             Self::AccountRef => "account_ref",
             Self::DateTransacted => "date_transacted",
@@ -170,7 +208,7 @@ impl Iden for ImportParsedLegsIden {
 pub enum ImportAssertionsIden {
     Table,
     SessionId,
-    FileId,
+    SourceId,
     AccountRef,
     AssetRef,
     AccountId,
@@ -185,7 +223,7 @@ impl Iden for ImportAssertionsIden {
         match self {
             Self::Table => "import_assertions",
             Self::SessionId => "session_id",
-            Self::FileId => "file_id",
+            Self::SourceId => "source_id",
             Self::AccountRef => "account_ref",
             Self::AssetRef => "asset_ref",
             Self::AccountId => "account_id",

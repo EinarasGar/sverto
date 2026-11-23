@@ -12,6 +12,7 @@ export type {
   ConnectionId,
   ConversationId,
   FileId,
+  HeldTransactionId,
   ImportSessionId,
   PortfolioRange,
   PropertyId,

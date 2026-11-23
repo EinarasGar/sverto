@@ -99,15 +99,15 @@ impl SessionLinking {
 
     pub fn repeats_an_answered_name(&self) -> bool {
         self.account_refs.iter().any(|reference| {
-            let mut answered_files = self
+            let mut answered_sources = self
                 .account_answers
                 .iter()
                 .filter(|answer| answer.account_ref == reference.account_ref)
-                .map(|answer| answer.file_id);
-            answered_files
+                .map(|answer| answer.source_id);
+            answered_sources
                 .clone()
-                .any(|file_id| file_id != reference.file_id)
-                && !answered_files.any(|file_id| file_id == reference.file_id)
+                .any(|source_id| source_id != reference.source_id)
+                && !answered_sources.any(|source_id| source_id == reference.source_id)
         })
     }
 
@@ -152,22 +152,23 @@ impl SessionLinking {
     pub fn link_accounts(&mut self) {
         for reference in std::mem::take(&mut self.account_refs) {
             let answer = self.account_answers.iter().find(|answer| {
-                answer.file_id == reference.file_id && answer.account_ref == reference.account_ref
+                answer.source_id == reference.source_id
+                    && answer.account_ref == reference.account_ref
             });
             let link = match answer {
                 Some(answer) => AccountLink::Map(answer.account_id),
-                None => self.link_account(reference.file_id, &reference.account_ref),
+                None => self.link_account(reference.source_id, &reference.account_ref),
             };
             match link {
                 AccountLink::Map(account_id) => {
                     self.links.account_mappings.push(ImportAccountMappingModel {
-                        file_id: reference.file_id,
+                        source_id: reference.source_id,
                         account_ref: reference.account_ref,
                         account_id,
                     })
                 }
                 AccountLink::Ask(ask) => self.links.asks.push(ImportOpenAskDto {
-                    ask_key: account_ask_key(ask.file_id, &ask.raw_account),
+                    ask_key: account_ask_key(ask.source_id, &ask.raw_account),
                     ask: ImportAskDto::AccountMapping(ask),
                 }),
             }
@@ -284,7 +285,7 @@ impl SessionLinking {
         self.links
     }
 
-    fn link_account(&self, file_id: Uuid, account_ref: &str) -> AccountLink {
+    fn link_account(&self, source_id: Uuid, account_ref: &str) -> AccountLink {
         let mut by_identifier: Vec<(IdentifierMatch, &FullAccountDto)> = self
             .accounts
             .iter()
@@ -308,10 +309,10 @@ impl SessionLinking {
         let mut earlier: Vec<&ImportAccountMappingModel> = self
             .account_answers
             .iter()
-            .filter(|answer| answer.file_id != file_id && answer.account_ref == account_ref)
+            .filter(|answer| answer.source_id != source_id && answer.account_ref == account_ref)
             .collect();
-        let continued = self.continued_files(file_id, account_ref);
-        earlier.sort_by_key(|answer| !continued.contains(&answer.file_id));
+        let continued = self.continued_sources(source_id, account_ref);
+        earlier.sort_by_key(|answer| !continued.contains(&answer.source_id));
         let mut answered: Vec<Option<Uuid>> = Vec::new();
         for answer in earlier {
             if !answered.contains(&answer.account_id) {
@@ -344,19 +345,19 @@ impl SessionLinking {
             }
         }
         AccountLink::Ask(AccountMappingAskDto {
-            file_id,
+            source_id,
             raw_account: account_ref.to_string(),
             candidates,
             choices: vec![ImportAskChoiceDto::Map, ImportAskChoiceDto::Exclude],
-            answer_covers_all_files: is_specific(account_ref),
+            answer_covers_all_sources: is_specific(account_ref),
         })
     }
 
-    fn continued_files(&self, file_id: Uuid, account_ref: &str) -> Vec<Uuid> {
-        let stated = |file_id: Uuid| {
+    fn continued_sources(&self, source_id: Uuid, account_ref: &str) -> Vec<Uuid> {
+        let stated = |source_id: Uuid| {
             let mut by_asset: HashMap<Option<&str>, Vec<(Date, Decimal)>> = HashMap::new();
             for balance in &self.balances {
-                if balance.file_id != file_id
+                if balance.source_id != source_id
                     || balance.account_ref != account_ref
                     || balance.kind == ImportAssertionKindDto::ValueTotal
                 {
@@ -398,16 +399,16 @@ impl SessionLinking {
                     })
             })
         };
-        let files: BTreeSet<Uuid> = self
+        let sources: BTreeSet<Uuid> = self
             .balances
             .iter()
             .filter(|balance| balance.account_ref == account_ref)
-            .map(|balance| balance.file_id)
+            .map(|balance| balance.source_id)
             .collect();
-        let mut chain = vec![file_id];
+        let mut chain = vec![source_id];
         let mut reached = 0;
         while let Some(&link) = chain.get(reached) {
-            for &other in &files {
+            for &other in &sources {
                 if !chain.contains(&other) && (picks_up(link, other) || picks_up(other, link)) {
                     chain.push(other);
                 }
@@ -483,7 +484,7 @@ impl SessionLinking {
                         .filter(|reference| reference.asset_ref == asset_ref)
                         .map(|reference| {
                             self.links
-                                .account_mapping(reference.file_id, &reference.account_ref)
+                                .account_mapping(reference.source_id, &reference.account_ref)
                                 .and_then(|mapping| mapping.account_id)
                                 .and_then(|id| {
                                     self.accounts.iter().find(|account| account.id == id)
@@ -514,7 +515,7 @@ impl SessionLinking {
                             .all(|reference| {
                                 self.imported_asset_refs()
                                     .filter(|beside| {
-                                        beside.file_id == reference.file_id
+                                        beside.source_id == reference.source_id
                                             && beside.account_ref == reference.account_ref
                                     })
                                     .all(|beside| self.currency(&beside.asset_ref).is_some())
@@ -588,7 +589,7 @@ impl SessionLinking {
         self.asset_refs.iter().filter(|reference| {
             !self
                 .links
-                .is_excluded(reference.file_id, &reference.account_ref)
+                .is_excluded(reference.source_id, &reference.account_ref)
         })
     }
 
@@ -622,19 +623,19 @@ impl SessionLinking {
 }
 
 impl SessionLinks {
-    pub fn files_answered_with(&self, file_id: Uuid, account_ref: &str) -> Vec<Uuid> {
-        let mut files = vec![file_id];
+    pub fn sources_answered_with(&self, source_id: Uuid, account_ref: &str) -> Vec<Uuid> {
+        let mut sources = vec![source_id];
         if is_specific(account_ref) {
-            files.extend(self.asks.iter().filter_map(|open| match &open.ask {
+            sources.extend(self.asks.iter().filter_map(|open| match &open.ask {
                 ImportAskDto::AccountMapping(ask)
-                    if ask.raw_account == account_ref && ask.file_id != file_id =>
+                    if ask.raw_account == account_ref && ask.source_id != source_id =>
                 {
-                    Some(ask.file_id)
+                    Some(ask.source_id)
                 }
                 _ => None,
             }));
         }
-        files
+        sources
     }
 
     pub fn pending_lines(&self, lines: Vec<ImportParsedLineDto>) -> Vec<ImportPendingLineDto> {
@@ -644,7 +645,7 @@ impl SessionLinks {
                 continue;
             };
             let questions = group_questions
-                .entry((line.file_id, key.clone()))
+                .entry((line.source_id, key.clone()))
                 .or_default();
             for ask_key in self.blocked_by(line) {
                 if !questions.contains(&ask_key) {
@@ -659,10 +660,10 @@ impl SessionLinks {
                 let mut blocked_by = self.blocked_by(&line);
                 let group = match &line.transaction_key {
                     Some(key)
-                        if !self.is_excluded(line.file_id, &line.account_ref)
+                        if !self.is_excluded(line.source_id, &line.account_ref)
                             && !self.moves_only_excluded_assets(&line) =>
                     {
-                        group_questions.get(&(line.file_id, key.clone()))
+                        group_questions.get(&(line.source_id, key.clone()))
                     }
                     _ => None,
                 };
@@ -676,7 +677,7 @@ impl SessionLinks {
                 }
                 Some(ImportPendingLineDto {
                     id: line.id,
-                    file_id: line.file_id,
+                    source_id: line.source_id,
                     account_ref: line.account_ref,
                     date: line.date,
                     description: line.description,
@@ -702,11 +703,11 @@ impl SessionLinks {
             return blocked_by;
         }
         if self
-            .account_mapping(line.file_id, &line.account_ref)
+            .account_mapping(line.source_id, &line.account_ref)
             .is_none()
         {
-            blocked_by.push(account_ask_key(line.file_id, &line.account_ref));
-        } else if self.is_excluded(line.file_id, &line.account_ref) {
+            blocked_by.push(account_ask_key(line.source_id, &line.account_ref));
+        } else if self.is_excluded(line.source_id, &line.account_ref) {
             return blocked_by;
         }
         let asset_refs = line
@@ -729,16 +730,16 @@ impl SessionLinks {
 
     fn account_mapping(
         &self,
-        file_id: Uuid,
+        source_id: Uuid,
         account_ref: &str,
     ) -> Option<&ImportAccountMappingModel> {
         self.account_mappings
             .iter()
-            .find(|mapping| mapping.file_id == file_id && mapping.account_ref == account_ref)
+            .find(|mapping| mapping.source_id == source_id && mapping.account_ref == account_ref)
     }
 
-    fn is_excluded(&self, file_id: Uuid, account_ref: &str) -> bool {
-        self.account_mapping(file_id, account_ref)
+    fn is_excluded(&self, source_id: Uuid, account_ref: &str) -> bool {
+        self.account_mapping(source_id, account_ref)
             .is_some_and(|mapping| mapping.account_id.is_none())
     }
 
@@ -767,8 +768,8 @@ fn is_specific(account_ref: &str) -> bool {
         })
 }
 
-pub fn account_ask_key(file_id: Uuid, account_ref: &str) -> String {
-    format!("account_mapping:{file_id}:{account_ref}")
+pub fn account_ask_key(source_id: Uuid, account_ref: &str) -> String {
+    format!("account_mapping:{source_id}:{account_ref}")
 }
 
 pub fn asset_ask_key(asset_ref: &str) -> String {
@@ -859,7 +860,7 @@ mod tests {
     const CAD: i32 = 24;
     const PLN: i32 = 104;
 
-    fn file(n: u128) -> Uuid {
+    fn source(n: u128) -> Uuid {
         Uuid::from_u128(n)
     }
 
@@ -901,30 +902,30 @@ mod tests {
         }
     }
 
-    fn account_ref(file_id: Uuid, name: &str) -> ImportAccountRefModel {
+    fn account_ref(source_id: Uuid, name: &str) -> ImportAccountRefModel {
         ImportAccountRefModel {
-            file_id,
+            source_id,
             account_ref: name.to_string(),
         }
     }
 
-    fn mapping(file_id: Uuid, name: &str, account_id: Option<Uuid>) -> ImportAccountMappingModel {
+    fn mapping(source_id: Uuid, name: &str, account_id: Option<Uuid>) -> ImportAccountMappingModel {
         ImportAccountMappingModel {
-            file_id,
+            source_id,
             account_ref: name.to_string(),
             account_id,
         }
     }
 
     fn balance(
-        file_id: Uuid,
+        source_id: Uuid,
         account: &str,
         kind: ImportAssertionKindDto,
         on: Date,
         quantity: Decimal,
     ) -> ImportAssertionDto {
         ImportAssertionDto {
-            file_id,
+            source_id,
             account_ref: account.to_string(),
             asset_ref: Some("EUR".to_string()),
             kind,
@@ -933,9 +934,9 @@ mod tests {
         }
     }
 
-    fn opening(file_id: Uuid, account: &str, on: Date, quantity: Decimal) -> ImportAssertionDto {
+    fn opening(source_id: Uuid, account: &str, on: Date, quantity: Decimal) -> ImportAssertionDto {
         balance(
-            file_id,
+            source_id,
             account,
             ImportAssertionKindDto::Opening,
             on,
@@ -943,9 +944,9 @@ mod tests {
         )
     }
 
-    fn closing(file_id: Uuid, account: &str, on: Date, quantity: Decimal) -> ImportAssertionDto {
+    fn closing(source_id: Uuid, account: &str, on: Date, quantity: Decimal) -> ImportAssertionDto {
         balance(
-            file_id,
+            source_id,
             account,
             ImportAssertionKindDto::Closing,
             on,
@@ -969,9 +970,9 @@ mod tests {
         linking.link()
     }
 
-    fn asset_ref(file_id: Uuid, account: &str, asset: &str) -> ImportAssetRefModel {
+    fn asset_ref(source_id: Uuid, account: &str, asset: &str) -> ImportAssetRefModel {
         ImportAssetRefModel {
-            file_id,
+            source_id,
             account_ref: account.to_string(),
             asset_ref: asset.to_string(),
             counter_asset_ref: None,
@@ -983,7 +984,7 @@ mod tests {
             .flat_map(|(asset, paid_in)| [(asset, paid_in), (paid_in, asset)])
             .map(|(asset, counter)| ImportAssetRefModel {
                 counter_asset_ref: Some(counter.to_string()),
-                ..asset_ref(file(1), "Broker", asset)
+                ..asset_ref(source(1), "Broker", asset)
             })
             .collect()
     }
@@ -1034,8 +1035,8 @@ mod tests {
         let mut broker = account("Broker", &[]);
         broker.account_type.id = account_type_id(DatabaseAccountTypes::Investment);
         let mut linking = SessionLinking::new();
-        linking.add_account_refs(vec![account_ref(file(1), "Broker")]);
-        linking.add_account_answers(vec![mapping(file(1), "Broker", Some(broker.id))]);
+        linking.add_account_refs(vec![account_ref(source(1), "Broker")]);
+        linking.add_account_answers(vec![mapping(source(1), "Broker", Some(broker.id))]);
         linking.add_accounts(vec![broker]);
         linking.link_accounts();
         linking.add_asset_refs(refs);
@@ -1118,7 +1119,7 @@ mod tests {
         links
             .account_mappings
             .iter()
-            .map(|mapping| (mapping.file_id, mapping.account_id))
+            .map(|mapping| (mapping.source_id, mapping.account_id))
             .collect()
     }
 
@@ -1134,9 +1135,10 @@ mod tests {
             let target = account("Target", &[stored]);
             let id = target.id;
 
-            let links = linked_accounts(vec![target], vec![account_ref(file(1), printed)], vec![]);
+            let links =
+                linked_accounts(vec![target], vec![account_ref(source(1), printed)], vec![]);
 
-            assert_eq!(mapped(&links), vec![(file(1), Some(id))], "{printed}");
+            assert_eq!(mapped(&links), vec![(source(1), Some(id))], "{printed}");
         }
     }
 
@@ -1152,11 +1154,11 @@ mod tests {
 
             let links = linked_accounts(
                 vec![other, target],
-                vec![account_ref(file(1), printed)],
+                vec![account_ref(source(1), printed)],
                 vec![],
             );
 
-            assert_eq!(mapped(&links), vec![(file(1), Some(id))], "{printed}");
+            assert_eq!(mapped(&links), vec![(source(1), Some(id))], "{printed}");
         }
     }
 
@@ -1169,7 +1171,7 @@ mod tests {
 
         let links = linked_accounts(
             vec![named, first, second],
-            vec![account_ref(file(1), "31926819")],
+            vec![account_ref(source(1), "31926819")],
             vec![],
         );
 
@@ -1195,7 +1197,7 @@ mod tests {
 
             let links = linked_accounts(
                 vec![named, unrelated, target],
-                vec![account_ref(file(1), printed)],
+                vec![account_ref(source(1), printed)],
                 vec![],
             );
 
@@ -1220,14 +1222,17 @@ mod tests {
 
             let links = linked_accounts(
                 vec![other, earlier],
-                vec![account_ref(file(2), name)],
-                vec![mapping(file(1), name, Some(id))],
+                vec![account_ref(source(2), name)],
+                vec![mapping(source(1), name, Some(id))],
             );
 
             assert!(links.account_mappings.is_empty(), "{name}");
             assert_eq!(candidate_ids(&links), vec![id], "{name}");
-            assert!(!account_ask(&links).answer_covers_all_files, "{name}");
-            assert_eq!(links.files_answered_with(file(2), name), vec![file(2)]);
+            assert!(!account_ask(&links).answer_covers_all_sources, "{name}");
+            assert_eq!(
+                links.sources_answered_with(source(2), name),
+                vec![source(2)]
+            );
         }
     }
 
@@ -1238,13 +1243,13 @@ mod tests {
 
             let links = linked_accounts(
                 vec![],
-                vec![account_ref(file(1), name), account_ref(file(2), name)],
-                vec![mapping(file(1), name, Some(target))],
+                vec![account_ref(source(1), name), account_ref(source(2), name)],
+                vec![mapping(source(1), name, Some(target))],
             );
 
             assert_eq!(
                 mapped(&links),
-                vec![(file(1), Some(target)), (file(2), Some(target))],
+                vec![(source(1), Some(target)), (source(2), Some(target))],
                 "{name}"
             );
             assert!(links.asks.is_empty(), "{name}");
@@ -1259,15 +1264,15 @@ mod tests {
 
         let links = linked_accounts(
             vec![first, second],
-            vec![account_ref(file(3), "Card ****1234")],
+            vec![account_ref(source(3), "Card ****1234")],
             vec![
-                mapping(file(1), "Card ****1234", Some(first_id)),
-                mapping(file(2), "Card ****1234", Some(second_id)),
+                mapping(source(1), "Card ****1234", Some(first_id)),
+                mapping(source(2), "Card ****1234", Some(second_id)),
             ],
         );
 
         assert_eq!(candidate_ids(&links), vec![first_id, second_id]);
-        assert!(account_ask(&links).answer_covers_all_files);
+        assert!(account_ask(&links).answer_covers_all_sources);
     }
 
     #[test]
@@ -1276,11 +1281,11 @@ mod tests {
 
         let links = linked_accounts(
             vec![baltic],
-            vec![account_ref(file(1), "LT121000011101001000")],
-            vec![mapping(file(1), "LT121000011101001000", None)],
+            vec![account_ref(source(1), "LT121000011101001000")],
+            vec![mapping(source(1), "LT121000011101001000", None)],
         );
 
-        assert_eq!(mapped(&links), vec![(file(1), None)]);
+        assert_eq!(mapped(&links), vec![(source(1), None)]);
         assert!(links.asks.is_empty());
     }
 
@@ -1289,19 +1294,22 @@ mod tests {
         let links = linked_accounts(
             vec![],
             vec![
-                account_ref(file(1), "Card ****1234"),
-                account_ref(file(2), "Card ****1234"),
-                account_ref(file(3), "Current"),
-                account_ref(file(4), "Current"),
+                account_ref(source(1), "Card ****1234"),
+                account_ref(source(2), "Card ****1234"),
+                account_ref(source(3), "Current"),
+                account_ref(source(4), "Current"),
             ],
             vec![],
         );
 
         assert_eq!(
-            links.files_answered_with(file(1), "Card ****1234"),
-            vec![file(1), file(2)]
+            links.sources_answered_with(source(1), "Card ****1234"),
+            vec![source(1), source(2)]
         );
-        assert_eq!(links.files_answered_with(file(3), "Current"), vec![file(3)]);
+        assert_eq!(
+            links.sources_answered_with(source(3), "Current"),
+            vec![source(3)]
+        );
     }
 
     #[test]
@@ -1312,21 +1320,21 @@ mod tests {
         let links = linked_with_balances(
             vec![other, northwind],
             vec![
-                account_ref(file(3), "Current"),
-                account_ref(file(4), "Current"),
-                account_ref(file(5), "Current"),
+                account_ref(source(3), "Current"),
+                account_ref(source(4), "Current"),
+                account_ref(source(5), "Current"),
             ],
             vec![
-                mapping(file(1), "Current", Some(other_id)),
-                mapping(file(2), "Current", Some(northwind_id)),
+                mapping(source(1), "Current", Some(other_id)),
+                mapping(source(2), "Current", Some(northwind_id)),
             ],
             vec![
-                closing(file(1), "Current", date!(2026 - 02 - 28), dec!(52.40)),
-                closing(file(2), "Current", date!(2026 - 02 - 28), dec!(1204.33)),
-                opening(file(3), "Current", date!(2026 - 03 - 01), dec!(1204.33)),
-                closing(file(3), "Current", date!(2026 - 03 - 29), dec!(88.10)),
-                opening(file(4), "Current", date!(2026 - 04 - 03), dec!(88.1)),
-                opening(file(5), "Current", date!(2026 - 03 - 01), dec!(700)),
+                closing(source(1), "Current", date!(2026 - 02 - 28), dec!(52.40)),
+                closing(source(2), "Current", date!(2026 - 02 - 28), dec!(1204.33)),
+                opening(source(3), "Current", date!(2026 - 03 - 01), dec!(1204.33)),
+                closing(source(3), "Current", date!(2026 - 03 - 29), dec!(88.10)),
+                opening(source(4), "Current", date!(2026 - 04 - 03), dec!(88.1)),
+                opening(source(5), "Current", date!(2026 - 03 - 01), dec!(700)),
             ],
         );
 
@@ -1334,7 +1342,7 @@ mod tests {
             .into_iter()
             .filter_map(|ask| match ask {
                 ImportAskDto::AccountMapping(ask) => Some((
-                    ask.file_id,
+                    ask.source_id,
                     ask.candidates
                         .iter()
                         .map(|candidate| candidate.id)
@@ -1346,9 +1354,9 @@ mod tests {
         assert_eq!(
             candidates,
             vec![
-                (file(3), vec![northwind_id, other_id]),
-                (file(4), vec![northwind_id, other_id]),
-                (file(5), vec![other_id, northwind_id]),
+                (source(3), vec![northwind_id, other_id]),
+                (source(4), vec![northwind_id, other_id]),
+                (source(5), vec![other_id, northwind_id]),
             ]
         );
     }
@@ -1360,11 +1368,11 @@ mod tests {
 
         let links = linked_with_balances(
             vec![bank_one, bank_two],
-            vec![account_ref(file(2), "Savings")],
-            vec![mapping(file(1), "Savings", Some(one))],
+            vec![account_ref(source(2), "Savings")],
+            vec![mapping(source(1), "Savings", Some(one))],
             vec![
-                closing(file(1), "Savings", date!(2026 - 01 - 31), dec!(10000.00)),
-                opening(file(2), "Savings", date!(2026 - 02 - 03), dec!(10000.00)),
+                closing(source(1), "Savings", date!(2026 - 01 - 31), dec!(10000.00)),
+                opening(source(2), "Savings", date!(2026 - 02 - 03), dec!(10000.00)),
             ],
         );
 
@@ -1378,7 +1386,7 @@ mod tests {
         let (other_id, northwind_id) = (other.id, northwind.id);
         let stated = |on: Date, quantity: Decimal| {
             balance(
-                file(2),
+                source(2),
                 "Current",
                 ImportAssertionKindDto::Snapshot,
                 on,
@@ -1388,10 +1396,10 @@ mod tests {
 
         let links = linked_with_balances(
             vec![other, northwind],
-            vec![account_ref(file(3), "Current")],
+            vec![account_ref(source(3), "Current")],
             vec![
-                mapping(file(1), "Current", Some(other_id)),
-                mapping(file(2), "Current", Some(northwind_id)),
+                mapping(source(1), "Current", Some(other_id)),
+                mapping(source(2), "Current", Some(northwind_id)),
             ],
             vec![
                 stated(date!(2026 - 02 - 10), dec!(52.40)),
@@ -1399,7 +1407,7 @@ mod tests {
                 stated(date!(2026 - 02 - 14), dec!(47.15)),
                 stated(date!(2026 - 02 - 14), dec!(30.00)),
                 stated(date!(2026 - 02 - 20), dec!(12.00)),
-                opening(file(3), "Current", date!(2026 - 02 - 17), dec!(47.15)),
+                opening(source(3), "Current", date!(2026 - 02 - 17), dec!(47.15)),
             ],
         );
 
@@ -1413,17 +1421,18 @@ mod tests {
             let (other_id, northwind_id) = (other.id, northwind.id);
             let links = linked_with_balances(
                 vec![other, northwind],
-                vec![account_ref(file(3), "Current")],
+                vec![account_ref(source(3), "Current")],
                 vec![
-                    mapping(file(1), "Current", Some(other_id)),
-                    mapping(file(2), "Current", Some(northwind_id)),
+                    mapping(source(1), "Current", Some(other_id)),
+                    mapping(source(2), "Current", Some(northwind_id)),
                 ],
                 vec![ends, starts],
             );
             candidate_ids(&links) == vec![northwind_id, other_id]
         };
-        let ends = |quantity: Decimal| closing(file(2), "Current", date!(2026 - 01 - 31), quantity);
-        let starts = |on: Date, quantity: Decimal| opening(file(3), "Current", on, quantity);
+        let ends =
+            |quantity: Decimal| closing(source(2), "Current", date!(2026 - 01 - 31), quantity);
+        let starts = |on: Date, quantity: Decimal| opening(source(3), "Current", on, quantity);
         let in_dollars = |mut balance: ImportAssertionDto| {
             balance.asset_ref = Some("USD".to_string());
             balance
@@ -1531,12 +1540,14 @@ mod tests {
         };
         let dividend = ImportAssetRefModel {
             counter_asset_ref: Some("GBP".to_string()),
-            ..asset_ref(file(1), "ISA", isin)
+            ..asset_ref(source(1), "ISA", isin)
         };
 
         let bought = linked_assets(trades(&[(isin, "GBP")]), listings());
-        let paid_a_dividend =
-            linked_assets(vec![dividend, asset_ref(file(1), "ISA", "GBP")], listings());
+        let paid_a_dividend = linked_assets(
+            vec![dividend, asset_ref(source(1), "ISA", "GBP")],
+            listings(),
+        );
         let bought_in_euros = linked_assets(trades(&[(isin, "EUR")]), listings());
 
         assert_eq!(mapped_assets(&bought), vec![("GBP", GBP), (isin, 2)]);
@@ -1597,7 +1608,7 @@ mod tests {
         let stated = |assets: &[&str]| {
             assets
                 .iter()
-                .map(|asset| asset_ref(file(1), "Broker", asset))
+                .map(|asset| asset_ref(source(1), "Broker", asset))
                 .collect::<Vec<_>>()
         };
 
@@ -1691,9 +1702,9 @@ mod tests {
             let id = holder.id;
             let mut linking = SessionLinking::new();
             linking.add_accounts(vec![holder]);
-            linking.add_account_refs(vec![account_ref(file(1), "Broker")]);
+            linking.add_account_refs(vec![account_ref(source(1), "Broker")]);
             if answered {
-                linking.add_account_answers(vec![mapping(file(1), "Broker", Some(id))]);
+                linking.add_account_answers(vec![mapping(source(1), "Broker", Some(id))]);
             }
             linking.link_accounts();
             linking.add_asset_refs(trades(&[("BTC", "EUR")]));
@@ -1847,7 +1858,7 @@ mod tests {
         linking.add_asset_matches(matches());
         let bought = linking.link();
         let held = linked_assets(
-            vec![asset_ref(file(1), "ISA", "AAPL (US0378331005)")],
+            vec![asset_ref(source(1), "ISA", "AAPL (US0378331005)")],
             matches(),
         );
         let named_otherwise =
@@ -1925,7 +1936,7 @@ mod tests {
     #[test]
     fn an_unknown_asset_is_asked_with_the_search_suggestions() {
         let mut linking = SessionLinking::new();
-        linking.add_asset_refs(vec![asset_ref(file(1), "ISA", "VUSA")]);
+        linking.add_asset_refs(vec![asset_ref(source(1), "ISA", "VUSA")]);
 
         assert_eq!(linking.assets_needing_suggestions(), vec!["VUSA"]);
         linking.add_asset_suggestions(
@@ -1951,17 +1962,17 @@ mod tests {
     fn assets_only_on_lines_marked_dont_import_are_never_asked_about() {
         let mut linking = SessionLinking::new();
         linking.add_account_refs(vec![
-            account_ref(file(1), "Pocket"),
-            account_ref(file(1), "Current"),
+            account_ref(source(1), "Pocket"),
+            account_ref(source(1), "Current"),
         ]);
         linking.add_account_answers(vec![
-            mapping(file(1), "Pocket", None),
-            mapping(file(1), "Current", Some(Uuid::new_v4())),
+            mapping(source(1), "Pocket", None),
+            mapping(source(1), "Current", Some(Uuid::new_v4())),
         ]);
         linking.add_asset_refs(vec![
-            asset_ref(file(1), "Pocket", "ZZZQ"),
-            asset_ref(file(1), "Current", "VUSA"),
-            asset_ref(file(1), "Pocket", "VUSA"),
+            asset_ref(source(1), "Pocket", "ZZZQ"),
+            asset_ref(source(1), "Current", "VUSA"),
+            asset_ref(source(1), "Pocket", "VUSA"),
         ]);
         linking.link_accounts();
 
@@ -1969,19 +1980,20 @@ mod tests {
     }
 
     fn parsed_line(
-        file_n: u128,
+        source_n: u128,
         key: Option<&str>,
         account: &str,
         legs: Vec<ImportParsedLegDto>,
     ) -> ImportParsedLineDto {
         ImportParsedLineDto {
             id: Uuid::new_v4(),
-            file_id: file(file_n),
+            source_id: source(source_n),
             transaction_key: key.map(str::to_string),
             account_ref: account.to_string(),
             date: OffsetDateTime::UNIX_EPOCH,
             description: None,
             related_asset_ref: None,
+            external_id: None,
             legs,
         }
     }
@@ -2046,14 +2058,14 @@ mod tests {
         assert_eq!(line.legs[1].fee_type, Some(FeeEntryTypesDto::Transaction));
         assert_eq!(
             line.blocked_by,
-            vec![account_ask_key(file(1), "Current"), asset_ask_key("VUSA")]
+            vec![account_ask_key(source(1), "Current"), asset_ask_key("VUSA")]
         );
     }
 
     #[test]
     fn a_sibling_of_a_blocked_line_waits_on_the_same_question() {
         let links = SessionLinks {
-            account_mappings: vec![mapping(file(1), "Current", Some(Uuid::from_u128(7)))],
+            account_mappings: vec![mapping(source(1), "Current", Some(Uuid::from_u128(7)))],
             asset_mappings: vec![gbp()],
             ..SessionLinks::default()
         };
@@ -2085,9 +2097,9 @@ mod tests {
     fn a_siblings_questions_come_only_from_its_own_group() {
         let links = SessionLinks {
             account_mappings: vec![
-                mapping(file(1), "Current", Some(Uuid::from_u128(7))),
-                mapping(file(1), "Ignored", None),
-                mapping(file(2), "Current", Some(Uuid::from_u128(7))),
+                mapping(source(1), "Current", Some(Uuid::from_u128(7))),
+                mapping(source(1), "Ignored", None),
+                mapping(source(2), "Current", Some(Uuid::from_u128(7))),
             ],
             ..SessionLinks::default()
         };
@@ -2096,14 +2108,14 @@ mod tests {
         let other_keyless = parsed_line(1, None, "Current", vec![parsed_leg("AAA", 1, None)]);
         let excluded_sibling =
             parsed_line(1, Some("t1"), "Ignored", vec![parsed_leg("BBB", 1, None)]);
-        let other_file = parsed_line(2, Some("t1"), "Current", vec![parsed_leg("CCC", 1, None)]);
+        let other_source = parsed_line(2, Some("t1"), "Current", vec![parsed_leg("CCC", 1, None)]);
 
         let lines = links.pending_lines(vec![
             mapped_line,
             keyless.clone(),
             other_keyless.clone(),
             excluded_sibling,
-            other_file.clone(),
+            other_source.clone(),
         ]);
 
         assert_eq!(
@@ -2111,7 +2123,7 @@ mod tests {
             vec![
                 (keyless.id, vec![asset_ask_key("DDD")]),
                 (other_keyless.id, vec![asset_ask_key("AAA")]),
-                (other_file.id, vec![asset_ask_key("CCC")]),
+                (other_source.id, vec![asset_ask_key("CCC")]),
             ]
         );
     }
@@ -2120,8 +2132,8 @@ mod tests {
     fn a_dont_import_line_is_never_pending_even_in_a_blocked_group() {
         let links = SessionLinks {
             account_mappings: vec![
-                mapping(file(1), "Current", Some(Uuid::from_u128(7))),
-                mapping(file(1), "Ignored", None),
+                mapping(source(1), "Current", Some(Uuid::from_u128(7))),
+                mapping(source(1), "Ignored", None),
             ],
             ..SessionLinks::default()
         };
@@ -2154,7 +2166,7 @@ mod tests {
         let [line] = lines.as_slice() else {
             panic!("expected one line");
         };
-        assert_eq!(line.blocked_by, vec![account_ask_key(file(1), "Current")]);
+        assert_eq!(line.blocked_by, vec![account_ask_key(source(1), "Current")]);
         let [leg] = line.legs.as_slice() else {
             panic!("expected one leg");
         };
@@ -2164,7 +2176,7 @@ mod tests {
     #[test]
     fn a_line_moving_only_left_out_assets_is_never_pending_nor_holds_back_its_group() {
         let links = SessionLinks {
-            account_mappings: vec![mapping(file(1), "Current", Some(Uuid::from_u128(7)))],
+            account_mappings: vec![mapping(source(1), "Current", Some(Uuid::from_u128(7)))],
             asset_mappings: vec![gbp(), left_out("SPX500")],
             ..SessionLinks::default()
         };

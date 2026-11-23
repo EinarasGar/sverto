@@ -4,10 +4,16 @@ use shared::view_models::connectors::base_models::{
 };
 use shared::view_models::connectors::create_binding::CreateBindingResponseViewModel;
 use shared::view_models::connectors::create_connection::CreateConnectionResponseViewModel;
+use shared::view_models::connectors::create_import::{
+    ConnectorImportFrom as VmImportFrom, CreateConnectorImportResponseViewModel,
+};
 use shared::view_models::connectors::get_bindings::GetBindingsResponseViewModel;
 use shared::view_models::connectors::get_connections::GetConnectionsResponseViewModel;
 use shared::view_models::connectors::list_provider_account_transactions::ListProviderAccountTransactionsResponseViewModel;
-use shared::view_models::connectors::list_provider_accounts::ListProviderAccountsResponseViewModel;
+use shared::view_models::connectors::list_provider_accounts::{
+    ListProviderAccountsResponseViewModel,
+    ProviderAccountHistory as ProviderAccountHistoryViewModel,
+};
 use shared::view_models::connectors::oauth::{
     CompleteOAuthSessionResponseViewModel, CreateOAuthSessionResponseViewModel, OAuthSessionStatus,
 };
@@ -16,7 +22,8 @@ use shared::view_models::connectors::update_binding::BindingWriteMode as VmWrite
 
 use crate::models::{
     BindingWriteMode, CompleteOAuthResult, ConnectorBinding, ConnectorConnection,
-    CredentialMode as AppCredentialMode, OAuthCompletionStatus, OAuthSessionStart, ProviderAccount,
+    ConnectorImportFrom, CredentialMode as AppCredentialMode, OAuthCompletionStatus,
+    OAuthSessionStart, ProviderAccount, ProviderAccountBalance, ProviderAccountHistory,
     ProviderAccountTransaction, SyncOutcome, SyncReport,
 };
 
@@ -33,6 +40,7 @@ pub fn connection_from(vm: ConnectorConnectionViewModel) -> ConnectorConnection 
         id: vm.id.to_string(),
         provider_kind: vm.provider_kind,
         credential_mode: mode_from(vm.credential_mode),
+        links_by_import: vm.links_by_import,
         provider_key_id: vm.provider_key_id,
         status: vm.status,
         consent_expires_at: vm.consent_expires_at.map(|t| t.unix_timestamp()),
@@ -57,6 +65,7 @@ fn binding_from(vm: ConnectorBindingViewModel, account_name: String) -> Connecto
         last_sync_at: vm.last_sync_at.map(|t| t.unix_timestamp()),
         last_sync_status: vm.last_sync_status,
         last_sync_error: vm.last_sync_error,
+        import_session_id: vm.import_session_id.map(|id| id.to_string()),
     }
 }
 
@@ -115,6 +124,24 @@ pub fn extract_binding_id(body: &str) -> Result<String, String> {
     Ok(resp.binding_id.to_string())
 }
 
+pub fn extract_import_session_id(body: &str) -> Result<String, String> {
+    let resp: CreateConnectorImportResponseViewModel =
+        serde_json::from_str(body).map_err(|e| e.to_string())?;
+    Ok(resp.import_session_id.to_string())
+}
+
+pub fn import_from_to_vm(import_from: ConnectorImportFrom) -> Result<VmImportFrom, String> {
+    Ok(match import_from {
+        ConnectorImportFrom::All => VmImportFrom::All,
+        ConnectorImportFrom::AfterLastEntry => VmImportFrom::AfterLastEntry,
+        ConnectorImportFrom::Date { date } => VmImportFrom::Date {
+            date: time::OffsetDateTime::from_unix_timestamp(date)
+                .map_err(|e| e.to_string())?
+                .date(),
+        },
+    })
+}
+
 pub fn extract_oauth_session(body: &str) -> Result<OAuthSessionStart, String> {
     let resp: CreateOAuthSessionResponseViewModel =
         serde_json::from_str(body).map_err(|e| e.to_string())?;
@@ -148,6 +175,17 @@ pub fn extract_provider_accounts(body: &str) -> Result<Vec<ProviderAccount>, Str
             display_name: a.display_name,
             currency: a.currency,
             account_type: a.account_type,
+            account_number_last4: a.account_number_last4,
+            balance: a.balance.map(|b| ProviderAccountBalance {
+                amount: b.amount.to_f64().unwrap_or(0.0),
+                currency: b.currency,
+            }),
+            history: match a.history {
+                ProviderAccountHistoryViewModel::NotFetched => ProviderAccountHistory::NotFetched,
+                ProviderAccountHistoryViewModel::Fetching => ProviderAccountHistory::Fetching,
+                ProviderAccountHistoryViewModel::Fetched => ProviderAccountHistory::Fetched,
+                ProviderAccountHistoryViewModel::Failed => ProviderAccountHistory::Failed,
+            },
         })
         .collect())
 }
@@ -178,6 +216,8 @@ pub fn extract_sync_outcome(body: &str) -> Result<SyncOutcome, String> {
         status: resp.status,
         report: resp.report.map(|r| SyncReport {
             new_transactions: r.new_transactions,
+            attached: r.attached,
+            held: r.held,
             unchanged: r.unchanged,
             amended: r.amended,
             conflicts: r.conflicts,

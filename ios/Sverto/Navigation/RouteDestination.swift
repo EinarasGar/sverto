@@ -57,12 +57,13 @@ struct RouteDestination: View {
             ConnectionDetailScreen(connectionId: connectionId)
         case let .bindingSetup(connectionId):
             BindingSetupScreen(connectionId: connectionId)
-        case let .providerAccountDetail(connectionId, providerAccountId, displayName, currency):
+        case let .providerAccountDetail(connectionId, providerAccountId, displayName, currency, fromLinkSetup):
             ProviderAccountDetailScreen(
                 connectionId: connectionId,
                 providerAccountId: providerAccountId,
                 displayName: displayName,
-                currency: currency
+                currency: currency,
+                fromLinkSetup: fromLinkSetup
             )
         case let .connectTrueLayer(code, state, error):
             ConnectTrueLayerScreen(oauthCode: code, oauthState: state, oauthError: error)
@@ -70,6 +71,12 @@ struct RouteDestination: View {
             ConnectEnableBankingScreen(oauthCode: code, oauthState: state, oauthError: error)
         case .connectTrading212:
             ConnectTrading212Screen()
+        case .imports:
+            ImportsScreen()
+        case let .importSession(id, pickFiles):
+            ImportSessionScreen(sessionId: id, pickFilesOnOpen: pickFiles)
+        case let .importItems(sessionId):
+            ImportItemsScreen(sessionId: sessionId)
         }
     }
 }

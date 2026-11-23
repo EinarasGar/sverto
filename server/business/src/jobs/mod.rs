@@ -55,6 +55,12 @@ pub struct SyncConnectorBindingJob {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct BackfillConnectionJob {
+    pub connection_id: Uuid,
+    pub user_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImportParseJob {
     pub session_id: Uuid,
     pub file_id: Uuid,
@@ -66,4 +72,10 @@ pub struct ImportClassifyJob {
     pub session_id: Uuid,
     pub run_id: Uuid,
     pub user_id: Uuid,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct CategorizeSyncedTransactionsJob {
+    pub user_id: Uuid,
+    pub transaction_ids: Vec<Uuid>,
 }

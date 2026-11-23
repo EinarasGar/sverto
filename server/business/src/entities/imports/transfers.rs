@@ -194,17 +194,17 @@ fn join(stage: &mut SessionStage, pairs: Vec<(usize, usize)>) {
                 outgoing_change: entry(&out_row),
                 incoming_change: entry(&in_row),
             });
-        let mut file_ids = out_row.file_ids;
-        file_ids.extend(in_row.file_ids);
-        file_ids.sort();
-        file_ids.dedup();
+        let mut source_ids = out_row.source_ids;
+        source_ids.extend(in_row.source_ids);
+        source_ids.sort();
+        source_ids.dedup();
         let mut movements = out_row.movements;
         movements.extend(in_row.movements);
         let id = joined_id(out_row.id, in_row.id);
         stage.joined.insert(id, [out_row.id, in_row.id]);
         rows[out.min(incoming)] = Some(StagedTransactionDto {
             id,
-            file_ids,
+            source_ids,
             transaction: TransactionDto {
                 transaction_type,
                 ..out_row.transaction
@@ -237,7 +237,7 @@ mod tests {
     const EUR: i32 = 45;
     const GBP: i32 = 46;
 
-    fn file(account_id: Uuid) -> Uuid {
+    fn source(account_id: Uuid) -> Uuid {
         Uuid::from_u128(account_id.as_u128() + 100)
     }
 
@@ -252,7 +252,7 @@ mod tests {
         let entry = EntryDto::new(EUR, account_id, quantity);
         StagedTransactionDto {
             id: Uuid::from_u128(id),
-            file_ids: vec![file(account_id)],
+            source_ids: vec![source(account_id)],
             transaction: TransactionDto {
                 transaction_id: None,
                 date: at,
@@ -276,10 +276,11 @@ mod tests {
                 account_id,
                 asset_id: EUR,
                 quantity,
-                file_id: file(account_id),
+                source_id: source(account_id),
                 date: at.date(),
                 description: Some("Transfer".to_string()),
                 itemised_fee: None,
+                external_id: None,
             }],
         }
     }
@@ -337,7 +338,7 @@ mod tests {
             panic!("expected one row, got {rows:?}");
         };
         assert_eq!(transfer.id, joined_id(out.id, incoming.id));
-        assert_eq!(transfer.file_ids, vec![file(CURRENT), file(JOINT)]);
+        assert_eq!(transfer.source_ids, vec![source(CURRENT), source(JOINT)]);
         assert_eq!(transfer.transaction.date, out.transaction.date);
         assert_eq!(
             transfer.movements,

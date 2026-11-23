@@ -1,21 +1,33 @@
 import { useState } from "react"
-import { useNavigate } from "@tanstack/react-router"
+import { Link, useNavigate } from "@tanstack/react-router"
 
+import type { ConnectorImportFrom } from "@/api"
 import { useUserId } from "@/auth"
-import { formatDateStamp } from "@/lib/format"
-import type { ConnectionId } from "@/lib/query"
+import { countOf, formatDateStamp, formatMoney } from "@/lib/format"
+import type { AccountId, ConnectionId } from "@/lib/query"
 import { PanelBoundary } from "@/components/layout/route-boundaries"
-import { EntityPicker, StatusChip } from "@/components/primitives"
+import {
+  EntityPicker,
+  SegmentedControl,
+  type SegmentedOption,
+  StatusChip,
+} from "@/components/primitives"
 import { ErrorState } from "@/components/states/message-state"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import type { AccountConnector } from "@/features/accounts/api"
 import { useAccountsSuspense } from "@/features/accounts/api"
 
-import type { ConnectionSummary, ProviderAccountRef } from "./api"
+import type {
+  ConnectionSummary,
+  CreateBindingsVariables,
+  ProviderAccountRef,
+} from "./api"
 import {
   useConnectionsSuspense,
-  useCreateBinding,
+  useCreateBindings,
+  useCreateConnectorImport,
   useDeleteBinding,
   useProviderAccountsSuspense,
   useRevokeConnection,
@@ -38,7 +50,15 @@ import {
   BINDING_UNBOUND_CONSEQUENCE,
   CONNECTION_IMPORT_TOTAL_UNAVAILABLE,
   CONSENT_CONSEQUENCE,
+  HISTORY_FAILED,
+  HISTORY_FETCHING,
+  IMPORT_ACCOUNTS_CONSEQUENCE,
+  IMPORT_FROM_AFTER_LAST_ENTRY,
+  IMPORT_FROM_ALL,
+  IMPORT_FROM_DATE,
+  LINK_ACCOUNTS_CONSEQUENCE,
   PAUSE_CONSEQUENCE,
+  PENDING_BINDING_IMPORTING,
   REMOVE_BINDING_BODY,
   REMOVE_BINDING_TITLE,
   RESUME_CONSEQUENCE,
@@ -50,13 +70,61 @@ import {
 import { consentLabel, syncedLabel } from "./presentation"
 import { SettingsListSkeleton } from "./skeletons"
 
+type ImportFromKind = ConnectorImportFrom["kind"]
+
+const IMPORT_FROM_OPTIONS: readonly SegmentedOption<ImportFromKind>[] = [
+  { value: "after_last_entry", label: "After my last entry" },
+  { value: "all", label: "All available" },
+  { value: "date", label: "From a date" },
+]
+
+const IMPORT_FROM_CONSEQUENCE: Record<ImportFromKind, string> = {
+  after_last_entry: IMPORT_FROM_AFTER_LAST_ENTRY,
+  all: IMPORT_FROM_ALL,
+  date: IMPORT_FROM_DATE,
+}
+
 function providerMetaOf(account: ProviderAccountRef): string {
-  const parts = [account.accountType, account.currency].filter(
-    (part): part is string => part !== null && part !== ""
+  const parts = [
+    account.currency,
+    account.accountNumberLast4 && `••${account.accountNumberLast4}`,
+    account.balance &&
+      formatMoney(account.balance.amount, {
+        currency: account.balance.currency,
+      }),
+    account.history === "fetching" && HISTORY_FETCHING,
+    account.history === "failed" && HISTORY_FAILED,
+  ].filter((part): part is string => typeof part === "string" && part !== "")
+  return parts.length === 0 ? account.providerAccountId : parts.join(" · ")
+}
+
+function PendingBindingImport({ binding }: { binding: AccountConnector }) {
+  return (
+    <>
+      <div className="min-w-[min(100%,220px)] flex-1">
+        <p className="text-[11.5px] leading-[1.3] font-semibold">
+          Being imported
+        </p>
+        <p className="text-[11px] leading-[1.5] text-pretty text-ink-3">
+          {PENDING_BINDING_IMPORTING}
+        </p>
+      </div>
+      {binding.importSessionId === null ? null : (
+        <Button
+          variant="ghost"
+          size="xs"
+          render={
+            <Link
+              to="/imports/$sessionId"
+              params={{ sessionId: binding.importSessionId }}
+            />
+          }
+        >
+          Open the import
+        </Button>
+      )}
+    </>
   )
-  return parts.length === 0
-    ? account.providerAccountId
-    : `${parts.join(" · ")} · ${account.providerAccountId}`
 }
 
 function BindingActions({
@@ -132,48 +200,110 @@ function BindingActions({
   )
 }
 
-function BindPicker({
-  connectionId,
-  providerAccountId,
+function AccountPicker({
+  value,
+  onValueChange,
+  placeholder,
 }: {
-  connectionId: ConnectionId
-  providerAccountId: string
+  value: AccountId | null
+  onValueChange: (next: AccountId | null) => void
+  placeholder: string
 }) {
-  const userId = useUserId()
-  const accounts = useAccountsSuspense(userId)
-  const bind = useCreateBinding(userId)
-  const [accountId, setAccountId] = useState("")
+  const accounts = useAccountsSuspense(useUserId())
 
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-2">
-      <EntityPicker
-        size="sm"
-        label="Pick an account"
-        placeholder="Pick an account…"
-        className="w-[190px]"
-        value={accountId === "" ? null : accountId}
-        options={accounts.accounts.map((account) => ({
-          value: account.accountId,
-          label: account.name,
-          ...(account.accountTypeName === null
-            ? {}
-            : { subLabel: account.accountTypeName }),
-        }))}
-        onValueChange={(next) => {
-          setAccountId(next ?? "")
-        }}
-      />
-      <Button
-        variant="outline"
-        size="xs"
-        disabled={accountId === "" || bind.isPending}
-        onClick={() => {
-          bind.mutate({ connectionId, providerAccountId, accountId })
-        }}
-      >
-        {bind.isPending ? "Binding…" : "Bind"}
-      </Button>
-    </span>
+    <EntityPicker
+      size="sm"
+      label="Pick an account"
+      placeholder={placeholder}
+      className="w-[190px]"
+      value={value}
+      options={accounts.accounts.map((account) => ({
+        value: account.accountId,
+        label: account.name,
+        ...(account.accountTypeName === null
+          ? {}
+          : { subLabel: account.accountTypeName }),
+      }))}
+      onValueChange={onValueChange}
+    />
+  )
+}
+
+function LinkAccountsRow({
+  connectionId,
+  accounts,
+  linksByImport,
+}: {
+  connectionId: ConnectionId
+  accounts: CreateBindingsVariables["accounts"]
+  linksByImport: boolean
+}) {
+  const userId = useUserId()
+  const createImport = useCreateConnectorImport(userId)
+  const createBindings = useCreateBindings(userId)
+  const navigate = useNavigate()
+  const [kind, setKind] = useState<ImportFromKind>("after_last_entry")
+  const [date, setDate] = useState("")
+  const ready = accounts.length > 0 && (kind !== "date" || date !== "")
+  const pending = createImport.isPending || createBindings.isPending
+
+  return (
+    <SettingsListRow
+      label="Import transactions from"
+      consequence={`${IMPORT_FROM_CONSEQUENCE[kind]} ${linksByImport ? IMPORT_ACCOUNTS_CONSEQUENCE : LINK_ACCOUNTS_CONSEQUENCE}`}
+      control={
+        <SegmentedControl
+          label="Import transactions from"
+          value={kind}
+          onValueChange={setKind}
+          options={IMPORT_FROM_OPTIONS}
+        />
+      }
+    >
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        {kind === "date" ? (
+          <Input
+            type="date"
+            aria-label="Import from date"
+            className="h-7 w-[160px] py-0"
+            value={date}
+            onChange={(event) => {
+              setDate(event.target.value)
+            }}
+          />
+        ) : null}
+        <Button
+          size="sm"
+          disabled={!ready || pending}
+          onClick={() => {
+            const importFrom: ConnectorImportFrom =
+              kind === "date" ? { kind, date } : { kind }
+            if (!linksByImport) {
+              createBindings.mutate({ connectionId, accounts, importFrom })
+              return
+            }
+            createImport.mutate(
+              { connectionId, accounts, importFrom },
+              {
+                onSuccess: (sessionId) => {
+                  void navigate({
+                    to: "/imports/$sessionId",
+                    params: { sessionId },
+                  })
+                },
+              }
+            )
+          }}
+        >
+          {pending
+            ? linksByImport
+              ? "Importing…"
+              : "Linking…"
+            : `${linksByImport ? "Import" : "Link"} ${countOf(accounts.length, "account")}`}
+        </Button>
+      </div>
+    </SettingsListRow>
   )
 }
 
@@ -186,10 +316,22 @@ function BindingsBlock({ connection }: { connection: ConnectionSummary }) {
   const accounts = useAccountsSuspense(userId)
   const remove = useDeleteBinding(userId)
   const [pending, setPending] = useState<AccountConnector | null>(null)
+  const [targets, setTargets] = useState<
+    Readonly<Record<string, AccountId | null>>
+  >({})
 
   const bindingByProviderAccount = new Map(
     connection.bindings.map((binding) => [binding.providerAccountId, binding])
   )
+  const unbound = providerAccounts.filter(
+    (account) => !bindingByProviderAccount.has(account.providerAccountId)
+  )
+  const chosen = unbound.flatMap((account) => {
+    const accountId = targets[account.providerAccountId] ?? null
+    return accountId === null
+      ? []
+      : [{ providerAccountId: account.providerAccountId, accountId }]
+  })
 
   return (
     <>
@@ -219,9 +361,15 @@ function BindingsBlock({ connection }: { connection: ConnectionSummary }) {
               }
               target={
                 binding === undefined ? (
-                  <BindPicker
-                    connectionId={connection.connectionId}
-                    providerAccountId={providerAccount.providerAccountId}
+                  <AccountPicker
+                    value={targets[providerAccount.providerAccountId] ?? null}
+                    onValueChange={(accountId) => {
+                      setTargets((previous) => ({
+                        ...previous,
+                        [providerAccount.providerAccountId]: accountId,
+                      }))
+                    }}
+                    placeholder="Leave unlinked"
                   />
                 ) : (
                   <SettingsBindingTarget
@@ -235,7 +383,9 @@ function BindingsBlock({ connection }: { connection: ConnectionSummary }) {
                 )
               }
             >
-              {binding === undefined ? null : (
+              {binding === undefined ? null : binding.status === "pending" ? (
+                <PendingBindingImport binding={binding} />
+              ) : (
                 <BindingActions
                   binding={binding}
                   onRemove={() => {
@@ -271,14 +421,25 @@ function BindingsBlock({ connection }: { connection: ConnectionSummary }) {
                 />
               }
             >
-              <BindingActions
-                binding={binding}
-                onRemove={() => {
-                  setPending(binding)
-                }}
-              />
+              {binding.status === "pending" ? (
+                <PendingBindingImport binding={binding} />
+              ) : (
+                <BindingActions
+                  binding={binding}
+                  onRemove={() => {
+                    setPending(binding)
+                  }}
+                />
+              )}
             </SettingsBindingRow>
           ))}
+        {unbound.length > 0 ? (
+          <LinkAccountsRow
+            connectionId={connection.connectionId}
+            accounts={chosen}
+            linksByImport={connection.linksByImport}
+          />
+        ) : null}
       </SettingsBindings>
       <ConfirmDestructive
         open={pending !== null}

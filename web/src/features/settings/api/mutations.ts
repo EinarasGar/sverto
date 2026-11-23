@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 
-import type { SyncReport } from "@/api"
+import type { ConnectorImportFrom, SyncReport } from "@/api"
 import {
   BindingUpdateStatus,
   BindingWriteMode,
@@ -14,6 +14,7 @@ import type {
   AssetId,
   BindingId,
   ConnectionId,
+  ImportSessionId,
   UserId,
 } from "@/lib/query"
 import { mutationKeys, optimisticMutationOptions, queryKeys } from "@/lib/query"
@@ -173,32 +174,73 @@ export function useRevokeConnection(userId: UserId) {
   )
 }
 
-export interface CreateBindingVariables {
+export interface CreateBindingsVariables {
   connectionId: ConnectionId
-  providerAccountId: string
-  accountId: AccountId
+  accounts: readonly { providerAccountId: string; accountId: AccountId }[]
+  importFrom: ConnectorImportFrom
 }
 
-export function useCreateBinding(userId: UserId) {
+export function useCreateBindings(userId: UserId) {
   const queryClient = useQueryClient()
   return useMutation(
-    optimisticMutationOptions<BindingId, CreateBindingVariables>({
+    optimisticMutationOptions<BindingId[], CreateBindingsVariables>({
       queryClient,
       mutationKey: mutationKeys.user(userId).connectors(),
-      mutationFn: async ({ connectionId, providerAccountId, accountId }) => {
-        const response = await api(ConnectorsApiFactory).createBinding(
-          userId,
-          connectionId,
-          {
-            provider_account_id: providerAccountId,
-            sverto_account_id: accountId,
-          }
-        )
-        return response.data.binding_id
+      mutationFn: async ({ connectionId, accounts, importFrom }) => {
+        const bindingIds: BindingId[] = []
+        for (const { providerAccountId, accountId } of accounts) {
+          const response = await api(ConnectorsApiFactory).createBinding(
+            userId,
+            connectionId,
+            {
+              provider_account_id: providerAccountId,
+              sverto_account_id: accountId,
+              import_from: importFrom,
+            }
+          )
+          bindingIds.push(response.data.binding_id)
+        }
+        return bindingIds
       },
       updates: [],
       invalidate: connectorInvalidations(userId),
-      meta: { errorContext: "The account could not be bound" },
+      meta: { errorContext: "The accounts could not be linked" },
+    })
+  )
+}
+
+export interface CreateConnectorImportVariables {
+  connectionId: ConnectionId
+  accounts: readonly { providerAccountId: string; accountId: AccountId }[]
+  importFrom: ConnectorImportFrom
+}
+
+export function useCreateConnectorImport(userId: UserId) {
+  const queryClient = useQueryClient()
+  return useMutation(
+    optimisticMutationOptions<ImportSessionId, CreateConnectorImportVariables>({
+      queryClient,
+      mutationKey: mutationKeys.user(userId).connectors(),
+      mutationFn: async ({ connectionId, accounts, importFrom }) => {
+        const response = await api(ConnectorsApiFactory).createConnectorImport(
+          userId,
+          connectionId,
+          {
+            accounts: accounts.map(({ providerAccountId, accountId }) => ({
+              provider_account_id: providerAccountId,
+              sverto_account_id: accountId,
+            })),
+            import_from: importFrom,
+          }
+        )
+        return response.data.import_session_id
+      },
+      updates: [],
+      invalidate: [
+        ...connectorInvalidations(userId),
+        queryKeys.user(userId).imports.all(),
+      ],
+      meta: { errorContext: "The accounts could not be imported" },
     })
   )
 }
