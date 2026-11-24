@@ -166,6 +166,7 @@ export interface ReviewCardProps {
   isBusy: boolean
   bulkLabel: string | null
   onBulk: () => void
+  children?: React.ReactNode
 }
 
 export function ReviewCard({
@@ -179,6 +180,7 @@ export function ReviewCard({
   isBusy,
   bulkLabel,
   onBulk,
+  children,
 }: ReviewCardProps) {
   return (
     <article
@@ -228,6 +230,7 @@ export function ReviewCard({
               {item.note}
             </p>
           )}
+          {children}
         </div>
 
         <aside

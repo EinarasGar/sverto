@@ -1,4 +1,5 @@
 use dal::query_params::ai_conversation_params::{ProposalType, QuickUploadStatus};
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 use uuid::Uuid;
@@ -48,4 +49,35 @@ impl From<QuickUploadModel> for QuickUploadDto {
             updated_at: m.updated_at,
         }
     }
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReceiptProposalDto {
+    pub description: Option<String>,
+    pub date: Option<String>,
+    pub amount: Option<Decimal>,
+    pub asset_id: Option<i32>,
+    pub transactions: Option<Vec<ReceiptProposalLineDto>>,
+}
+
+#[derive(Debug, Deserialize)]
+pub struct ReceiptProposalLineDto {
+    pub amount: Option<Decimal>,
+    pub asset_id: Option<i32>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MergeQuickUploadDto {
+    pub transaction_id: Uuid,
+    pub description: Option<String>,
+    pub category_id: i32,
+    pub date: OffsetDateTime,
+    pub lines: Vec<MergeQuickUploadLineDto>,
+}
+
+#[derive(Debug, Clone)]
+pub struct MergeQuickUploadLineDto {
+    pub description: Option<String>,
+    pub category_id: i32,
+    pub amount: Decimal,
 }

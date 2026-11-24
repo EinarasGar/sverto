@@ -1,40 +1,13 @@
 use rust_decimal::prelude::ToPrimitive;
 use shared::view_models::held_transactions::decide_held_transaction::DecideHeldTransactionRequestViewModel;
 use shared::view_models::held_transactions::get_held_transactions::GetHeldTransactionsResponseViewModel;
-use shared::view_models::transactions::base_models::transaction_base::IdentifiableTransactionBaseWithIdentifiableEntries;
 use shared::view_models::transactions::transaction_types::TransactionWithId;
 
 use super::transactions::{
-    find_account, find_category, find_category_icon, find_ticker, flatten_identifiable,
-    primary_display, ET,
+    find_account, find_ticker, primary_display, transaction_base, transaction_candidate, ET,
 };
-use crate::models::{HeldTransaction, HeldTransactionCandidate, HeldTransactionDecision};
+use crate::models::{HeldTransaction, HeldTransactionDecision};
 use crate::money::format_money;
-
-fn base(tx: &TransactionWithId) -> &IdentifiableTransactionBaseWithIdentifiableEntries {
-    macro_rules! base_of {
-        ($($variant:ident),*) => {
-            match tx {
-                $(TransactionWithId::$variant(t) => &t.base,)*
-            }
-        };
-    }
-    base_of!(
-        RegularTransaction,
-        CashTransferOut,
-        CashTransferIn,
-        CashDividend,
-        AssetTransferOut,
-        AssetTransferIn,
-        AssetTrade,
-        AssetSale,
-        AssetPurchase,
-        AssetDividend,
-        AssetBalanceTransfer,
-        AccountFees,
-        CashBalanceTransfer
-    )
-}
 
 fn amount_in(
     tx: &TransactionWithId,
@@ -42,7 +15,7 @@ fn amount_in(
     account_id: &str,
     asset_id: i32,
 ) -> Option<f64> {
-    let fees = base(tx)
+    let fees = transaction_base(tx)
         .base
         .fees
         .iter()
@@ -78,35 +51,15 @@ pub fn extract_held_transactions(body: &str) -> Result<Vec<HeldTransaction>, Str
                 .candidates
                 .iter()
                 .map(|candidate| {
-                    let id = base(candidate)
-                        .transaction_id
-                        .0
-                        .ok_or_else(|| format!("a candidate of {} has no id", held.id))?;
-                    let (date, _, description, category_id, entries) =
-                        flatten_identifiable(candidate);
-                    Ok(HeldTransactionCandidate {
-                        id: id.to_string(),
-                        date,
-                        description,
-                        account_name: entries
-                            .first()
-                            .and_then(|entry| find_account(tables, &entry.0))
-                            .unwrap_or_default(),
-                        amount_display: match amount_in(
-                            candidate,
-                            &entries,
-                            &account_id,
-                            held.entry.asset_id.0,
-                        ) {
+                    transaction_candidate(candidate, tables, |entries| {
+                        match amount_in(candidate, entries, &account_id, held.entry.asset_id.0) {
                             Some(amount) => format_money(
                                 amount,
                                 find_ticker(tables, held.entry.asset_id.0),
                                 false,
                             ),
-                            None => primary_display(&entries, tables),
-                        },
-                        category_name: category_id.and_then(|id| find_category(tables, id)),
-                        category_icon: category_id.and_then(|id| find_category_icon(tables, id)),
+                            None => primary_display(entries, tables),
+                        }
                     })
                 })
                 .collect::<Result<_, String>>()?;

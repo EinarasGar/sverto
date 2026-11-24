@@ -1,5 +1,7 @@
 package com.sverto.app.feature.transactions.quickupload
 
+import uniffi.sverto_core.TransactionCandidate
+
 sealed interface PreparedQuickUpload {
     class Ready(
         val data: ByteArray,
@@ -44,4 +46,26 @@ data class QuickUploadUiItem(
     }
 
     override fun hashCode(): Int = id.hashCode()
+}
+
+data class LedgerMatches(
+    val candidates: List<TransactionCandidate> = emptyList(),
+    val selectedId: String? = null,
+    val merge: Boolean = true,
+) {
+    val selected: TransactionCandidate? get() = candidates.firstOrNull { it.id == selectedId }
+
+    val mergeTargetId: String? get() = selected?.id?.takeIf { merge }
+
+    fun replacedBy(fresh: List<TransactionCandidate>): LedgerMatches =
+        copy(
+            candidates = fresh,
+            selectedId = selectedId?.takeIf { id -> fresh.any { it.id == id } } ?: fresh.firstOrNull()?.id,
+        )
+
+    fun selectingNext(): LedgerMatches {
+        if (candidates.size < 2) return this
+        val next = (candidates.indexOfFirst { it.id == selectedId } + 1) % candidates.size
+        return copy(selectedId = candidates[next].id)
+    }
 }

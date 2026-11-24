@@ -99,6 +99,8 @@ pub(crate) fn create_router(state: AppState) -> Router {
         .route("/ai/quick-upload/{quick_upload_id}/message",   post(handlers::ai_quick_upload_handler::send_correction))
         .route("/ai/quick-upload/{quick_upload_id}/complete",  post(handlers::ai_quick_upload_handler::complete))
         .route("/ai/quick-upload/{quick_upload_id}/retry",     post(handlers::ai_quick_upload_handler::retry_quick_upload))
+        .route("/ai/quick-upload/{quick_upload_id}/matches",   get(handlers::ai_quick_upload_handler::list_quick_upload_matches))
+        .route("/ai/quick-upload/{quick_upload_id}/merge",     post(handlers::ai_quick_upload_handler::merge_quick_upload))
         .route("/files",                                        post(handlers::file_handler::create_file))
         .route("/files/{file_id}",                              get(handlers::file_handler::get_file)
                                                                     .delete(handlers::file_handler::delete_file))

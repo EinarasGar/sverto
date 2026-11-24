@@ -2,12 +2,16 @@ use std::collections::HashSet;
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};
 
-use crate::api::quick_upload;
+use crate::api::{quick_upload, quick_upload_merge};
 use crate::error::{server_error, ApiError};
-use crate::models::{QuickUploadDetail, QuickUploadsState, UnifiedQuickUploadItem};
+use crate::models::{
+    QuickUploadDetail, QuickUploadReceipt, QuickUploadsState, TransactionCandidate,
+    UnifiedQuickUploadItem,
+};
 
 use super::infra::SharedInfra;
 use super::sse;
+use super::transactions::{evict_transaction_caches, refresh_transactions, TransactionsModule};
 
 #[uniffi::export(callback_interface)]
 pub trait QuickUploadsObserver: Send + Sync {
@@ -430,6 +434,49 @@ pub async fn complete_quick_upload(
     }
 
     fetch_and_update(infra, module, auth_token).await;
+}
+
+pub async fn get_quick_upload_matches(
+    infra: &Arc<SharedInfra>,
+    upload_id: &str,
+    auth_token: Option<&str>,
+) -> Result<Vec<TransactionCandidate>, ApiError> {
+    let user_id = infra.user_id().ok_or_else(|| ApiError::Network {
+        reason: "no user_id".into(),
+    })?;
+    let path = format!("/api/users/{user_id}/ai/quick-upload/{upload_id}/matches");
+    infra.evict_memory_cache(&path);
+    let resp = infra.get(&path, auth_token).await?;
+    if resp.status >= 400 {
+        return Err(server_error(resp.status, &resp.body));
+    }
+    quick_upload_merge::extract_matches(&resp.body).map_err(|reason| ApiError::Parse { reason })
+}
+
+pub async fn merge_quick_upload(
+    infra: &Arc<SharedInfra>,
+    module: &Arc<Mutex<QuickUploadsModule>>,
+    transactions: &Mutex<TransactionsModule>,
+    upload_id: &str,
+    transaction_id: &str,
+    receipt: QuickUploadReceipt,
+    auth_token: Option<&str>,
+) -> Result<(), ApiError> {
+    let user_id = infra.user_id().ok_or_else(|| ApiError::Network {
+        reason: "no user_id".into(),
+    })?;
+    let body = quick_upload_merge::merge_body(transaction_id, receipt)?;
+    let path = format!("/api/users/{user_id}/ai/quick-upload/{upload_id}/merge");
+    let resp = infra.post(&path, &body, auth_token).await?;
+    if resp.status >= 400 {
+        return Err(server_error(resp.status, &resp.body));
+    }
+
+    module.lock().unwrap().remove_sse(upload_id);
+    evict_transaction_caches(infra, &user_id);
+    refresh_transactions(infra, transactions, auth_token).await;
+    fetch_and_update(infra, module, auth_token).await;
+    Ok(())
 }
 
 pub async fn get_quick_upload_detail(

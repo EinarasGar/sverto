@@ -19,6 +19,12 @@ function lookup() {
   return toLookupIndex(lookupTables)
 }
 
+const SINGLE = {
+  description: "Tesco Express",
+  amount: "-18.64",
+  date: "2026-07-25",
+}
+
 function upload(
   overrides: Partial<IdentifiableQuickUploadResponse> = {}
 ): IdentifiableQuickUploadResponse {
@@ -29,11 +35,7 @@ function upload(
     source_file_id: "file-1",
     status: "proposal_ready",
     proposal_type: "receipt",
-    proposal_data: {
-      description: "Tesco Express",
-      amount: "-18.64",
-      date: "2026-07-25",
-    },
+    proposal_data: SINGLE,
     ...overrides,
   }
 }
@@ -134,6 +136,47 @@ describe("buildReviewQueue", () => {
       reason: expect.stringContaining("cannot display") as string,
     })
     expect(item?.title).toBe("Receipt read by Myra")
+  })
+
+  it("merges a single receipt as one line read from its top-level fields", () => {
+    const [item] = queue({
+      uploads: [upload({ proposal_data: { ...SINGLE, category_id: 7 } })],
+    }).items
+    expect(item?.mergeDraft).toEqual({
+      description: "Tesco Express",
+      category_id: 7,
+      date: Date.UTC(2026, 6, 25) / 1000,
+      lines: [{ description: "Tesco Express", category_id: 7, amount: -18.64 }],
+    })
+  })
+
+  it("merges a group receipt line by line, a line without a category taking the receipt's", () => {
+    const [item] = queue({
+      uploads: [
+        upload({
+          proposal_data: {
+            description: "Sainsbury's",
+            date: "2026-07-25",
+            category_id: 25,
+            transactions: [
+              { description: "Milk", amount: "-1.65", category_id: 25 },
+              { description: "Wine", amount: "-6.50", category_id: 30 },
+              { description: "Bags", amount: "-2.40", category_id: null },
+            ],
+          },
+        }),
+      ],
+    }).items
+    expect(item?.mergeDraft).toEqual({
+      description: "Sainsbury's",
+      category_id: 25,
+      date: Date.UTC(2026, 6, 25) / 1000,
+      lines: [
+        { description: "Milk", category_id: 25, amount: -1.65 },
+        { description: "Wine", category_id: 30, amount: -6.5 },
+        { description: "Bags", category_id: 25, amount: -2.4 },
+      ],
+    })
   })
 
   it("only queues receipts whose proposal is ready", () => {

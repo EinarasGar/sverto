@@ -1188,6 +1188,33 @@ impl AppStore {
         quick_uploads::get_quick_upload_detail(&self.infra, &upload_id, token.as_deref()).await
     }
 
+    pub async fn get_quick_upload_matches(
+        &self,
+        upload_id: String,
+    ) -> Result<Vec<crate::models::TransactionCandidate>, ApiError> {
+        let token = self.get_auth_token().await;
+        quick_uploads::get_quick_upload_matches(&self.infra, &upload_id, token.as_deref()).await
+    }
+
+    pub async fn merge_quick_upload(
+        &self,
+        upload_id: String,
+        transaction_id: String,
+        receipt: crate::models::QuickUploadReceipt,
+    ) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        quick_uploads::merge_quick_upload(
+            &self.infra,
+            &self.quick_uploads,
+            &self.transactions,
+            &upload_id,
+            &transaction_id,
+            receipt,
+            token.as_deref(),
+        )
+        .await
+    }
+
     pub async fn send_quick_upload_correction(
         &self,
         upload_id: String,

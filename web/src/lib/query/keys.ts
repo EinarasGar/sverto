@@ -309,6 +309,14 @@ export const queryKeys = {
           list: () => [...aiRoot, "quick-uploads", "list"] as const,
           detail: (quickUploadId: QuickUploadId) =>
             [...aiRoot, "quick-uploads", "detail", quickUploadId] as const,
+          matches: (quickUploadId: QuickUploadId) =>
+            [
+              ...aiRoot,
+              "quick-uploads",
+              "detail",
+              quickUploadId,
+              "matches",
+            ] as const,
         },
       },
 

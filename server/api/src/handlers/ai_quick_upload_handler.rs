@@ -9,24 +9,33 @@ use axum::{
 use futures::Stream;
 use itertools::Itertools;
 use serde::Deserialize;
+use shared::view_models::transactions::validation::Validatable;
 use uuid::Uuid;
 
 use business::dtos::ai_quick_upload_dto::QuickUploadNotification;
+use business::dtos::transaction_dto::TransactionDto;
 use dal::query_params::ai_conversation_params::QuickUploadStatus;
 
 use crate::{
     auth::AuthenticatedUserId,
-    converters::extract_ids_from_proposal,
+    converters::{
+        extract_ids_from_proposal, transaction_dtos_to_account_ids_hashset,
+        transaction_dtos_to_asset_ids_hashset, transaction_dtos_to_category_ids_hashset,
+    },
     errors::ApiError,
     extractors::ValidatedJson,
     states::{
         AccountsServiceState, AiQuickUploadServiceState, AssetsServiceState, CategoryServiceState,
     },
-    view_models::ai::quick_upload::{
-        CompleteQuickUploadRequestViewModel, CreateQuickUploadRequestViewModel,
-        IdentifiableQuickUploadResponseViewModel, QuickUploadLookupTables,
-        QuickUploadMessageRequestViewModel, QuickUploadMessageResponseViewModel,
-        QuickUploadResponseViewModel,
+    view_models::{
+        ai::quick_upload::{
+            CompleteQuickUploadRequestViewModel, CreateQuickUploadRequestViewModel,
+            GetQuickUploadMatchesResponseViewModel, IdentifiableQuickUploadResponseViewModel,
+            MergeQuickUploadRequestViewModel, QuickUploadLookupTables,
+            QuickUploadMessageRequestViewModel, QuickUploadMessageResponseViewModel,
+            QuickUploadResponseViewModel,
+        },
+        transactions::base_models::metadata_lookup::MetadataLookupTables,
     },
 };
 
@@ -276,6 +285,87 @@ pub async fn complete(
 ) -> Result<StatusCode, ApiError> {
     service
         .complete(quick_upload_id, user_id, body.accepted)
+        .await
+        .map_err(ApiError::from_anyhow)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+/// List Quick Upload Matches
+///
+/// Lists the ledger transactions this receipt may already be, best match first: individual
+/// transactions whose amount equals the receipt's total exactly. Merging into one of them splits
+/// it into the receipt's lines instead of adding a new transaction.
+#[utoipa::path(
+    get,
+    path = "/api/users/{user_id}/ai/quick-upload/{quick_upload_id}/matches",
+    tag = "AI Quick Upload",
+    responses(
+        (status = 200, description = "Ledger transactions the receipt may already be.", body = GetQuickUploadMatchesResponseViewModel),
+    ),
+    params(
+        ("user_id" = Uuid, Path, description = "Unique identifier of the user."),
+        ("quick_upload_id" = Uuid, Path, description = "Unique identifier of the quick upload."),
+    ),
+    security(("auth_token" = []))
+)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, quick_upload_id = %quick_upload_id))]
+pub async fn list_quick_upload_matches(
+    AuthenticatedUserId(user_id): AuthenticatedUserId,
+    Path(QuickUploadIdPath { quick_upload_id }): Path<QuickUploadIdPath>,
+    AiQuickUploadServiceState(service): AiQuickUploadServiceState,
+    AssetsServiceState(asset_service): AssetsServiceState,
+    AccountsServiceState(accounts_service): AccountsServiceState,
+    CategoryServiceState(category_service): CategoryServiceState,
+) -> Result<Json<GetQuickUploadMatchesResponseViewModel>, ApiError> {
+    let matches = service
+        .ledger_matches(quick_upload_id, user_id)
+        .await
+        .map_err(ApiError::from_anyhow)?;
+    let refs: Vec<&TransactionDto> = matches.iter().collect();
+    let (assets, accounts, categories) = tokio::try_join!(
+        asset_service.get_assets(transaction_dtos_to_asset_ids_hashset(&refs)),
+        accounts_service.get_accounts(transaction_dtos_to_account_ids_hashset(&refs)),
+        category_service.get_categories(transaction_dtos_to_category_ids_hashset(&refs)),
+    )?;
+    Ok(Json(GetQuickUploadMatchesResponseViewModel {
+        matches: matches.into_iter().map(Into::into).collect(),
+        lookup_tables: MetadataLookupTables {
+            assets: assets.into_iter().map_into().collect(),
+            accounts: accounts.into_iter().map_into().collect(),
+            categories: categories.into_iter().map_into().collect(),
+        },
+    }))
+}
+
+/// Merge Quick Upload Into A Transaction
+///
+/// Accepts the receipt into an existing ledger transaction instead of adding a new one. The
+/// transaction keeps its account, currency and where it came from; it takes the receipt's date
+/// and becomes a group of the receipt's lines, which must add up exactly to its amount.
+#[utoipa::path(
+    post,
+    path = "/api/users/{user_id}/ai/quick-upload/{quick_upload_id}/merge",
+    tag = "AI Quick Upload",
+    request_body(content = MergeQuickUploadRequestViewModel),
+    responses(
+        (status = 204, description = "The receipt was merged into the transaction."),
+    ),
+    params(
+        ("user_id" = Uuid, Path, description = "Unique identifier of the user."),
+        ("quick_upload_id" = Uuid, Path, description = "Unique identifier of the quick upload."),
+    ),
+    security(("auth_token" = []))
+)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, quick_upload_id = %quick_upload_id))]
+pub async fn merge_quick_upload(
+    AuthenticatedUserId(user_id): AuthenticatedUserId,
+    Path(QuickUploadIdPath { quick_upload_id }): Path<QuickUploadIdPath>,
+    AiQuickUploadServiceState(service): AiQuickUploadServiceState,
+    ValidatedJson(body): ValidatedJson<MergeQuickUploadRequestViewModel>,
+) -> Result<StatusCode, ApiError> {
+    body.validate()?;
+    service
+        .merge(quick_upload_id, user_id, body.into())
         .await
         .map_err(ApiError::from_anyhow)?;
     Ok(StatusCode::NO_CONTENT)

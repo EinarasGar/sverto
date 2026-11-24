@@ -21,6 +21,7 @@ final class CreateTransactionViewModel {
     let mode: CreateTransactionMode
     let categories: CategoryFieldController
     let correction: ProposalCorrectionController
+    let ledgerMatch: LedgerMatchController
 
     var config: TransactionTypeConfig { .forKey(typeKey) }
     var isBusy: Bool { submitState == .submitting || correction.state == .sending }
@@ -31,9 +32,19 @@ final class CreateTransactionViewModel {
     }
 
     func validationMessage(for field: RequiredTransactionField) -> String? {
-        guard hasAttemptedSubmit,
-              TransactionFormValidation.missingFields(in: formState, config: config).contains(field) else { return nil }
+        guard hasAttemptedSubmit, missingFields.contains(field) else { return nil }
         return field.message
+    }
+
+    var offersLedgerMatch: Bool { typeKey == TransactionTypeCatalog.regular.key }
+    var mergeTargetId: String? { offersLedgerMatch ? ledgerMatch.mergeTargetId : nil }
+
+    private var missingFields: Set<RequiredTransactionField> {
+        var fields = TransactionFormValidation.missingFields(in: formState, config: config)
+        if mergeTargetId != nil {
+            fields.remove(.primaryAccount)
+        }
+        return fields
     }
 
     private let store: AppStore
@@ -51,6 +62,7 @@ final class CreateTransactionViewModel {
         self.mode = mode
         categories = CategoryFieldController(store: store)
         correction = ProposalCorrectionController(store: store)
+        ledgerMatch = LedgerMatchController(store: store)
     }
 
     func start() async {
@@ -80,6 +92,7 @@ final class CreateTransactionViewModel {
                 formState = editable.formState(transactionId: transactionId)
                 categories.suggestions.markCommitted(text: editable.description)
             case let .proposal(uploadId):
+                async let matchesLoaded: Void = ledgerMatch.load(uploadId: uploadId)
                 let detail = try await store.getQuickUploadDetail(uploadId: uploadId)
                 guard let proposed = ProposalMapper.formState(proposalData: detail.proposalData ?? "{}", lookupTables: detail.lookupTables) else {
                     loadError = "The receipt proposal could not be loaded. Try again."
@@ -88,6 +101,7 @@ final class CreateTransactionViewModel {
                 formState = proposed
                 categories.suggestions.markCommitted(text: proposed.description)
                 quickUploadId = uploadId
+                await matchesLoaded
             case let .groupEdit(item):
                 initForGroupEdit(item)
             }
@@ -231,8 +245,35 @@ final class CreateTransactionViewModel {
         errorMessage = nil
         let config = self.config
         hasAttemptedSubmit = true
-        guard TransactionFormValidation.missingFields(in: formState, config: config).isEmpty else {
+        guard missingFields.isEmpty else {
             reportError("Check the highlighted fields before saving.")
+            return
+        }
+        if let quickUploadId, let mergeTargetId {
+            guard let date = formState.date,
+                  let amount = EditableAmount.signed(formState.primaryEntry.amount, sign: config.entryMode.primarySign) else {
+                reportError("Missing required fields")
+                return
+            }
+            guard let categoryId = formState.categoryId else {
+                reportError("Choose a category before merging the receipt.")
+                return
+            }
+            let description = formState.description.isBlank ? nil : formState.description
+            let receipt = QuickUploadReceipt(
+                date: date,
+                description: description,
+                categoryId: categoryId,
+                lines: [QuickUploadReceiptLine(description: description, categoryId: categoryId, amount: amount)]
+            )
+            submitState = .submitting
+            do {
+                try await store.mergeQuickUpload(uploadId: quickUploadId, transactionId: mergeTargetId, receipt: receipt)
+                submitState = .success
+            } catch {
+                reportError(error.friendlyMessage)
+                submitState = .idle
+            }
             return
         }
         guard let input = buildInput(config: config) else {
@@ -279,6 +320,7 @@ final class CreateTransactionViewModel {
             guard let self else { return }
             formState = corrected
             categories.suggestions.markCommitted(text: corrected.description)
+            Task { await self.ledgerMatch.load(uploadId: uploadId) }
         }
     }
 

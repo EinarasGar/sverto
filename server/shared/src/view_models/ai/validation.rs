@@ -1,5 +1,6 @@
 use crate::errors::FieldError;
 use crate::view_models::ai::conversations::SendMessageRequestViewModel;
+use crate::view_models::ai::quick_upload::MergeQuickUploadRequestViewModel;
 use crate::view_models::transactions::validation::Validatable;
 
 impl Validatable for SendMessageRequestViewModel {
@@ -20,6 +21,24 @@ impl Validatable for SendMessageRequestViewModel {
             }]);
         }
 
+        Ok(())
+    }
+}
+
+impl Validatable for MergeQuickUploadRequestViewModel {
+    fn validate(&self) -> Result<(), Vec<FieldError>> {
+        if self.lines.is_empty() {
+            return Err(vec![FieldError {
+                field: "lines".to_string(),
+                message: "A receipt needs at least one line.".to_string(),
+            }]);
+        }
+        if self.lines.len() > 1 && self.description.is_none() {
+            return Err(vec![FieldError {
+                field: "description".to_string(),
+                message: "A receipt with several lines needs a description.".to_string(),
+            }]);
+        }
         Ok(())
     }
 }

@@ -13,6 +13,7 @@ final class CreateTransactionGroupViewModel {
     private(set) var quickUploadId: String?
     let categories: CategoryFieldController
     let correction: ProposalCorrectionController
+    let ledgerMatch: LedgerMatchController
 
     private let store: AppStore
     private var editGroupId: String?
@@ -33,6 +34,7 @@ final class CreateTransactionGroupViewModel {
         self.store = store
         categories = CategoryFieldController(store: store)
         correction = ProposalCorrectionController(store: store)
+        ledgerMatch = LedgerMatchController(store: store)
     }
 
     func initNew() {
@@ -94,6 +96,7 @@ final class CreateTransactionGroupViewModel {
                 let children = try await loadChildren(ids: transactionIds)
                 formState = GroupFormState(date: nowEpochSeconds, transactions: children)
             case let .proposal(uploadId):
+                async let matchesLoaded: Void = ledgerMatch.load(uploadId: uploadId)
                 let detail = try await store.getQuickUploadDetail(uploadId: uploadId)
                 guard let proposal = ProposalMapper.groupFormState(
                     proposalData: detail.proposalData ?? "{}",
@@ -105,6 +108,7 @@ final class CreateTransactionGroupViewModel {
                 formState = proposal
                 categories.suggestions.markCommitted(text: proposal.description)
                 quickUploadId = uploadId
+                await matchesLoaded
             }
             initialFormState = formState
         } catch {
@@ -120,6 +124,7 @@ final class CreateTransactionGroupViewModel {
             guard let self else { return }
             formState = corrected
             categories.suggestions.markCommitted(text: corrected.description)
+            Task { await self.ledgerMatch.load(uploadId: uploadId) }
         }
     }
 
@@ -165,6 +170,30 @@ final class CreateTransactionGroupViewModel {
             return
         }
         guard let date = state.date, let categoryId = state.categoryId else { return }
+        if let uploadId = quickUploadId, let mergeTargetId = ledgerMatch.mergeTargetId {
+            let lines = state.transactions.map(\.item.input)
+            guard lines.allSatisfy({ $0.typeKey == TransactionTypeConfig.regularApiType }) else {
+                reportError("Only spending lines can be merged into a transaction")
+                return
+            }
+            let receipt = QuickUploadReceipt(
+                date: date,
+                description: state.description,
+                categoryId: categoryId,
+                lines: lines.map { line in
+                    QuickUploadReceiptLine(description: line.description, categoryId: line.categoryId ?? categoryId, amount: line.primaryAmount)
+                }
+            )
+            submitState = .submitting
+            do {
+                try await store.mergeQuickUpload(uploadId: uploadId, transactionId: mergeTargetId, receipt: receipt)
+                submitState = .success
+            } catch {
+                reportError(error.friendlyMessage)
+                submitState = .idle
+            }
+            return
+        }
         submitState = .submitting
         let input = CreateTransactionGroupInput(
             date: date,

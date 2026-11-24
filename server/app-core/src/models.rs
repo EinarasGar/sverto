@@ -325,6 +325,21 @@ pub struct CreateTransactionGroupInput {
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
+pub struct QuickUploadReceipt {
+    pub date: i64,
+    pub description: Option<String>,
+    pub category_id: i32,
+    pub lines: Vec<QuickUploadReceiptLine>,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct QuickUploadReceiptLine {
+    pub description: Option<String>,
+    pub category_id: i32,
+    pub amount: f64,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
 pub struct PendingUpload {
     pub local_id: String,
     pub mime_type: String,
@@ -804,11 +819,11 @@ pub struct HeldTransaction {
     pub account_id: String,
     pub account_name: String,
     pub amount_display: String,
-    pub candidates: Vec<HeldTransactionCandidate>,
+    pub candidates: Vec<TransactionCandidate>,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
-pub struct HeldTransactionCandidate {
+pub struct TransactionCandidate {
     pub id: String,
     pub date: i64,
     pub description: Option<String>,

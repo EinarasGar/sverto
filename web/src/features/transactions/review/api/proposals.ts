@@ -67,6 +67,7 @@ export function buildProposalItems(now: Date): ReviewItem[] {
     mockId: PROPOSALS_MOCK_ID,
     transactionId: null,
     quickUploadId: null,
+    mergeDraft: null,
     row: null,
   }))
 }

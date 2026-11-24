@@ -241,7 +241,27 @@ impl TransactionGroupService {
         transaction_dtos: Vec<TransactionDto>,
     ) -> anyhow::Result<TransactionGroupDto> {
         self.db.start_transaction().await?;
+        let result = self
+            .group_individual_transactions_inner(
+                user_id,
+                description,
+                category_id,
+                date,
+                transaction_dtos,
+            )
+            .await?;
+        self.db.commit_transaction().await?;
+        Ok(result)
+    }
 
+    pub(crate) async fn group_individual_transactions_inner(
+        &self,
+        user_id: Uuid,
+        description: String,
+        category_id: i32,
+        date: OffsetDateTime,
+        transaction_dtos: Vec<TransactionDto>,
+    ) -> anyhow::Result<TransactionGroupDto> {
         // Create the group record
         let insert_group_query =
             transaction_group_queries::insert_transaction_group(AddTransactionGroupModel {
@@ -252,20 +272,15 @@ impl TransactionGroupService {
         let group_id = self.db.fetch_one_scalar::<Uuid>(insert_group_query).await?;
 
         // Delegate to inner which handles moving existing transactions
-        let result = self
-            .update_transaction_group_inner(
-                user_id,
-                group_id,
-                description,
-                category_id,
-                date,
-                transaction_dtos,
-            )
-            .await?;
-
-        self.db.commit_transaction().await?;
-
-        Ok(result)
+        self.update_transaction_group_inner(
+            user_id,
+            group_id,
+            description,
+            category_id,
+            date,
+            transaction_dtos,
+        )
+        .await
     }
 
     pub async fn update_transaction_group(

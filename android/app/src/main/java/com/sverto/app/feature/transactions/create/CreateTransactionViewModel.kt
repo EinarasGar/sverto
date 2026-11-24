@@ -7,16 +7,21 @@ import com.sverto.app.core.ai.CategorySuggester
 import com.sverto.app.core.ai.CategorySuggestionController
 import com.sverto.app.core.ai.OnDeviceAiConsent
 import com.sverto.app.core.ai.SuggestionState
+import com.sverto.app.core.friendlyMessage
 import com.sverto.app.feature.transactions.group.GroupTransactionItem
+import com.sverto.app.feature.transactions.quickupload.LedgerMatches
 import com.sverto.app.feature.transactions.quickupload.proposalToFormState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -27,6 +32,8 @@ import uniffi.sverto_core.AssetItem
 import uniffi.sverto_core.CategoryItem
 import uniffi.sverto_core.CreateTransactionInput
 import uniffi.sverto_core.EditableTransaction
+import uniffi.sverto_core.QuickUploadReceipt
+import uniffi.sverto_core.QuickUploadReceiptLine
 import uniffi.sverto_core.TransactionListItem
 import java.math.BigDecimal
 import kotlin.math.abs
@@ -95,6 +102,12 @@ class CreateTransactionViewModel(
 
     private val _quickUploadId = MutableStateFlow<String?>(null)
     val quickUploadId: StateFlow<String?> = _quickUploadId.asStateFlow()
+
+    private val _ledgerMatches = MutableStateFlow(LedgerMatches())
+    val ledgerMatches: StateFlow<LedgerMatches> =
+        combine(_ledgerMatches, _typeKey) { matches, typeKey ->
+            if (getTransactionTypeConfig(typeKey).apiType == "regular") matches else LedgerMatches()
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, LedgerMatches())
 
     private val _correctionState = MutableStateFlow(CorrectionState.IDLE)
     val correctionState: StateFlow<CorrectionState> = _correctionState.asStateFlow()
@@ -294,6 +307,7 @@ class CreateTransactionViewModel(
                         detail.proposalData ?: "{}",
                         detail.lookupTables,
                     )
+                loadLedgerMatches(quickUploadId)
                 _formState.value = formState
                 suggestionController.markCommitted(formState.description)
                 _quickUploadId.value = quickUploadId
@@ -326,6 +340,7 @@ class CreateTransactionViewModel(
                     )
                 _formState.value = corrected
                 suggestionController.markCommitted(corrected.description)
+                loadLedgerMatches(uploadId)
                 _correctionState.value = CorrectionState.UPDATED
                 delay(2000)
                 _correctionState.value = CorrectionState.IDLE
@@ -343,6 +358,27 @@ class CreateTransactionViewModel(
 
     fun clearCorrectionBlockedByAiFeatures() {
         _correctionBlockedByAiFeatures.value = null
+    }
+
+    private suspend fun loadLedgerMatches(uploadId: String) {
+        val candidates =
+            try {
+                store.getQuickUploadMatches(uploadId)
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Log.e(TAG, "Loading ledger matches failed", e)
+                emptyList()
+            }
+        _ledgerMatches.update { it.replacedBy(candidates) }
+    }
+
+    fun showNextLedgerMatch() {
+        _ledgerMatches.update { it.selectingNext() }
+    }
+
+    fun setMergeIntoLedgerMatch(merge: Boolean) {
+        _ledgerMatches.update { it.copy(merge = merge) }
     }
 
     private fun resetUiState() {
@@ -531,6 +567,12 @@ class CreateTransactionViewModel(
 
     fun submit() {
         val config = this.config
+        val qId = _quickUploadId.value
+        val mergeTargetId = ledgerMatches.value.mergeTargetId
+        if (qId != null && mergeTargetId != null) {
+            mergeIntoLedgerMatch(qId, mergeTargetId, config, _formState.value)
+            return
+        }
         val input = buildInput(config, _formState.value)
         if (input == null) {
             _errorMessage.value = "Missing required fields"
@@ -580,6 +622,48 @@ class CreateTransactionViewModel(
                     _errorMessage.value = e.message ?: "Unknown error"
                     _submitState.value = SubmitState.IDLE
                 }
+            }
+        }
+    }
+
+    private fun mergeIntoLedgerMatch(
+        uploadId: String,
+        transactionId: String,
+        config: TransactionTypeConfig,
+        state: TransactionFormState,
+    ) {
+        val categoryId = state.categoryId
+        if (categoryId == null) {
+            _errorMessage.value = "Category is required"
+            return
+        }
+        val date = state.date
+        val amount = signedAmount(state.primaryEntry.amount, primarySign(config))
+        if (date == null || amount == null) {
+            _errorMessage.value = "Missing required fields"
+            return
+        }
+        val description = state.description.ifBlank { null }
+        val receipt =
+            QuickUploadReceipt(
+                date = date,
+                description = description,
+                categoryId = categoryId,
+                lines = listOf(QuickUploadReceiptLine(description = description, categoryId = categoryId, amount = amount)),
+            )
+        _submitState.value = SubmitState.SUBMITTING
+        _errorMessage.value = null
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                store.mergeQuickUpload(uploadId, transactionId, receipt)
+                _submitState.value = SubmitState.SUCCESS
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Log.e(TAG, "Merge failed", e)
+                _errorMessage.value = e.friendlyMessage()
+                _submitState.value = SubmitState.IDLE
             }
         }
     }

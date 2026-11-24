@@ -7,10 +7,12 @@ import com.sverto.app.core.ai.CategorySuggester
 import com.sverto.app.core.ai.CategorySuggestionController
 import com.sverto.app.core.ai.OnDeviceAiConsent
 import com.sverto.app.core.ai.SuggestionState
+import com.sverto.app.core.friendlyMessage
 import com.sverto.app.feature.transactions.create.CorrectionState
 import com.sverto.app.feature.transactions.create.CorrectionTypeChange
 import com.sverto.app.feature.transactions.create.apiTypeToConfigKey
 import com.sverto.app.feature.transactions.create.getTransactionTypeConfig
+import com.sverto.app.feature.transactions.quickupload.LedgerMatches
 import com.sverto.app.feature.transactions.quickupload.proposalToGroupFormState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -30,6 +32,8 @@ import uniffi.sverto_core.AppStore
 import uniffi.sverto_core.CategoryItem
 import uniffi.sverto_core.CreateTransactionGroupInput
 import uniffi.sverto_core.CreateTransactionInput
+import uniffi.sverto_core.QuickUploadReceipt
+import uniffi.sverto_core.QuickUploadReceiptLine
 import uniffi.sverto_core.TransactionListItem
 import java.math.BigDecimal
 
@@ -65,6 +69,9 @@ class CreateTransactionGroupViewModel(
 
     private val _quickUploadId = MutableStateFlow<String?>(null)
     val quickUploadId: StateFlow<String?> = _quickUploadId.asStateFlow()
+
+    private val _ledgerMatches = MutableStateFlow(LedgerMatches())
+    val ledgerMatches: StateFlow<LedgerMatches> = _ledgerMatches.asStateFlow()
 
     private val _correctionState = MutableStateFlow(CorrectionState.IDLE)
     val correctionState: StateFlow<CorrectionState> = _correctionState.asStateFlow()
@@ -239,6 +246,7 @@ class CreateTransactionGroupViewModel(
                         detail.proposalData ?: "{}",
                         detail.lookupTables,
                     )
+                loadLedgerMatches(quickUploadId)
                 _formState.value = formState
                 suggestionController.markCommitted(formState.description)
                 _quickUploadId.value = quickUploadId
@@ -271,6 +279,7 @@ class CreateTransactionGroupViewModel(
                     )
                 _formState.value = corrected
                 suggestionController.markCommitted(corrected.description)
+                loadLedgerMatches(uploadId)
                 _correctionState.value = CorrectionState.UPDATED
                 delay(2000)
                 _correctionState.value = CorrectionState.IDLE
@@ -288,6 +297,27 @@ class CreateTransactionGroupViewModel(
 
     fun clearCorrectionBlockedByAiFeatures() {
         _correctionBlockedByAiFeatures.value = null
+    }
+
+    private suspend fun loadLedgerMatches(uploadId: String) {
+        val candidates =
+            try {
+                store.getQuickUploadMatches(uploadId)
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Log.e(TAG, "Loading ledger matches failed", e)
+                emptyList()
+            }
+        _ledgerMatches.update { it.replacedBy(candidates) }
+    }
+
+    fun showNextLedgerMatch() {
+        _ledgerMatches.update { it.selectingNext() }
+    }
+
+    fun setMergeIntoLedgerMatch(merge: Boolean) {
+        _ledgerMatches.update { it.copy(merge = merge) }
     }
 
     fun updateDate(millis: Long) {
@@ -378,6 +408,13 @@ class CreateTransactionGroupViewModel(
             return
         }
 
+        val qId = _quickUploadId.value
+        val mergeTargetId = _ledgerMatches.value.mergeTargetId
+        if (qId != null && mergeTargetId != null) {
+            mergeIntoLedgerMatch(qId, mergeTargetId, state)
+            return
+        }
+
         _submitState.value = GroupSubmitState.SUBMITTING
         _errorMessage.value = null
 
@@ -408,6 +445,47 @@ class CreateTransactionGroupViewModel(
             ) {
                 Log.e(TAG, "Submit failed", e)
                 _errorMessage.value = e.message ?: "Unknown error"
+                _submitState.value = GroupSubmitState.IDLE
+            }
+        }
+    }
+
+    private fun mergeIntoLedgerMatch(
+        uploadId: String,
+        transactionId: String,
+        state: GroupFormState,
+    ) {
+        if (state.transactions.any { it.input.typeKey != "regular" }) {
+            _errorMessage.value = "Only spending lines can be merged into a transaction"
+            return
+        }
+        val categoryId = state.categoryId!!
+        val receipt =
+            QuickUploadReceipt(
+                date = state.date!!,
+                description = state.description,
+                categoryId = categoryId,
+                lines =
+                    state.transactions.map { item ->
+                        QuickUploadReceiptLine(
+                            description = item.input.description,
+                            categoryId = item.input.categoryId ?: categoryId,
+                            amount = item.input.primaryAmount,
+                        )
+                    },
+            )
+        _submitState.value = GroupSubmitState.SUBMITTING
+        _errorMessage.value = null
+
+        viewModelScope.launch(Dispatchers.IO) {
+            try {
+                store.mergeQuickUpload(uploadId, transactionId, receipt)
+                _submitState.value = GroupSubmitState.SUCCESS
+            } catch (
+                @Suppress("TooGenericExceptionCaught") e: Exception,
+            ) {
+                Log.e(TAG, "Merge failed", e)
+                _errorMessage.value = e.friendlyMessage()
                 _submitState.value = GroupSubmitState.IDLE
             }
         }

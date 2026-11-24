@@ -1,3 +1,4 @@
+import type { MergeQuickUploadRequest } from "@/api"
 import type { FigureIntent } from "@/components/figure"
 import type { AccountRef } from "@/lib/domain/refs"
 import type { MockId } from "@/lib/mock"
@@ -62,6 +63,8 @@ export interface ReviewItemActions {
   readonly discard: ReviewAction
 }
 
+export type ReceiptMergeDraft = Omit<MergeQuickUploadRequest, "transaction_id">
+
 export interface ReviewItem {
   readonly id: string
   readonly source: ReviewSource
@@ -84,6 +87,7 @@ export interface ReviewItem {
   readonly mockId: MockId | null
   readonly transactionId: TransactionId | null
   readonly quickUploadId: QuickUploadId | null
+  readonly mergeDraft: ReceiptMergeDraft | null
   readonly row: LedgerTransactionRow | null
 }
 

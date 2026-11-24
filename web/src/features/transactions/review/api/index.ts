@@ -1,5 +1,6 @@
 export type {
   HeldTransaction,
+  ReceiptMergeDraft,
   ReviewAction,
   ReviewCategory,
   ReviewEntryLine,
@@ -41,6 +42,8 @@ export {
   upsertQuickUpload,
   useCompleteQuickUpload,
   useCreateQuickUpload,
+  useMergeQuickUpload,
+  useQuickUploadMatches,
   useQuickUploads,
   useRetryQuickUpload,
 } from "./quick-uploads"

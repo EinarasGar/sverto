@@ -1,6 +1,5 @@
-import { useState, type ReactNode } from "react"
+import { useState } from "react"
 
-import { Figure } from "@/components/figure"
 import {
   Panel,
   PanelHeader,
@@ -13,45 +12,10 @@ import { accountLabel } from "@/lib/domain/refs"
 import { formatDateStamp } from "@/lib/format"
 import type { TransactionId, UserId } from "@/lib/query"
 
-import type { NativeAmount } from "../api"
-import { nativeFigureProps } from "../api"
 import type { DecideHeldTransactionVariables, HeldTransaction } from "./api"
 import { useDecideHeldTransaction } from "./api"
+import { TransactionTile } from "./transaction-tile"
 import { reviewKeyAction } from "./use-review-keyboard"
-
-function HeldSide({
-  eyebrow,
-  control,
-  amount,
-  description,
-  meta,
-}: {
-  eyebrow: string
-  control?: ReactNode
-  amount: NativeAmount | null
-  description: string
-  meta: string
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-[7px] bg-surface px-[13px] py-[11px]">
-      <div className="flex min-h-[22px] flex-wrap items-center justify-between gap-2">
-        <span className="text-[9.5px] leading-none font-semibold tracking-[0.1em] text-ink-3 uppercase">
-          {eyebrow}
-        </span>
-        {control}
-      </div>
-      {amount === null ? (
-        <Figure value={null} />
-      ) : (
-        <Figure {...nativeFigureProps(amount)} sign="always" />
-      )}
-      <p className="truncate text-[12.5px] leading-[1.3] font-medium">
-        {description}
-      </p>
-      <p className="text-[11px] leading-[1.4] text-ink-3">{meta}</p>
-    </div>
-  )
-}
 
 function HeldCard({
   held,
@@ -73,7 +37,7 @@ function HeldCard({
       className="px-[18px] py-[14px]"
     >
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-button border border-border bg-border sm:grid-cols-2">
-        <HeldSide
+        <TransactionTile
           eyebrow={`From ${held.providerName}`}
           amount={held.amount}
           description={held.description}
@@ -86,7 +50,7 @@ function HeldCard({
             compare it with.
           </div>
         ) : (
-          <HeldSide
+          <TransactionTile
             eyebrow="In your ledger"
             control={
               held.candidates.length > 1 ? (

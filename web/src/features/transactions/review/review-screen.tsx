@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react"
 import { useNavigate } from "@tanstack/react-router"
 import { Camera, Inbox } from "lucide-react"
 
+import type { MergeQuickUploadRequest } from "@/api"
 import { useUserId } from "@/auth"
 import { countOf, pluralise } from "@/lib/format"
 import { Figure } from "@/components/figure"
@@ -10,6 +11,7 @@ import { EmptyState } from "@/components/states/empty-state"
 import { ConfirmState } from "@/components/states/message-state"
 import { Panel, PanelFootnote } from "@/components/primitives"
 import { Button } from "@/components/ui/button"
+import { toast, TOAST_TIMEOUT_MS } from "@/components/ui/toast"
 import { useAiFeaturesGate } from "@/features/ai-features"
 import { ReceiptUploadDialog, SNAP_A_RECEIPT } from "@/features/uploads"
 
@@ -27,9 +29,11 @@ import type { ReviewItem, ReviewQueueView } from "./api"
 import {
   useCompleteQuickUpload,
   useHeldTransactions,
+  useMergeQuickUpload,
   useReviewItems,
 } from "./api"
 import { HeldTransactionsSection } from "./held-transactions-section"
+import { ReceiptMatches } from "./receipt-matches"
 import { ReviewCard } from "./review-card"
 import { ReviewProgress } from "./review-progress"
 import { ReviewQueueList, ReviewQueueNote } from "./review-queue-list"
@@ -84,12 +88,14 @@ export function ReviewScreen({
   const visibility = useApplyVisibility(userId)
   const deleteTransaction = useDeleteTransaction(userId)
   const completeUpload = useCompleteQuickUpload(userId)
+  const mergeUpload = useMergeQuickUpload(userId)
 
   const item = cursor.item
   const isBusy =
     visibility.isPending ||
     deleteTransaction.isPending ||
-    completeUpload.isPending
+    completeUpload.isPending ||
+    mergeUpload.isPending
 
   const markReviewed = useCallback(
     (subjects: readonly VisibilitySubject[], description: string) => {
@@ -136,6 +142,26 @@ export function ReviewScreen({
       })
     }
   }, [completeUpload, item, markReviewed])
+
+  const onMerge = useCallback(
+    (request: MergeQuickUploadRequest) => {
+      if (item === null || item.quickUploadId === null) return
+      mergeUpload.mutate(
+        { quickUploadId: item.quickUploadId, request },
+        {
+          onSuccess: () => {
+            toast.add({
+              type: "success",
+              timeout: TOAST_TIMEOUT_MS,
+              title: "Merged into your ledger",
+              description: `“${item.title}” is recorded on the transaction you already had.`,
+            })
+          },
+        }
+      )
+    },
+    [item, mergeUpload]
+  )
 
   const onEdit = useCallback(() => {
     if (item === null || item.actions.edit.blockedReason !== null) return
@@ -407,7 +433,18 @@ export function ReviewScreen({
         isBusy={isBusy}
         bulkLabel={bulkLabel}
         onBulk={onBulk}
-      />
+      >
+        {item.quickUploadId === null ? null : (
+          <ReceiptMatches
+            key={item.quickUploadId}
+            userId={userId}
+            quickUploadId={item.quickUploadId}
+            draft={item.mergeDraft}
+            isBusy={isBusy}
+            onMerge={onMerge}
+          />
+        )}
+      </ReviewCard>
 
       <SectionHeader label="Up next" />
 

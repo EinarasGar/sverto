@@ -1,13 +1,25 @@
 #[cfg(feature = "backend")]
-use business::dtos::ai_quick_upload_dto::QuickUploadDto;
+use crate::view_models::transactions::value_types::IntoDecimal;
+#[cfg(feature = "backend")]
+use business::dtos::ai_quick_upload_dto::{
+    MergeQuickUploadDto, MergeQuickUploadLineDto, QuickUploadDto,
+};
 use serde::{Deserialize, Serialize};
-use time::OffsetDateTime;
+use time::{serde::timestamp, OffsetDateTime};
 use uuid::Uuid;
 
 use crate::view_models::{
     accounts::base_models::account::IdentifiableAccountViewModel,
     assets::base_models::asset::IdentifiableAssetViewModel,
     categories::base_models::category::IdentifiableCategoryViewModel,
+    transactions::{
+        base_models::{
+            category_id::RequiredCategoryId, description::Description,
+            metadata_lookup::MetadataLookupTables,
+        },
+        transaction_types::TransactionWithId,
+        value_types::Amount,
+    },
 };
 
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
@@ -61,6 +73,51 @@ pub struct QuickUploadMessageResponseViewModel {
 #[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
 pub struct CompleteQuickUploadRequestViewModel {
     pub accepted: bool,
+}
+
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct GetQuickUploadMatchesResponseViewModel {
+    pub matches: Vec<TransactionWithId>,
+    pub lookup_tables: MetadataLookupTables,
+}
+
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct MergeQuickUploadRequestViewModel {
+    pub transaction_id: Uuid,
+    pub description: Option<Description>,
+    pub category_id: RequiredCategoryId,
+    #[serde(with = "timestamp")]
+    #[schema(value_type = i32)]
+    pub date: OffsetDateTime,
+    pub lines: Vec<MergeQuickUploadLineViewModel>,
+}
+
+#[derive(Debug, Serialize, Deserialize, utoipa::ToSchema)]
+pub struct MergeQuickUploadLineViewModel {
+    pub description: Option<Description>,
+    pub category_id: RequiredCategoryId,
+    pub amount: Amount,
+}
+
+#[cfg(feature = "backend")]
+impl From<MergeQuickUploadRequestViewModel> for MergeQuickUploadDto {
+    fn from(request: MergeQuickUploadRequestViewModel) -> Self {
+        Self {
+            transaction_id: request.transaction_id,
+            description: request.description.map(Description::into_inner),
+            category_id: request.category_id.0,
+            date: request.date,
+            lines: request
+                .lines
+                .into_iter()
+                .map(|line| MergeQuickUploadLineDto {
+                    description: line.description.map(Description::into_inner),
+                    category_id: line.category_id.0,
+                    amount: line.amount.into_decimal(),
+                })
+                .collect(),
+        }
+    }
 }
 
 #[cfg(feature = "backend")]

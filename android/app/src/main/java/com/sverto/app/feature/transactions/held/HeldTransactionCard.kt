@@ -148,7 +148,7 @@ fun HeldTransactionCard(
 }
 
 @Composable
-private fun ComparedTransaction(
+internal fun ComparedTransaction(
     label: String,
     icon: String,
     description: String,

@@ -71,6 +71,9 @@ private struct CreateTransactionForm: View {
                         .id("transaction-form-error")
                     }
                     Group {
+                        if model.offersLedgerMatch {
+                            LedgerMatchSection(controller: model.ledgerMatch)
+                        }
                         Section {
                             DateChip(dateEpochSeconds: model.formState.date) { model.updateDate($0) }
                             TransactionFieldFeedback(message: model.validationMessage(for: .date))
@@ -235,7 +238,9 @@ private struct CreateTransactionForm: View {
             refreshTransactions()
         case let .proposal(uploadId):
             refreshTransactions()
-            Task { await quickUploads.complete(id: uploadId, accepted: true) }
+            if model.mergeTargetId == nil {
+                Task { await quickUploads.complete(id: uploadId, accepted: true) }
+            }
         }
         shell.pop()
     }

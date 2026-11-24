@@ -12,6 +12,7 @@ import {
   isReceiptWorking,
 } from "./quick-uploads"
 import type {
+  ReceiptMergeDraft,
   ReviewEntryLine,
   ReviewItem,
   ReviewQueueView,
@@ -57,6 +58,49 @@ function readReceiptDraft(data: unknown): ReceiptDraft | null {
     return null
   }
   return draft
+}
+
+function amountOf(value: unknown): number | null {
+  const text = textOf(value)
+  if (text === null) return null
+  const amount = Number(text)
+  return Number.isFinite(amount) ? amount : null
+}
+
+function categoryOf(value: unknown): number | null {
+  return typeof value === "number" && Number.isInteger(value) ? value : null
+}
+
+function readMergeDraft(data: unknown): ReceiptMergeDraft | null {
+  if (typeof data !== "object" || data === null) return null
+  const record = data as Record<string, unknown>
+  const stamp = textOf(record["date"])
+  const date = stamp === null ? Number.NaN : new Date(stamp).getTime()
+  const categoryId = categoryOf(record["category_id"])
+  if (Number.isNaN(date) || categoryId === null) return null
+
+  const group = record["transactions"]
+  const items: unknown[] =
+    Array.isArray(group) && group.length > 0 ? group : [record]
+  const lines: ReceiptMergeDraft["lines"] = []
+  for (const item of items) {
+    if (typeof item !== "object" || item === null) return null
+    const line = item as Record<string, unknown>
+    const amount = amountOf(line["amount"])
+    if (amount === null) return null
+    lines.push({
+      description: textOf(line["description"]),
+      category_id: categoryOf(line["category_id"]) ?? categoryId,
+      amount,
+    })
+  }
+
+  return {
+    description: textOf(record["description"]),
+    category_id: categoryId,
+    date: Math.floor(date / 1000),
+    lines,
+  }
 }
 
 function receiptSummary(draft: ReceiptDraft, now: Date): string {
@@ -164,6 +208,7 @@ export function buildImportItem(
     mockId: null,
     transactionId: row.transactionId,
     quickUploadId: null,
+    mergeDraft: null,
     row,
   }
 }
@@ -237,6 +282,7 @@ export function buildReceiptItem(
     mockId: null,
     transactionId: null,
     quickUploadId: upload.id,
+    mergeDraft: readMergeDraft(upload.proposal_data),
     row: null,
   }
 }

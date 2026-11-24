@@ -1,7 +1,13 @@
+import { useMemo } from "react"
 import type { QueryClient } from "@tanstack/react-query"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
-import type { IdentifiableQuickUploadResponse } from "@/api"
+import type {
+  GetQuickUploadMatchesResponse,
+  IdentifiableQuickUploadResponse,
+  MergeQuickUploadRequest,
+  RequiredIdentifiableTransaction,
+} from "@/api"
 import { AIQuickUploadApiFactory } from "@/api"
 import { api } from "@/lib/api"
 import type { FileId, QuickUploadId, UserId } from "@/lib/query"
@@ -9,10 +15,14 @@ import {
   apiQueryOptions,
   mutationKeys,
   optimisticMutationOptions,
+  optimisticUpdate,
   queryKeys,
   STALE_TIMES,
   withNormalizedErrors,
 } from "@/lib/query"
+
+import type { LedgerTransactionRow } from "../../api"
+import { toLookupIndex, toTransactionRows } from "../../api"
 
 export const QUICK_UPLOAD_STATUS = {
   pending: "pending",
@@ -199,6 +209,82 @@ export function useCompleteQuickUpload(userId: UserId) {
         queryKeys.user(userId).portfolio.all(),
       ],
       meta: { errorContext: "That receipt could not be filed" },
+    })
+  )
+}
+
+export function quickUploadMatchesQueryOptions(
+  userId: UserId,
+  quickUploadId: QuickUploadId
+) {
+  return apiQueryOptions({
+    queryKey: queryKeys.user(userId).ai.quickUploads.matches(quickUploadId),
+    staleTime: STALE_TIMES.short,
+    fetch: async ({ signal }): Promise<GetQuickUploadMatchesResponse> => {
+      const response = await api(
+        AIQuickUploadApiFactory
+      ).listQuickUploadMatches(userId, quickUploadId, { signal })
+      return response.data
+    },
+    meta: {
+      errorContext: "Ledger matches for this receipt could not be loaded",
+    },
+  })
+}
+
+export function useQuickUploadMatches(
+  userId: UserId,
+  quickUploadId: QuickUploadId
+): readonly LedgerTransactionRow[] {
+  const { data } = useQuery(
+    quickUploadMatchesQueryOptions(userId, quickUploadId)
+  )
+  return useMemo(
+    () =>
+      data === undefined
+        ? []
+        : toTransactionRows(
+            data.matches as RequiredIdentifiableTransaction[],
+            toLookupIndex(data.lookup_tables)
+          ),
+    [data]
+  )
+}
+
+export interface MergeQuickUploadVariables {
+  readonly quickUploadId: QuickUploadId
+  readonly request: MergeQuickUploadRequest
+}
+
+export function useMergeQuickUpload(userId: UserId) {
+  const queryClient = useQueryClient()
+  const user = queryKeys.user(userId)
+
+  return useMutation(
+    optimisticMutationOptions<void, MergeQuickUploadVariables>({
+      queryClient,
+      mutationKey: mutationKeys.user(userId).ai(),
+      mutationFn: async (variables) => {
+        await api(AIQuickUploadApiFactory).mergeQuickUpload(
+          userId,
+          variables.quickUploadId,
+          variables.request
+        )
+      },
+      updates: [
+        optimisticUpdate<
+          readonly IdentifiableQuickUploadResponse[],
+          MergeQuickUploadVariables
+        >(user.ai.quickUploads.list(), (previous, variables) =>
+          withoutUpload(previous, variables.quickUploadId)
+        ),
+      ],
+      invalidate: [
+        user.transactions.all(),
+        user.accounts.all(),
+        user.portfolio.all(),
+      ],
+      meta: { errorContext: "That receipt could not be merged" },
     })
   )
 }

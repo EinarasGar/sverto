@@ -64,6 +64,7 @@ private struct GroupFormView: View {
                         .id("group-form-error")
                     }
                     Group {
+                        LedgerMatchSection(controller: model.ledgerMatch)
                         GroupDetailsSection(model: model, focus: $focusedField) {
                             model.categories.load()
                             showCategoryPicker = true
@@ -243,7 +244,7 @@ private struct GroupFormView: View {
     private func handleSuccess() {
         transactions.clearSelection()
         Task { await transactions.refresh() }
-        if let quickUploadId {
+        if let quickUploadId, model.ledgerMatch.mergeTargetId == nil {
             Task { await quickUploads.complete(id: quickUploadId, accepted: true) }
         }
         if let editGroupId {

@@ -64,6 +64,8 @@ vi.mock("./api", async (importOriginal) => ({
   }),
   useCreateQuickUpload: () => ({ mutateAsync: async () => {} }),
   useRetryQuickUpload: () => ({ mutate: () => {}, isPending: false }),
+  useQuickUploadMatches: () => [],
+  useMergeQuickUpload: () => ({ mutate: () => {}, isPending: false }),
 }))
 
 vi.mock("../api", async (importOriginal) => ({

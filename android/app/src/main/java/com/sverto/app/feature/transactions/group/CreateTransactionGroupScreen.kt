@@ -83,6 +83,7 @@ import com.sverto.app.feature.transactions.create.DatePickerField
 import com.sverto.app.feature.transactions.create.DescriptionField
 import com.sverto.app.feature.transactions.create.SectionCard
 import com.sverto.app.feature.transactions.create.apiTypeToConfigKey
+import com.sverto.app.feature.transactions.quickupload.LedgerMatchCard
 import uniffi.sverto_core.TransactionListItem
 
 @OptIn(
@@ -116,6 +117,7 @@ fun CreateTransactionGroupScreen(
     val correctionState by viewModel.correctionState.collectAsStateWithLifecycle()
     val correctionTypeChange by viewModel.correctionTypeChange.collectAsStateWithLifecycle()
     val suggestionState by viewModel.suggestionState.collectAsStateWithLifecycle()
+    val ledgerMatches by viewModel.ledgerMatches.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(correctionTypeChange) {
@@ -230,6 +232,12 @@ fun CreateTransactionGroupScreen(
                                 .padding(horizontal = 20.dp),
                     ) {
                         Spacer(Modifier.height(8.dp))
+
+                        LedgerMatchCard(
+                            matches = ledgerMatches,
+                            onShowNext = viewModel::showNextLedgerMatch,
+                            onMergeChange = viewModel::setMergeIntoLedgerMatch,
+                        )
 
                         SectionCard(label = "Details") {
                             DatePickerField(

@@ -71,6 +71,8 @@ import com.sverto.app.core.ai.SuggestionState
 import com.sverto.app.core.aifeatures.AiFeaturesGate
 import com.sverto.app.feature.transactions.NewTransactionSheet
 import com.sverto.app.feature.transactions.group.GroupTransactionItem
+import com.sverto.app.feature.transactions.quickupload.LedgerMatchCard
+import com.sverto.app.feature.transactions.quickupload.LedgerMatches
 import uniffi.sverto_core.TransactionListItem
 
 private enum class SearchTarget { PRIMARY_ASSET, SECONDARY_ASSET, ORIGIN_ASSET }
@@ -124,6 +126,7 @@ fun CreateTransactionScreen(
     val submittedTransaction by viewModel.submittedTransaction.collectAsStateWithLifecycle()
     val isLoading by viewModel.isLoading.collectAsStateWithLifecycle()
     val errorMessage by viewModel.errorMessage.collectAsStateWithLifecycle()
+    val ledgerMatches by viewModel.ledgerMatches.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
     val currentOnSuccess by rememberUpdatedState(onSuccess)
 
@@ -186,6 +189,7 @@ fun CreateTransactionScreen(
                             isEditMode = editTransactionId != null,
                             isGroupMode = isGroupMode,
                             quickUploadId = qUploadId ?: quickUploadId,
+                            ledgerMatches = ledgerMatches,
                             correctionState = correctionState,
                             aiFeaturesGate = aiFeaturesGate,
                             snackbarHostState = snackbarHostState,
@@ -220,6 +224,8 @@ fun CreateTransactionScreen(
                             suggestionState = suggestionState,
                             onApplySuggestion = viewModel::applySuggestion,
                             onSendCorrection = { viewModel.sendCorrection(it) },
+                            onShowNextLedgerMatch = viewModel::showNextLedgerMatch,
+                            onMergeIntoLedgerMatchChange = viewModel::setMergeIntoLedgerMatch,
                         )
 
                     is Scene.AssetSearch ->
@@ -328,6 +334,7 @@ private fun CreateTransactionForm(
     isEditMode: Boolean,
     isGroupMode: Boolean,
     quickUploadId: String?,
+    ledgerMatches: LedgerMatches,
     correctionState: CorrectionState,
     aiFeaturesGate: AiFeaturesGate,
     snackbarHostState: SnackbarHostState,
@@ -350,6 +357,8 @@ private fun CreateTransactionForm(
     suggestionState: SuggestionState,
     onApplySuggestion: () -> Unit,
     onSendCorrection: (String) -> Unit,
+    onShowNextLedgerMatch: () -> Unit,
+    onMergeIntoLedgerMatchChange: (Boolean) -> Unit,
 ) {
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
     Scaffold(
@@ -395,6 +404,12 @@ private fun CreateTransactionForm(
                     .verticalScroll(rememberScrollState()),
         ) {
             Spacer(Modifier.height(8.dp))
+
+            LedgerMatchCard(
+                matches = ledgerMatches,
+                onShowNext = onShowNextLedgerMatch,
+                onMergeChange = onMergeIntoLedgerMatchChange,
+            )
 
             DateChip(
                 dateEpochSeconds = formState.date,

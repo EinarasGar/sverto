@@ -5640,6 +5640,25 @@ export interface GetPropertiesResponse {
 /**
  * 
  * @export
+ * @interface GetQuickUploadMatchesResponse
+ */
+export interface GetQuickUploadMatchesResponse {
+    /**
+     * 
+     * @type {MetadataLookupTables}
+     * @memberof GetQuickUploadMatchesResponse
+     */
+    'lookup_tables': MetadataLookupTables;
+    /**
+     * 
+     * @type {Array<IdentifiableTransaction>}
+     * @memberof GetQuickUploadMatchesResponse
+     */
+    'matches': Array<IdentifiableTransaction>;
+}
+/**
+ * 
+ * @export
  * @interface GetSyncCheckpointResponse
  */
 export interface GetSyncCheckpointResponse {
@@ -7337,6 +7356,68 @@ export interface LoginDetails {
      * @memberof LoginDetails
      */
     'username': string;
+}
+/**
+ * 
+ * @export
+ * @interface MergeQuickUploadLine
+ */
+export interface MergeQuickUploadLine {
+    /**
+     * 
+     * @type {number}
+     * @memberof MergeQuickUploadLine
+     */
+    'amount': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof MergeQuickUploadLine
+     */
+    'category_id': number;
+    /**
+     * Description
+     * @type {string}
+     * @memberof MergeQuickUploadLine
+     */
+    'description'?: string | null;
+}
+/**
+ * 
+ * @export
+ * @interface MergeQuickUploadRequest
+ */
+export interface MergeQuickUploadRequest {
+    /**
+     * 
+     * @type {number}
+     * @memberof MergeQuickUploadRequest
+     */
+    'category_id': number;
+    /**
+     * 
+     * @type {number}
+     * @memberof MergeQuickUploadRequest
+     */
+    'date': number;
+    /**
+     * Description
+     * @type {string}
+     * @memberof MergeQuickUploadRequest
+     */
+    'description'?: string | null;
+    /**
+     * 
+     * @type {Array<MergeQuickUploadLine>}
+     * @memberof MergeQuickUploadRequest
+     */
+    'lines': Array<MergeQuickUploadLine>;
+    /**
+     * 
+     * @type {string}
+     * @memberof MergeQuickUploadRequest
+     */
+    'transaction_id': string;
 }
 /**
  * 
@@ -9868,6 +9949,48 @@ export const AIQuickUploadApiAxiosParamCreator = function (configuration?: Confi
             };
         },
         /**
+         * Lists the ledger transactions this receipt may already be, best match first: individual transactions whose amount equals the receipt\'s total exactly. Merging into one of them splits it into the receipt\'s lines instead of adding a new transaction.
+         * @summary List Quick Upload Matches
+         * @param {string} userId 
+         * @param {string} quickUploadId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listQuickUploadMatches: async (userId: string, quickUploadId: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('listQuickUploadMatches', 'userId', userId)
+            // verify required parameter 'quickUploadId' is not null or undefined
+            assertParamExists('listQuickUploadMatches', 'quickUploadId', quickUploadId)
+            const localVarPath = `/api/users/{user_id}/ai/quick-upload/{quick_upload_id}/matches`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"quick_upload_id"}}`, encodeURIComponent(String(quickUploadId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * 
          * @param {string} userId 
          * @param {*} [options] Override http request option.
@@ -9898,6 +10021,54 @@ export const AIQuickUploadApiAxiosParamCreator = function (configuration?: Confi
             setSearchParams(localVarUrlObj, localVarQueryParameter);
             let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
             localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Accepts the receipt into an existing ledger transaction instead of adding a new one. The transaction keeps its account, currency and where it came from; it takes the receipt\'s date and becomes a group of the receipt\'s lines, which must add up exactly to its amount.
+         * @summary Merge Quick Upload Into A Transaction
+         * @param {string} userId 
+         * @param {string} quickUploadId 
+         * @param {MergeQuickUploadRequest} mergeQuickUploadRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        mergeQuickUpload: async (userId: string, quickUploadId: string, mergeQuickUploadRequest: MergeQuickUploadRequest, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('mergeQuickUpload', 'userId', userId)
+            // verify required parameter 'quickUploadId' is not null or undefined
+            assertParamExists('mergeQuickUpload', 'quickUploadId', quickUploadId)
+            // verify required parameter 'mergeQuickUploadRequest' is not null or undefined
+            assertParamExists('mergeQuickUpload', 'mergeQuickUploadRequest', mergeQuickUploadRequest)
+            const localVarPath = `/api/users/{user_id}/ai/quick-upload/{quick_upload_id}/merge`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"quick_upload_id"}}`, encodeURIComponent(String(quickUploadId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'POST', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+
+    
+            localVarHeaderParameter['Content-Type'] = 'application/json';
+
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+            localVarRequestOptions.data = serializeDataIfNeeded(mergeQuickUploadRequest, localVarRequestOptions, configuration)
 
             return {
                 url: toPathString(localVarUrlObj),
@@ -10043,6 +10214,20 @@ export const AIQuickUploadApiFp = function(configuration?: Configuration) {
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
+         * Lists the ledger transactions this receipt may already be, best match first: individual transactions whose amount equals the receipt\'s total exactly. Merging into one of them splits it into the receipt\'s lines instead of adding a new transaction.
+         * @summary List Quick Upload Matches
+         * @param {string} userId 
+         * @param {string} quickUploadId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async listQuickUploadMatches(userId: string, quickUploadId: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GetQuickUploadMatchesResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.listQuickUploadMatches(userId, quickUploadId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AIQuickUploadApi.listQuickUploadMatches']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * 
          * @param {string} userId 
          * @param {*} [options] Override http request option.
@@ -10052,6 +10237,21 @@ export const AIQuickUploadApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.listQuickUploads(userId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['AIQuickUploadApi.listQuickUploads']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Accepts the receipt into an existing ledger transaction instead of adding a new one. The transaction keeps its account, currency and where it came from; it takes the receipt\'s date and becomes a group of the receipt\'s lines, which must add up exactly to its amount.
+         * @summary Merge Quick Upload Into A Transaction
+         * @param {string} userId 
+         * @param {string} quickUploadId 
+         * @param {MergeQuickUploadRequest} mergeQuickUploadRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async mergeQuickUpload(userId: string, quickUploadId: string, mergeQuickUploadRequest: MergeQuickUploadRequest, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<void>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.mergeQuickUpload(userId, quickUploadId, mergeQuickUploadRequest, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AIQuickUploadApi.mergeQuickUpload']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -10123,6 +10323,17 @@ export const AIQuickUploadApiFactory = function (configuration?: Configuration, 
             return localVarFp.getQuickUpload(userId, quickUploadId, options).then((request) => request(axios, basePath));
         },
         /**
+         * Lists the ledger transactions this receipt may already be, best match first: individual transactions whose amount equals the receipt\'s total exactly. Merging into one of them splits it into the receipt\'s lines instead of adding a new transaction.
+         * @summary List Quick Upload Matches
+         * @param {string} userId 
+         * @param {string} quickUploadId 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        listQuickUploadMatches(userId: string, quickUploadId: string, options?: RawAxiosRequestConfig): AxiosPromise<GetQuickUploadMatchesResponse> {
+            return localVarFp.listQuickUploadMatches(userId, quickUploadId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * 
          * @param {string} userId 
          * @param {*} [options] Override http request option.
@@ -10130,6 +10341,18 @@ export const AIQuickUploadApiFactory = function (configuration?: Configuration, 
          */
         listQuickUploads(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableQuickUploadResponse>> {
             return localVarFp.listQuickUploads(userId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Accepts the receipt into an existing ledger transaction instead of adding a new one. The transaction keeps its account, currency and where it came from; it takes the receipt\'s date and becomes a group of the receipt\'s lines, which must add up exactly to its amount.
+         * @summary Merge Quick Upload Into A Transaction
+         * @param {string} userId 
+         * @param {string} quickUploadId 
+         * @param {MergeQuickUploadRequest} mergeQuickUploadRequest 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        mergeQuickUpload(userId: string, quickUploadId: string, mergeQuickUploadRequest: MergeQuickUploadRequest, options?: RawAxiosRequestConfig): AxiosPromise<void> {
+            return localVarFp.mergeQuickUpload(userId, quickUploadId, mergeQuickUploadRequest, options).then((request) => request(axios, basePath));
         },
         /**
          * 
@@ -10193,6 +10416,17 @@ export interface AIQuickUploadApiInterface {
     getQuickUpload(userId: string, quickUploadId: string, options?: RawAxiosRequestConfig): AxiosPromise<QuickUploadResponse>;
 
     /**
+     * Lists the ledger transactions this receipt may already be, best match first: individual transactions whose amount equals the receipt\'s total exactly. Merging into one of them splits it into the receipt\'s lines instead of adding a new transaction.
+     * @summary List Quick Upload Matches
+     * @param {string} userId 
+     * @param {string} quickUploadId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof AIQuickUploadApiInterface
+     */
+    listQuickUploadMatches(userId: string, quickUploadId: string, options?: RawAxiosRequestConfig): AxiosPromise<GetQuickUploadMatchesResponse>;
+
+    /**
      * 
      * @param {string} userId 
      * @param {*} [options] Override http request option.
@@ -10200,6 +10434,18 @@ export interface AIQuickUploadApiInterface {
      * @memberof AIQuickUploadApiInterface
      */
     listQuickUploads(userId: string, options?: RawAxiosRequestConfig): AxiosPromise<Array<IdentifiableQuickUploadResponse>>;
+
+    /**
+     * Accepts the receipt into an existing ledger transaction instead of adding a new one. The transaction keeps its account, currency and where it came from; it takes the receipt\'s date and becomes a group of the receipt\'s lines, which must add up exactly to its amount.
+     * @summary Merge Quick Upload Into A Transaction
+     * @param {string} userId 
+     * @param {string} quickUploadId 
+     * @param {MergeQuickUploadRequest} mergeQuickUploadRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof AIQuickUploadApiInterface
+     */
+    mergeQuickUpload(userId: string, quickUploadId: string, mergeQuickUploadRequest: MergeQuickUploadRequest, options?: RawAxiosRequestConfig): AxiosPromise<void>;
 
     /**
      * 
@@ -10269,6 +10515,19 @@ export class AIQuickUploadApi extends BaseAPI implements AIQuickUploadApiInterfa
     }
 
     /**
+     * Lists the ledger transactions this receipt may already be, best match first: individual transactions whose amount equals the receipt\'s total exactly. Merging into one of them splits it into the receipt\'s lines instead of adding a new transaction.
+     * @summary List Quick Upload Matches
+     * @param {string} userId 
+     * @param {string} quickUploadId 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof AIQuickUploadApi
+     */
+    public listQuickUploadMatches(userId: string, quickUploadId: string, options?: RawAxiosRequestConfig) {
+        return AIQuickUploadApiFp(this.configuration).listQuickUploadMatches(userId, quickUploadId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
      * 
      * @param {string} userId 
      * @param {*} [options] Override http request option.
@@ -10277,6 +10536,20 @@ export class AIQuickUploadApi extends BaseAPI implements AIQuickUploadApiInterfa
      */
     public listQuickUploads(userId: string, options?: RawAxiosRequestConfig) {
         return AIQuickUploadApiFp(this.configuration).listQuickUploads(userId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Accepts the receipt into an existing ledger transaction instead of adding a new one. The transaction keeps its account, currency and where it came from; it takes the receipt\'s date and becomes a group of the receipt\'s lines, which must add up exactly to its amount.
+     * @summary Merge Quick Upload Into A Transaction
+     * @param {string} userId 
+     * @param {string} quickUploadId 
+     * @param {MergeQuickUploadRequest} mergeQuickUploadRequest 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof AIQuickUploadApi
+     */
+    public mergeQuickUpload(userId: string, quickUploadId: string, mergeQuickUploadRequest: MergeQuickUploadRequest, options?: RawAxiosRequestConfig) {
+        return AIQuickUploadApiFp(this.configuration).mergeQuickUpload(userId, quickUploadId, mergeQuickUploadRequest, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

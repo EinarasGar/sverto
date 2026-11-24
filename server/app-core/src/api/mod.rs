@@ -19,6 +19,7 @@ pub(crate) mod holdings;
 pub(crate) mod imports;
 pub(crate) mod properties;
 pub(crate) mod quick_upload;
+pub(crate) mod quick_upload_merge;
 pub(crate) mod transactions;
 pub(crate) mod update_transaction;
 pub(crate) mod update_transaction_group;
