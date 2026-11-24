@@ -100,7 +100,7 @@ fun QuickUploadCard(
                 Column(modifier = Modifier.weight(1f)) {
                     when (item.status) {
                         QuickUploadStatus.QUEUED -> {
-                            Text("Receipt photo", style = MaterialTheme.typography.bodyMedium)
+                            Text("Receipt", style = MaterialTheme.typography.bodyMedium)
                             Text(
                                 "Queued • Will upload when online",
                                 style = MaterialTheme.typography.bodySmall,

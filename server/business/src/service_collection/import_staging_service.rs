@@ -2,7 +2,7 @@ use std::collections::{BTreeSet, HashSet};
 
 #[mockall_double::double]
 use dal::database_context::MyraDb;
-use dal::models::asset_models::asset_type_ids;
+use dal::enums::asset_types::DatabaseAssetTypes;
 use dal::models::import_models::{
     ImportLineClassificationModel, ImportSessionLifecycle, ImportSessionModel, ImportSourceKind,
     ImportSourceModel, ImportStagedDecisionModel, ImportVerb,
@@ -28,6 +28,7 @@ use crate::dtos::imports::import_staging_dto::{
 };
 use crate::dtos::not_found_error_dto::BusinessNotFoundError;
 use crate::dtos::validation_error_dto::{BusinessFieldErrorDto, BusinessValidationErrorDto};
+use crate::dynamic_enums::{asset_types::AssetTypes, DynamicEnum};
 use crate::entities::imports::balances;
 use crate::entities::imports::linking::SessionLinks;
 use crate::entities::imports::orientation;
@@ -116,6 +117,7 @@ impl ImportStagingService {
         );
         orientation::read_lines_as_owed(&mut lines, &mut classifications, &owed);
         orientation::read_assertions_as_owed(&mut printed, &owed);
+        let currency_type = AssetTypes::try_into_dynamic_enum(DatabaseAssetTypes::Currency)?;
         let currency_assets: HashSet<i32> = self
             .assets_service
             .get_assets(
@@ -127,7 +129,7 @@ impl ImportStagingService {
             )
             .await?
             .into_iter()
-            .filter(|asset| asset.asset_type.id == asset_type_ids::CURRENCY)
+            .filter(|asset| asset.asset_type.id == currency_type)
             .map(|asset| asset.id.0)
             .collect();
 

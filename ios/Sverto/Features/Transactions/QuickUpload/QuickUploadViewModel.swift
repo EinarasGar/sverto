@@ -37,7 +37,7 @@ final class QuickUploadViewModel {
         let store = self.store
         Task {
             await Task.detached {
-                store.queueQuickUpload(imageData: prepared.imageData, thumbnail: prepared.thumbnail, mimeType: prepared.mimeType)
+                store.queueQuickUpload(data: prepared.data, thumbnail: prepared.thumbnail, mimeType: prepared.mimeType)
             }.value
             await store.refreshQuickUploads()
             // The flush reports no error; the core signals an AI-disabled rejection only by clearing this flag
@@ -56,8 +56,28 @@ final class QuickUploadViewModel {
 
     func retry(id: String) {
         let store = self.store
-        aiConsent.perform {
-            Task { await store.refreshQuickUploads() }
+        aiConsent.perform { [weak self] in
+            Task { [weak self] in
+                do {
+                    try await store.retryQuickUpload(id: id)
+                } catch ApiError.AiFeaturesDisabled {
+                    self?.retry(id: id)
+                } catch {
+                    guard let self else { return }
+                    items = items.map { item in
+                        guard item.id == id else { return item }
+                        return QuickUploadUiItem(
+                            id: item.id,
+                            status: item.status,
+                            thumbnail: item.thumbnail,
+                            proposalType: item.proposalType,
+                            proposalSummary: item.proposalSummary,
+                            errorMessage: error.friendlyMessage,
+                            createdAt: item.createdAt
+                        )
+                    }
+                }
+            }
         }
     }
 

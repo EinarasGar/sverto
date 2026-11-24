@@ -1,10 +1,16 @@
 package com.sverto.app.feature.transactions.quickupload
 
-class PreparedQuickUpload(
-    val imageBytes: ByteArray,
-    val thumbnailBytes: ByteArray,
-    val mimeType: String,
-)
+sealed interface PreparedQuickUpload {
+    class Ready(
+        val data: ByteArray,
+        val thumbnail: ByteArray,
+        val mimeType: String,
+    ) : PreparedQuickUpload
+
+    data class Rejected(
+        val message: String,
+    ) : PreparedQuickUpload
+}
 
 data class ProposalSummary(
     val description: String,

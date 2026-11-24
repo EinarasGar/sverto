@@ -40,7 +40,7 @@ final class ShellState {
     var pendingGroupSelection: [String] = []
     var groupChildDrafts: [GroupTransactionItem] = []
 
-    var pendingSharedImages: [Data] = []
+    var pendingSharedFiles: [PickResult] = []
     var pendingOAuthReturn: AppRoute?
     var pendingBindingChoice: PendingBindingChoice?
 
@@ -118,7 +118,7 @@ final class ShellState {
         editingGroupIndex = nil
         pendingGroupSelection = []
         groupChildDrafts = []
-        pendingSharedImages = []
+        pendingSharedFiles = []
         pendingOAuthReturn = nil
         pendingBindingChoice = nil
     }

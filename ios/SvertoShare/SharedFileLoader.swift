@@ -2,12 +2,12 @@ import Foundation
 import UIKit
 import UniformTypeIdentifiers
 
-nonisolated enum SharedImageLoader {
-    static func load(_ provider: NSItemProvider) async -> Data? {
-        let contentType = provider.registeredContentTypes.first { $0.conforms(to: .image) } ?? .image
+nonisolated enum SharedFileLoader {
+    static func load(_ provider: NSItemProvider, as type: UTType) async -> Data? {
+        let contentType = provider.registeredContentTypes.first { $0.conforms(to: type) } ?? type
         if let data = await loadData(provider, as: contentType) { return data }
         if let data = await loadFile(provider, as: contentType) { return data }
-        return await loadItem(provider)
+        return await loadItem(provider, as: type)
     }
 
     private static func loadData(_ provider: NSItemProvider, as contentType: UTType) async -> Data? {
@@ -26,15 +26,15 @@ nonisolated enum SharedImageLoader {
         }
     }
 
-    private static func loadItem(_ provider: NSItemProvider) async -> Data? {
+    private static func loadItem(_ provider: NSItemProvider, as type: UTType) async -> Data? {
         await withCheckedContinuation { continuation in
-            provider.loadItem(forTypeIdentifier: UTType.image.identifier) { @Sendable item, _ in
-                continuation.resume(returning: imageData(from: item))
+            provider.loadItem(forTypeIdentifier: type.identifier) { @Sendable item, _ in
+                continuation.resume(returning: itemData(from: item))
             }
         }
     }
 
-    private static func imageData(from item: (any NSSecureCoding)?) -> Data? {
+    private static func itemData(from item: (any NSSecureCoding)?) -> Data? {
         switch item {
         case let data as Data: data
         case let url as URL: readFile(url)

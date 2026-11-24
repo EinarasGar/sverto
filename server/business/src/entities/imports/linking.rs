@@ -1,7 +1,8 @@
 use std::collections::{BTreeSet, HashMap};
 
 use dal::enums::account_types::DatabaseAccountTypes;
-use dal::models::asset_models::{asset_type_ids, AssetRefModel, ExchangeCurrencyModel};
+use dal::enums::asset_types::DatabaseAssetTypes;
+use dal::models::asset_models::{AssetRefModel, ExchangeCurrencyModel};
 use dal::models::import_models::{
     ImportAccountMappingModel, ImportAccountRefModel, ImportAssetMappingModel, ImportAssetRefModel,
 };
@@ -10,7 +11,7 @@ use time::{Date, Duration};
 use uuid::Uuid;
 
 use crate::dtos::accounts::full_account_dto::FullAccountDto;
-use crate::dtos::asset_dto::AssetDto;
+use crate::dtos::assets::asset_search_result_dto::AssetSearchResultDto;
 use crate::dtos::imports::import_ask_dto::{
     AccountCandidateDto, AccountMappingAskDto, AssetCandidateDto, AssetMappingAskDto,
     ImportAskChoiceDto, ImportAskDto, ImportOpenAskDto,
@@ -18,7 +19,7 @@ use crate::dtos::imports::import_ask_dto::{
 use crate::dtos::imports::import_balance_dto::{ImportAssertionDto, ImportAssertionKindDto};
 use crate::dtos::imports::import_classification_dto::ImportParsedLineDto;
 use crate::dtos::imports::import_pending_dto::{ImportPendingLegDto, ImportPendingLineDto};
-use crate::dynamic_enums::{account_types::AccountTypes, DynamicEnum};
+use crate::dynamic_enums::{account_types::AccountTypes, asset_types::AssetTypes, DynamicEnum};
 
 pub const ASSET_SUGGESTIONS: usize = 5;
 
@@ -136,7 +137,7 @@ impl SessionLinking {
         );
     }
 
-    pub fn add_asset_suggestions(&mut self, asset_ref: String, assets: Vec<AssetDto>) {
+    pub fn add_asset_suggestions(&mut self, asset_ref: String, assets: Vec<AssetSearchResultDto>) {
         let suggestions = assets
             .into_iter()
             .take(ASSET_SUGGESTIONS)
@@ -499,11 +500,12 @@ impl SessionLinking {
                     self.counter_refs(asset_ref)
                         .map(|counter| self.readings(counter).collect::<Vec<_>>())
                 };
-                let is_what_its_code_says = match asset.asset_type {
-                    asset_type_ids::CURRENCY => {
+                let is_what_its_code_says = match asset_type_of(asset.asset_type) {
+                    Some(DatabaseAssetTypes::Currency) => {
                         let pays_for_a_security_quoted_in_it =
                             exchanged_for().flatten().any(|bought| {
-                                bought.asset_type != asset_type_ids::CURRENCY
+                                asset_type_of(bought.asset_type)
+                                    != Some(DatabaseAssetTypes::Currency)
                                     && bought.base_pair_id == Some(asset.id)
                             });
                         let on_a_securities_account = account_types()
@@ -523,14 +525,15 @@ impl SessionLinking {
                         pays_for_a_security_quoted_in_it
                             || (!on_a_securities_account && beside_currencies_only)
                     }
-                    asset_type_ids::CRYPTO => {
+                    Some(DatabaseAssetTypes::Crypto) => {
                         account_types().all(|account_type| {
                             account_type == Some(DatabaseAccountTypes::CryptoWallet)
                         }) || exchanged_for().any(|readings| {
                             !readings.is_empty()
-                                && readings
-                                    .iter()
-                                    .all(|coin| coin.asset_type == asset_type_ids::CRYPTO)
+                                && readings.iter().all(|coin| {
+                                    asset_type_of(coin.asset_type)
+                                        == Some(DatabaseAssetTypes::Crypto)
+                                })
                         })
                     }
                     _ => false,
@@ -564,10 +567,12 @@ impl SessionLinking {
         }
 
         let likelier = match exact.as_slice() {
-            [asset] if asset.asset_type == asset_type_ids::CURRENCY => listings
-                .iter()
-                .take_while(|listing| quoted_in_paid_currency(listing))
-                .count(),
+            [asset] if asset_type_of(asset.asset_type) == Some(DatabaseAssetTypes::Currency) => {
+                listings
+                    .iter()
+                    .take_while(|listing| quoted_in_paid_currency(listing))
+                    .count()
+            }
             _ => 0,
         };
         let (likelier, others) = listings.split_at(likelier);
@@ -617,9 +622,13 @@ impl SessionLinking {
 
     fn currency(&self, asset_ref: &str) -> Option<i32> {
         self.readings(asset_ref)
-            .find(|asset| asset.asset_type == asset_type_ids::CURRENCY)
+            .find(|asset| asset_type_of(asset.asset_type) == Some(DatabaseAssetTypes::Currency))
             .map(|asset| asset.id)
     }
+}
+
+fn asset_type_of(asset_type: i32) -> Option<DatabaseAssetTypes> {
+    AssetTypes::try_from_dynamic_enum(asset_type).ok()
 }
 
 impl SessionLinks {
@@ -1009,14 +1018,14 @@ mod tests {
 
     fn currency(id: i32, ticker: &str) -> AssetRefModel {
         AssetRefModel {
-            asset_type: asset_type_ids::CURRENCY,
+            asset_type: AssetTypes::try_into_dynamic_enum(DatabaseAssetTypes::Currency).unwrap(),
             ..asset(id, ticker, None)
         }
     }
 
     fn crypto(id: i32, ticker: &str) -> AssetRefModel {
         AssetRefModel {
-            asset_type: asset_type_ids::CRYPTO,
+            asset_type: AssetTypes::try_into_dynamic_enum(DatabaseAssetTypes::Crypto).unwrap(),
             ..listing(id, ticker, None, USD)
         }
     }
@@ -1081,13 +1090,13 @@ mod tests {
         }
     }
 
-    fn search_result(id: i32, ticker: &str) -> AssetDto {
-        AssetDto {
-            ticker: ticker.to_string(),
-            name: format!("{ticker} name"),
-            category: String::new(),
+    fn search_result(id: i32, ticker: &str) -> AssetSearchResultDto {
+        AssetSearchResultDto {
             asset_id: id,
-            owner: None,
+            name: format!("{ticker} name"),
+            ticker: ticker.to_string(),
+            asset_type: AssetTypes::try_into_dynamic_enum(DatabaseAssetTypes::Etf).unwrap(),
+            held: false,
         }
     }
 

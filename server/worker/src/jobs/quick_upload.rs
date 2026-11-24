@@ -303,7 +303,7 @@ async fn process_retry(
     quick_upload_id: Uuid,
     user_id: Uuid,
 ) -> anyhow::Result<()> {
-    let (ctx, _) = setup(providers, service, quick_upload_id, user_id).await?;
+    let (ctx, quick_upload) = setup(providers, service, quick_upload_id, user_id).await?;
 
     let _ = service
         .notify(
@@ -319,6 +319,7 @@ async fn process_retry(
         ctx.data,
         ctx.conv_agent,
         ctx.rate_limit,
+        quick_upload.source_file_id,
     )
     .await?;
 

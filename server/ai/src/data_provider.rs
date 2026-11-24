@@ -3,7 +3,7 @@ use uuid::Uuid;
 
 use crate::models::account::AccountResult;
 use crate::models::aggregate::{AggregateParams, AggregateResult};
-use crate::models::reference::{AssetResult, CategoryResult};
+use crate::models::reference::{AssetSearchParams, AssetSearchResult, CategoryResult};
 use crate::models::transactions::{
     QueryTransactionsParams, QueryTransactionsResult, TransactionDetailResult,
 };
@@ -41,9 +41,8 @@ pub trait AiDataProvider: Send + Sync + 'static {
 
     fn search_assets(
         &self,
-        query: Option<&str>,
-        query_vector: Option<Vec<f64>>,
-    ) -> impl std::future::Future<Output = Result<Vec<AssetResult>>> + Send;
+        params: AssetSearchParams,
+    ) -> impl std::future::Future<Output = Result<AssetSearchResult>> + Send;
 
     fn get_holdings(
         &self,

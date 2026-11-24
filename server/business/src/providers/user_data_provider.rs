@@ -5,7 +5,7 @@
 use ai::data_provider::AiDataProvider;
 use ai::models::account::AccountResult;
 use ai::models::aggregate::{AggregateParams, AggregateResult};
-use ai::models::reference::{AssetResult, CategoryResult};
+use ai::models::reference::{AssetSearchParams, AssetSearchResult, CategoryResult};
 use ai::models::transactions::{
     QueryTransactionsParams, QueryTransactionsResult, TransactionDetailResult,
 };
@@ -76,14 +76,8 @@ impl AiDataProvider for UserDataProvider {
             .await
     }
 
-    async fn search_assets(
-        &self,
-        query: Option<&str>,
-        query_vector: Option<Vec<f64>>,
-    ) -> Result<Vec<AssetResult>> {
-        self.service
-            .search_assets(self.user_id, query, query_vector)
-            .await
+    async fn search_assets(&self, params: AssetSearchParams) -> Result<AssetSearchResult> {
+        self.service.search_assets(self.user_id, params).await
     }
 
     async fn get_holdings(

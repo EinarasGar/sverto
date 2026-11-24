@@ -47,7 +47,7 @@ struct ShareStatusView: View {
     private var title: LocalizedStringKey {
         switch model.phase {
         case .importing: "Adding to Sverto…"
-        case let .finished(added, _): added > 0 ? "Added ^[\(added) image](inflect: true)." : "Nothing was added."
+        case let .finished(added, _): added > 0 ? "Added ^[\(added) file](inflect: true)." : "Nothing was added."
         }
     }
 
@@ -59,9 +59,9 @@ struct ShareStatusView: View {
             if added > 0, skipped == 0 {
                 "Open Sverto to review them."
             } else if added > 0 {
-                "Open Sverto to review them. ^[\(skipped) image](inflect: true) couldn't be added (10 MB limit)."
+                "Open Sverto to review them. ^[\(skipped) file](inflect: true) couldn't be added (20 MB limit)."
             } else {
-                "Sverto accepts images up to 10 MB each."
+                "Sverto accepts images and PDFs up to 20 MB each."
             }
         }
     }

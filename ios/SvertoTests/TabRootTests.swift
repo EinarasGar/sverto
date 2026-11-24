@@ -36,7 +36,7 @@ struct TabRootTests {
         }
         let retainedModel = try #require(observedModels.first)
 
-        store.queueQuickUpload(imageData: Data([1]), thumbnail: Data(), mimeType: "image/png")
+        store.queueQuickUpload(data: Data([1]), thumbnail: Data(), mimeType: "image/png")
         let firstQueueDeadline = ContinuousClock.now + .seconds(2)
         while retainedModel.items.count != 1, ContinuousClock.now < firstQueueDeadline {
             try await Task.sleep(for: .milliseconds(10))
@@ -52,7 +52,7 @@ struct TabRootTests {
         #expect(observedModels.count == 2)
         #expect(observedModels.last === retainedModel)
 
-        store.queueQuickUpload(imageData: Data([2]), thumbnail: Data(), mimeType: "image/png")
+        store.queueQuickUpload(data: Data([2]), thumbnail: Data(), mimeType: "image/png")
         let updateDeadline = ContinuousClock.now + .seconds(2)
         while retainedModel.items.count != 2, ContinuousClock.now < updateDeadline {
             try await Task.sleep(for: .milliseconds(10))

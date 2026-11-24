@@ -69,7 +69,7 @@ struct QuickUploadCard: View {
     private var bodyText: some View {
         switch item.status {
         case .queued:
-            Text("Receipt photo")
+            Text("Receipt")
             Text("Queued • Will upload when online")
                 .font(.footnote)
                 .foregroundStyle(.secondary)

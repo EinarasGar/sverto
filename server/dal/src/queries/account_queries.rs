@@ -12,10 +12,7 @@ use crate::{
         asset_idens::AssetsIden,
         entries_idens::EntryIden,
     },
-    models::{
-        account_models::{AccountCreationModel, AccountUpdateModel},
-        asset_models::asset_type_ids,
-    },
+    models::account_models::{AccountCreationModel, AccountUpdateModel},
     query_params::get_accounts_params::{GetAccountsParams, GetAccountsParamsSeachType},
 };
 
@@ -54,34 +51,30 @@ pub fn get_accounts(params: GetAccountsParams) -> DbQueryWithValues {
             },
             |_q| {},
         )
-        .conditions(
-            params.include_suggested_currency,
-            |q| {
-                q.column((
-                    AccountsAliasIden::SuggestedCurrencySubquery,
-                    SuggestedCurrencyIden::Id,
-                ))
-                .column((
-                    AccountsAliasIden::SuggestedCurrencySubquery,
-                    SuggestedCurrencyIden::Ticker,
-                ))
-                .column((
-                    AccountsAliasIden::SuggestedCurrencySubquery,
-                    SuggestedCurrencyIden::Name,
-                ))
-                .column((
-                    AccountsAliasIden::SuggestedCurrencySubquery,
-                    SuggestedCurrencyIden::AssetType,
-                ))
-                .join_lateral(
-                    JoinType::LeftJoin,
-                    suggested_currency_subquery(),
-                    AccountsAliasIden::SuggestedCurrencySubquery,
-                    Expr::cust("TRUE"),
-                );
-            },
-            |_q| {},
-        )
+        .apply_if(params.suggested_currency_type, |q, currency_type| {
+            q.column((
+                AccountsAliasIden::SuggestedCurrencySubquery,
+                SuggestedCurrencyIden::Id,
+            ))
+            .column((
+                AccountsAliasIden::SuggestedCurrencySubquery,
+                SuggestedCurrencyIden::Ticker,
+            ))
+            .column((
+                AccountsAliasIden::SuggestedCurrencySubquery,
+                SuggestedCurrencyIden::Name,
+            ))
+            .column((
+                AccountsAliasIden::SuggestedCurrencySubquery,
+                SuggestedCurrencyIden::AssetType,
+            ))
+            .join_lateral(
+                JoinType::LeftJoin,
+                suggested_currency_subquery(currency_type),
+                AccountsAliasIden::SuggestedCurrencySubquery,
+                Expr::cust("TRUE"),
+            );
+        })
         .conditions(
             params.include_inactive,
             |_q| {},
@@ -114,7 +107,7 @@ pub fn get_accounts(params: GetAccountsParams) -> DbQueryWithValues {
     get_accounts_builder.build_sqlx(PostgresQueryBuilder).into()
 }
 
-fn suggested_currency_subquery() -> sea_query::SelectStatement {
+fn suggested_currency_subquery(currency_type: i32) -> sea_query::SelectStatement {
     Query::select()
         .expr_as(
             Expr::col((EntryIden::Table, EntryIden::AssetId)),
@@ -138,10 +131,7 @@ fn suggested_currency_subquery() -> sea_query::SelectStatement {
             AssetsIden::Table,
             Expr::col((AssetsIden::Table, AssetsIden::Id))
                 .equals((EntryIden::Table, EntryIden::AssetId))
-                .and(
-                    Expr::col((AssetsIden::Table, AssetsIden::AssetType))
-                        .eq(asset_type_ids::CURRENCY),
-                ),
+                .and(Expr::col((AssetsIden::Table, AssetsIden::AssetType)).eq(currency_type)),
         )
         .and_where(
             Expr::col((EntryIden::Table, EntryIden::AccountId))

@@ -1141,11 +1141,11 @@ impl AppStore {
         self.quick_uploads.lock().unwrap().clear_observer();
     }
 
-    pub fn queue_quick_upload(&self, image_data: Vec<u8>, thumbnail: Vec<u8>, mime_type: String) {
+    pub fn queue_quick_upload(&self, data: Vec<u8>, thumbnail: Vec<u8>, mime_type: String) {
         quick_uploads::queue_quick_upload(
             &self.infra,
             &self.quick_uploads,
-            image_data,
+            data,
             thumbnail,
             mime_type,
         );
@@ -1160,6 +1160,12 @@ impl AppStore {
             token.as_deref(),
         )
         .await;
+    }
+
+    pub async fn retry_quick_upload(&self, id: String) -> Result<(), ApiError> {
+        let token = self.get_auth_token().await;
+        quick_uploads::retry_quick_upload(&self.infra, &self.quick_uploads, &id, token.as_deref())
+            .await
     }
 
     pub async fn complete_quick_upload(&self, upload_id: String, accepted: bool) {

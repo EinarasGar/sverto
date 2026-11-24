@@ -29,11 +29,3 @@ pub struct AiCategoryModel {
     pub category_type: String,
     pub icon: Option<String>,
 }
-
-#[derive(sqlx::FromRow, Debug)]
-pub struct AiAssetModel {
-    pub id: i32,
-    pub asset_name: String,
-    pub ticker: Option<String>,
-    pub asset_type: String,
-}

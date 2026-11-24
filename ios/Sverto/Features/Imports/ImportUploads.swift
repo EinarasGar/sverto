@@ -4,13 +4,13 @@ import PhotosUI
 import SwiftUI
 import UniformTypeIdentifiers
 
-nonisolated struct PickedFile: Sendable {
+nonisolated struct PickedFile: Sendable, Equatable {
     let name: String
     let mimeType: String
     let data: Data
 }
 
-nonisolated enum PickResult: Sendable {
+nonisolated enum PickResult: Sendable, Equatable {
     case picked(PickedFile)
     case tooLarge(name: String)
     case unreadable(name: String)
@@ -76,19 +76,23 @@ nonisolated enum ImportFileReader {
 
     @concurrent
     private static func prepare(photo data: Data?, number: Int) async -> PickResult {
-        guard let data, !data.isEmpty,
-              let source = CGImageSourceCreateWithData(data as CFData, nil),
-              let typeIdentifier = CGImageSourceGetType(source),
-              let type = UTType(typeIdentifier as String) else { return .unreadable(name: "Photo \(number)") }
-        let readable = readableImageTypes.first { type.conforms(to: $0) }
-        let output = readable ?? .jpeg
-        let name = "Photo \(number).\(output.preferredFilenameExtension ?? "jpg")"
-        guard let bytes = readable == nil ? jpegData(from: source) : data else { return .unreadable(name: name) }
-        guard bytes.count <= maxBytes else { return .tooLarge(name: name) }
-        return .picked(PickedFile(name: name, mimeType: output.preferredMIMEType ?? "image/jpeg", data: bytes))
+        guard let data, let image = readableImage(data) else { return .unreadable(name: "Photo \(number)") }
+        let name = "Photo \(number).\(image.type.preferredFilenameExtension ?? "jpg")"
+        guard image.data.count <= maxBytes else { return .tooLarge(name: name) }
+        return .picked(PickedFile(name: name, mimeType: image.type.preferredMIMEType ?? "image/jpeg", data: image.data))
     }
 
-    // The statement reader only understands JPEG, PNG and GIF, so HEIC and other photo formats are re-encoded.
+    // The AI readers don't understand HEIC and other camera formats, so anything but JPEG, PNG and GIF is re-encoded.
+    static func readableImage(_ data: Data) -> (data: Data, type: UTType)? {
+        guard let source = CGImageSourceCreateWithData(data as CFData, nil),
+              let typeIdentifier = CGImageSourceGetType(source),
+              let type = UTType(typeIdentifier as String) else { return nil }
+        if let readable = readableImageTypes.first(where: { type.conforms(to: $0) }) {
+            return (data, readable)
+        }
+        return jpegData(from: source).map { ($0, .jpeg) }
+    }
+
     private static func jpegData(from source: CGImageSource) -> Data? {
         let output = NSMutableData()
         guard let destination = CGImageDestinationCreateWithData(output, UTType.jpeg.identifier as CFString, 1, nil) else {

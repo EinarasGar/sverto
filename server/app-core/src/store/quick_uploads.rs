@@ -97,7 +97,7 @@ impl QuickUploadsModule {
 pub fn queue_quick_upload(
     infra: &Arc<SharedInfra>,
     module: &Arc<Mutex<QuickUploadsModule>>,
-    image_data: Vec<u8>,
+    data: Vec<u8>,
     thumbnail: Vec<u8>,
     mime_type: String,
 ) {
@@ -108,7 +108,7 @@ pub fn queue_quick_upload(
     } else {
         Some(thumbnail.as_slice())
     };
-    quick_upload::insert(&conn, &image_data, thumb, &mime_type, &infra.base_url());
+    quick_upload::insert(&conn, &data, thumb, &mime_type, &infra.base_url());
     refresh_local_state(infra, module);
 }
 
@@ -145,17 +145,17 @@ pub async fn flush_and_subscribe(
     let flushable = quick_upload::get_flushable(&conn, &infra.base_url());
 
     tracing::info!("QuickUploads: {} flushable items", flushable.len());
-    for (local_id, image_data, mime_type) in flushable {
+    for (local_id, data, mime_type) in flushable {
         tracing::info!(
             "QuickUploads: flushing {} ({} bytes, {})",
             local_id,
-            image_data.len(),
+            data.len(),
             mime_type
         );
         quick_upload::update_status(&conn, &local_id, "uploading", &infra.base_url());
         refresh_local_state(infra, module);
 
-        match upload_single(infra, &user_id, &image_data, &mime_type, auth_token).await {
+        match upload_single(infra, &user_id, &data, &mime_type, auth_token).await {
             Ok(server_id) => {
                 tracing::info!(
                     "QuickUploads: uploaded {} -> server_id={}",
@@ -373,6 +373,38 @@ pub async fn dismiss_quick_upload(
     fetch_and_update(infra, module, auth_token).await;
 }
 
+pub async fn retry_quick_upload(
+    infra: &Arc<SharedInfra>,
+    module: &Arc<Mutex<QuickUploadsModule>>,
+    id: &str,
+    auth_token: Option<&str>,
+) -> Result<(), ApiError> {
+    let conn =
+        rusqlite::Connection::open(&infra.db_path).expect("failed to open db for quick_upload");
+    if quick_upload::requeue(&conn, id, &infra.base_url()) {
+        refresh_local_state(infra, module);
+        flush_and_subscribe(infra, module, auth_token).await;
+        return Ok(());
+    }
+
+    let user_id = infra.user_id().ok_or_else(|| ApiError::Network {
+        reason: "no user_id".into(),
+    })?;
+    let path = format!("/api/users/{}/ai/quick-upload/{}/retry", user_id, id);
+    let resp = infra.post(&path, "", auth_token).await?;
+    if resp.status >= 400 {
+        let error = server_error(resp.status, &resp.body);
+        if let ApiError::AiFeaturesDisabled = error {
+            infra.set_ai_features_enabled(false);
+        }
+        return Err(error);
+    }
+
+    fetch_and_update(infra, module, auth_token).await;
+    subscribe_processing_items(infra, module, &user_id, auth_token).await;
+    Ok(())
+}
+
 pub async fn complete_quick_upload(
     infra: &Arc<SharedInfra>,
     module: &Arc<Mutex<QuickUploadsModule>>,
@@ -509,7 +541,7 @@ pub async fn send_quick_upload_correction(
 async fn upload_single(
     infra: &SharedInfra,
     user_id: &str,
-    image_data: &[u8],
+    data: &[u8],
     mime_type: &str,
     auth_token: Option<&str>,
 ) -> Result<String, (String, bool)> {
@@ -517,7 +549,7 @@ async fn upload_single(
     let create_body = serde_json::json!({
         "original_name": "upload",
         "mime_type": mime_type,
-        "size_bytes": image_data.len(),
+        "size_bytes": data.len(),
     });
     let create_resp = infra
         .post(
@@ -548,10 +580,7 @@ async fn upload_single(
     let method = upload_method
         .parse::<reqwest::Method>()
         .unwrap_or(reqwest::Method::PUT);
-    let mut upload_req = infra
-        .http
-        .request(method, upload_url)
-        .body(image_data.to_vec());
+    let mut upload_req = infra.http.request(method, upload_url).body(data.to_vec());
 
     if let Some(headers) = upload_meta["upload_headers"].as_object() {
         for (key, value) in headers {

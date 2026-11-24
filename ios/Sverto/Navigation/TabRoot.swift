@@ -32,15 +32,15 @@ struct TabRoot: View {
         .onDisappear { services.connection.stop() }
         .onChange(of: scenePhase, initial: true) { _, phase in
             if phase == .active {
-                Task { await drainSharedImages() }
+                Task { await drainSharedFiles() }
             }
         }
     }
 
-    private func drainSharedImages() async {
-        let images = await Task.detached { SharedImageInbox.drain() }.value
-        guard !images.isEmpty else { return }
-        shell.pendingSharedImages = images
+    private func drainSharedFiles() async {
+        let files = await SharedFileInbox.drain()
+        guard !files.isEmpty else { return }
+        shell.pendingSharedFiles = files
         shell.selectedTab = .transactions
     }
 

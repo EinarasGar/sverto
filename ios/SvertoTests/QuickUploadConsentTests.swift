@@ -5,19 +5,19 @@ import Testing
 
 @MainActor
 struct QuickUploadConsentTests {
-    private let prepared = PreparedQuickUpload(imageData: Data([1, 2, 3]), thumbnail: Data(), mimeType: "image/jpeg")
+    private let prepared = PreparedQuickUpload(data: Data([1, 2, 3]), thumbnail: Data(), mimeType: "image/jpeg")
 
-    @Test func retryWhileDisabledAsksBeforeRefreshing() async throws {
+    @Test func retryWhileDisabledAsksBeforeRetrying() async throws {
         let store = QuickUploadConsentStore(noHandle: .init())
         let model = QuickUploadViewModel(store: store)
 
         model.retry(id: "upload")
 
         #expect(model.aiConsent.isPresented)
-        #expect(store.refreshCount == 0)
+        #expect(store.retriedIds.isEmpty)
         await model.aiConsent.turnOn()
         model.aiConsent.sheetDismissed()
-        try await waitUntil { store.refreshCount == 1 }
+        try await waitUntil { store.retriedIds == ["upload"] }
     }
 
     @Test func uploadRejectedByTheServerAsksAndFlushesTheHeldUploadAfterConsent() async throws {
@@ -33,7 +33,7 @@ struct QuickUploadConsentTests {
         await model.aiConsent.turnOn()
         model.aiConsent.sheetDismissed()
         try await waitUntil { store.refreshCount == 2 }
-        #expect(store.queuedImages == [prepared.imageData])
+        #expect(store.queuedUploads == [prepared.data])
         #expect(!model.aiConsent.isPresented)
     }
 
@@ -87,10 +87,12 @@ nonisolated private final class QuickUploadConsentStore: AppStore, @unchecked Se
     private var queued: [Data] = []
     private var refreshes = 0
     private var corrections: [String] = []
+    private var retried: [String] = []
 
-    var queuedImages: [Data] { lock.withLock { queued } }
+    var queuedUploads: [Data] { lock.withLock { queued } }
     var refreshCount: Int { lock.withLock { refreshes } }
     var correctionMessages: [String] { lock.withLock { corrections } }
+    var retriedIds: [String] { lock.withLock { retried } }
 
     func setEnabled(_ enabled: Bool) {
         lock.withLock { self.enabled = enabled }
@@ -112,8 +114,8 @@ nonisolated private final class QuickUploadConsentStore: AppStore, @unchecked Se
         lock.withLock { self.enabled = enabled }
     }
 
-    override func queueQuickUpload(imageData: Data, thumbnail: Data, mimeType: String) {
-        lock.withLock { queued.append(imageData) }
+    override func queueQuickUpload(data: Data, thumbnail: Data, mimeType: String) {
+        lock.withLock { queued.append(data) }
     }
 
     override func refreshQuickUploads() async {
@@ -124,6 +126,10 @@ nonisolated private final class QuickUploadConsentStore: AppStore, @unchecked Se
                 enabled = false
             }
         }
+    }
+
+    override func retryQuickUpload(id: String) async throws {
+        lock.withLock { retried.append(id) }
     }
 
     override func sendQuickUploadCorrection(uploadId: String, message: String) async throws -> QuickUploadDetail {

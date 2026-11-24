@@ -23,7 +23,7 @@ internal fun signedInStartupState(
 
 internal fun mainStartupModules(
     currentRoute: String?,
-    hasSharedImages: Boolean,
+    hasSharedFiles: Boolean,
 ): MainStartupModules {
     val transactionRoute =
         currentRoute == "transactions" ||
@@ -37,8 +37,8 @@ internal fun mainStartupModules(
             currentRoute?.startsWith("createTransaction") == true
 
     return MainStartupModules(
-        transactions = transactionRoute || hasSharedImages,
-        quickUploads = quickUploadRoute || hasSharedImages,
+        transactions = transactionRoute || hasSharedFiles,
+        quickUploads = quickUploadRoute || hasSharedFiles,
         aiChat = currentRoute == "ai_chat",
     )
 }

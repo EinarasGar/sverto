@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet, VecDeque};
 
 #[mockall_double::double]
 use dal::database_context::MyraDb;
+use dal::enums::asset_types::DatabaseAssetTypes;
 use dal::market_data_client::{AssetClass, MarketDataClient, PairRequest};
 use dal::{
     models::asset_models::{
@@ -22,6 +23,7 @@ use crate::dtos::{
     asset_rate_dto::AssetRateDto, assets::asset_id_dto::AssetIdDto,
     assets::asset_pair_ids_dto::AssetPairIdsDto, net_worth::range_dto::RangeDto,
 };
+use crate::dynamic_enums::{asset_types::AssetTypes, DynamicEnum, DynamicEnumError};
 use crate::entities::market_data;
 use crate::entities::range::{Range, RangeError};
 
@@ -347,9 +349,9 @@ impl AssetRatesService {
 
         let request = PairRequest {
             base: info.ticker1.clone(),
-            base_type: AssetClass::from_asset_type_id(info.asset_type1),
+            base_type: market_data_class(info.asset_type1)?,
             quote: info.ticker2.clone(),
-            quote_type: AssetClass::from_asset_type_id(info.asset_type2),
+            quote_type: market_data_class(info.asset_type2)?,
         };
 
         let entries = MarketDataClient::new()
@@ -517,7 +519,19 @@ impl AssetRatesService {
         tickers: Vec<String>,
         has_rates: bool,
     ) -> anyhow::Result<Vec<HeldAssetPairDetailModel>> {
-        let query = asset_queries::get_currency_cross_pairs(tickers, has_rates);
+        let query = asset_queries::get_currency_cross_pairs(
+            tickers,
+            has_rates,
+            AssetTypes::try_into_dynamic_enum(DatabaseAssetTypes::Currency)?,
+        );
         Ok(self.db.fetch_all::<HeldAssetPairDetailModel>(query).await?)
     }
+}
+
+pub fn market_data_class(asset_type: i32) -> Result<AssetClass, DynamicEnumError> {
+    Ok(match AssetTypes::try_from_dynamic_enum(asset_type)? {
+        DatabaseAssetTypes::Currency => AssetClass::Currency,
+        DatabaseAssetTypes::Crypto => AssetClass::Crypto,
+        _ => AssetClass::Other,
+    })
 }

@@ -10,7 +10,7 @@ pub use refresh_oauth_tokens::RefreshOauthTokensJob;
 pub use seed_asset_history::SeedAssetHistoryJob;
 pub use sync_connectors::SyncConnectorsJob;
 
-use business::service_collection::asset_rates_service::AssetRatesService;
+use business::service_collection::asset_rates_service::{market_data_class, AssetRatesService};
 use dal::market_data_client::PairRequest;
 use dal::models::asset_models::HeldAssetPairDetailModel;
 
@@ -31,6 +31,16 @@ pub(crate) async fn collect_market_pairs(
     );
     pairs.sort_by_key(|p| p.pair_id);
     pairs.dedup_by_key(|p| p.pair_id);
-    let requests = pairs.iter().map(PairRequest::from).collect();
+    let requests = pairs
+        .iter()
+        .map(|pair| {
+            Ok(PairRequest {
+                base: pair.asset_ticker.clone(),
+                base_type: market_data_class(pair.asset_type)?,
+                quote: pair.base_ticker.clone(),
+                quote_type: market_data_class(pair.base_asset_type)?,
+            })
+        })
+        .collect::<anyhow::Result<_>>()?;
     Ok((pairs, requests))
 }

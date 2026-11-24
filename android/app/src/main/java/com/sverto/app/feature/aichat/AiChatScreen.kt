@@ -28,10 +28,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import androidx.core.content.FileProvider
 import com.sverto.app.core.aifeatures.AiFeaturesGate
+import com.sverto.app.core.components.AttachmentSheet
+import com.sverto.app.core.components.createCameraImageUri
 import uniffi.sverto_core.MessagePart
-import java.io.File
 
 @Composable
 fun AiChatScreen(
@@ -226,11 +226,4 @@ fun AiChatScreen(
             )
         }
     }
-}
-
-/** Create a FileProvider content uri for the camera app to write a captured photo into. */
-private fun createCameraImageUri(context: android.content.Context): Uri {
-    val dir = File(context.cacheDir, "images").apply { mkdirs() }
-    val file = File.createTempFile("camera_", ".jpg", dir)
-    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }

@@ -2,6 +2,8 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde_json::Value;
 
+use crate::models::reference::AssetType;
+
 #[derive(Deserialize)]
 pub struct ListAccountsArgs {}
 
@@ -53,7 +55,8 @@ pub struct SearchCategoriesArgs {
 
 #[derive(Deserialize)]
 pub struct SearchAssetsArgs {
-    pub query: Option<String>,
+    pub query: String,
+    pub asset_type: Option<AssetType>,
 }
 
 #[derive(Deserialize)]

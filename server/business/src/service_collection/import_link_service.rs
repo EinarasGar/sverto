@@ -111,7 +111,7 @@ impl ImportLinkService {
         for asset_ref in linking.assets_needing_suggestions() {
             let assets = self
                 .assets_service
-                .search_visible_assets(user_id, asset_ref.clone(), ASSET_SUGGESTIONS as u64)
+                .search_visible_assets(user_id, asset_ref.clone(), None, ASSET_SUGGESTIONS as u64)
                 .await?;
             linking.add_asset_suggestions(asset_ref, assets);
         }

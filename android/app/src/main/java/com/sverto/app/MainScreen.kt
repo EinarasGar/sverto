@@ -57,6 +57,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -82,7 +84,9 @@ import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.aifeatures.AiFeaturesConsentDialog
 import com.sverto.app.core.aifeatures.AiFeaturesGate
 import com.sverto.app.core.aifeatures.rememberAiFeaturesGate
+import com.sverto.app.core.components.AttachmentSheet
 import com.sverto.app.core.components.ProfileAvatarButton
+import com.sverto.app.core.components.createCameraImageUri
 import com.sverto.app.core.navigation.TopLevelRoute
 import com.sverto.app.core.ui.OfflineBanner
 import com.sverto.app.feature.accounts.AccountDetailScreen
@@ -127,6 +131,7 @@ import com.sverto.app.feature.transactions.create.apiTypeToConfigKey
 import com.sverto.app.feature.transactions.group.CreateTransactionGroupScreen
 import com.sverto.app.feature.transactions.group.CreateTransactionGroupViewModel
 import com.sverto.app.feature.transactions.group.GroupTransactionItem
+import com.sverto.app.feature.transactions.quickupload.PreparedQuickUpload
 import com.sverto.app.feature.transactions.quickupload.QuickUploadUiItem
 import com.sverto.app.feature.transactions.quickupload.QuickUploadViewModel
 import com.sverto.app.feature.transactions.quickupload.prepareQuickUpload
@@ -177,7 +182,7 @@ private data class TransactionDetailState(
     val isInGroup: Boolean,
 )
 
-@Suppress("LongMethod", "ModifierMissing", "ViewModelForwarding")
+@Suppress("LongMethod", "CyclomaticComplexMethod", "ModifierMissing", "ViewModelForwarding")
 @OptIn(
     ExperimentalMaterial3Api::class,
     ExperimentalMaterial3ExpressiveApi::class,
@@ -185,8 +190,8 @@ private data class TransactionDetailState(
 )
 @Composable
 fun MainScreen(
-    sharedImageUris: List<Uri> = emptyList(),
-    onSharedImagesHandled: () -> Unit = {},
+    sharedFileUris: List<Uri> = emptyList(),
+    onSharedFilesHandled: () -> Unit = {},
     sessionViewModel: AppSessionViewModel? = null,
 ) {
     val navController = rememberNavController()
@@ -198,7 +203,7 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val activity = context as ComponentActivity
-    val modules = mainStartupModules(currentRoute, sharedImageUris.isNotEmpty())
+    val modules = mainStartupModules(currentRoute, sharedFileUris.isNotEmpty())
     val transactionsViewModel =
         if (modules.transactions) {
             viewModel<TransactionsViewModel>(viewModelStoreOwner = activity, factory = SvertoViewModelFactory)
@@ -279,25 +284,64 @@ fun MainScreen(
     }
 
     suspend fun prepareAndQueue(uri: Uri) {
-        val prepared = withContext(Dispatchers.IO) { prepareQuickUpload(context, uri) }
-        if (prepared != null) {
-            quickUploadViewModel?.queueUpload(prepared.imageBytes, prepared.thumbnailBytes, prepared.mimeType)
-        } else {
-            Toast.makeText(context, "Couldn't add that image", Toast.LENGTH_SHORT).show()
+        when (val prepared = prepareQuickUpload(context.contentResolver, uri)) {
+            is PreparedQuickUpload.Ready ->
+                quickUploadViewModel?.queueUpload(prepared.data, prepared.thumbnail, prepared.mimeType)
+            is PreparedQuickUpload.Rejected -> Toast.makeText(context, prepared.message, Toast.LENGTH_SHORT).show()
         }
     }
 
-    val photoPickerLauncher =
+    val quickUploadPhotosLauncher =
         rememberLauncherForActivityResult(
-            contract = ActivityResultContracts.PickVisualMedia(),
-        ) { uri ->
-            if (uri != null) scope.launch { prepareAndQueue(uri) }
+            contract = ActivityResultContracts.PickMultipleVisualMedia(),
+        ) { uris ->
+            scope.launch { uris.forEach { prepareAndQueue(it) } }
         }
+    val quickUploadFilesLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.OpenMultipleDocuments(),
+        ) { uris ->
+            scope.launch { uris.forEach { prepareAndQueue(it) } }
+        }
+    var quickUploadCameraUri by rememberSaveable { mutableStateOf<Uri?>(null) }
+    val quickUploadCameraLauncher =
+        rememberLauncherForActivityResult(
+            contract = ActivityResultContracts.TakePicture(),
+        ) { saved ->
+            val uri = quickUploadCameraUri ?: return@rememberLauncherForActivityResult
+            quickUploadCameraUri = null
+            scope.launch {
+                if (saved) prepareAndQueue(uri)
+                withContext(Dispatchers.IO) { context.contentResolver.delete(uri, null, null) }
+            }
+        }
+    var showQuickUploadSheet by remember { mutableStateOf(false) }
+    if (showQuickUploadSheet) {
+        AttachmentSheet(
+            onDismiss = { showQuickUploadSheet = false },
+            onPhotos = {
+                showQuickUploadSheet = false
+                quickUploadPhotosLauncher.launch(
+                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
+                )
+            },
+            onCamera = {
+                showQuickUploadSheet = false
+                val uri = createCameraImageUri(context)
+                quickUploadCameraUri = uri
+                quickUploadCameraLauncher.launch(uri)
+            },
+            onFiles = {
+                showQuickUploadSheet = false
+                quickUploadFilesLauncher.launch(arrayOf("image/*", "application/pdf", "text/*"))
+            },
+        )
+    }
 
-    LaunchedEffect(sharedImageUris) {
-        if (sharedImageUris.isNotEmpty()) {
-            val uris = sharedImageUris
-            onSharedImagesHandled()
+    LaunchedEffect(sharedFileUris) {
+        if (sharedFileUris.isNotEmpty()) {
+            val uris = sharedFileUris
+            onSharedFilesHandled()
             navController.navigate(TopLevelRoute.Transactions.route) {
                 popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                 launchSingleTop = true
@@ -496,13 +540,7 @@ fun MainScreen(
                     sharedScope = sharedScope,
                     transactionsViewModel = transactionsViewModel,
                     quickUploadItems = quickUploadItems,
-                    onQuickUpload = {
-                        aiFeaturesGate.runWhenEnabled {
-                            photoPickerLauncher.launch(
-                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly),
-                            )
-                        }
-                    },
+                    onQuickUpload = { aiFeaturesGate.runWhenEnabled { showQuickUploadSheet = true } },
                     onQuickUploadItemClick = { item ->
                         val route =
                             if (item.proposalType == "transaction_group") {

@@ -35,7 +35,9 @@ pub(crate) struct ProposalFields {
     pub amount: Option<String>,
     #[schemars(description = "For a single transaction: the id of the currency asset.")]
     pub asset_id: Option<i32>,
-    #[schemars(description = "For a transaction group: one transaction per item.")]
+    #[schemars(
+        description = "For a transaction group: one transaction per line item on the receipt."
+    )]
     pub transactions: Option<Vec<ProposedTransaction>>,
 }
 

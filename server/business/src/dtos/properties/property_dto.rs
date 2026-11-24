@@ -1,3 +1,4 @@
+use dal::enums::asset_types::DatabaseAssetTypes;
 use dal::models::property_models::{PropertyKind, PropertyModel};
 use rust_decimal::Decimal;
 use uuid::Uuid;
@@ -16,10 +17,10 @@ impl PropertyKindDto {
         }
     }
 
-    pub fn asset_type_id(&self) -> i32 {
+    pub fn asset_type(&self) -> DatabaseAssetTypes {
         match self {
-            Self::RealEstate => 8,
-            Self::Vehicle => 9,
+            Self::RealEstate => DatabaseAssetTypes::RealEstate,
+            Self::Vehicle => DatabaseAssetTypes::Vehicle,
         }
     }
 

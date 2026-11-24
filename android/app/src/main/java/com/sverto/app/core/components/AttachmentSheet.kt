@@ -1,5 +1,7 @@
-package com.sverto.app.feature.aichat
+package com.sverto.app.core.components
 
+import android.content.Context
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -24,6 +26,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import androidx.core.content.FileProvider
+import java.io.File
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,4 +99,10 @@ private fun AttachTile(
             )
         }
     }
+}
+
+fun createCameraImageUri(context: Context): Uri {
+    val dir = File(context.cacheDir, "images").apply { mkdirs() }
+    val file = File.createTempFile("camera_", ".jpg", dir)
+    return FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", file)
 }

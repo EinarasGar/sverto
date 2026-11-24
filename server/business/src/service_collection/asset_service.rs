@@ -1,16 +1,19 @@
 use std::collections::{HashMap, HashSet};
 
 use dal::{
+    enums::asset_types::DatabaseAssetTypes,
     models::{
         asset_models::{
-            asset_type_ids, Asset, AssetBasePair, AssetId, AssetPair, AssetPairId,
-            AssetPairSharedMetadata, AssetPairUserMetadata, AssetRaw, AssetRefModel,
-            AssetWithMetadata, VisibleAsset,
+            Asset, AssetBasePair, AssetId, AssetPair, AssetPairId, AssetPairSharedMetadata,
+            AssetPairUserMetadata, AssetRaw, AssetRefModel, AssetWithMetadata, VisibleAsset,
         },
         base::{Count, Exsists, TotalCount},
     },
     queries::asset_queries,
-    query_params::{get_asset_refs_params::GetAssetRefsParams, get_assets_params::GetAssetsParams},
+    query_params::{
+        get_asset_refs_params::GetAssetRefsParams, get_assets_params::GetAssetsParams,
+        search_visible_assets_params::SearchVisibleAssetsParams,
+    },
 };
 
 #[mockall_double::double]
@@ -18,9 +21,11 @@ use dal::database_context::MyraDb;
 
 use itertools::Itertools;
 use mockall::automock;
+use pgvector::Vector;
 use uuid::Uuid;
 
 use super::ai_embedding_service::AiEmbeddingService;
+use crate::dynamic_enums::{asset_types::AssetTypes, DynamicEnum};
 
 use crate::dtos::{
     self,
@@ -31,7 +36,7 @@ use crate::dtos::{
     asset_pair_insert_dto::AssetPairInsertDto,
     asset_ticker_pair_ids_dto::AssetTickerPairIdsDto,
     assets::{
-        asset_dto, full_asset_dto::FullAssetDto,
+        asset_dto, asset_search_result_dto::AssetSearchResultDto, full_asset_dto::FullAssetDto,
         shared_asset_pair_metadata_dto::SharedAssetPairMetadataDto,
         update_asset_dto::UpdateAssetDto,
     },
@@ -111,8 +116,9 @@ impl AssetsService {
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, asset_id))]
     pub async fn is_visible_currency(&self, user_id: Uuid, asset_id: i32) -> anyhow::Result<bool> {
         let query = asset_queries::get_asset_refs(
-            GetAssetRefsParams::by_ids(user_id, vec![asset_id])
-                .with_asset_type(asset_type_ids::CURRENCY),
+            GetAssetRefsParams::by_ids(user_id, vec![asset_id]).with_asset_type(
+                AssetTypes::try_into_dynamic_enum(DatabaseAssetTypes::Currency)?,
+            ),
         );
         let rows = self.db.fetch_all::<AssetRefModel>(query).await?;
         Ok(!rows.is_empty())
@@ -174,8 +180,9 @@ impl AssetsService {
             return Ok(HashMap::new());
         }
         let query = asset_queries::get_asset_refs(
-            GetAssetRefsParams::by_tickers(user_id, tickers.into_iter().collect())
-                .with_asset_type(asset_type_ids::CURRENCY),
+            GetAssetRefsParams::by_tickers(user_id, tickers.into_iter().collect()).with_asset_type(
+                AssetTypes::try_into_dynamic_enum(DatabaseAssetTypes::Currency)?,
+            ),
         );
         let rows = self.db.fetch_all::<AssetRefModel>(query).await?;
         Ok(rows.into_iter().map(|row| (row.ticker, row.id)).collect())
@@ -226,12 +233,30 @@ impl AssetsService {
         &self,
         user_id: Uuid,
         search: String,
+        asset_type: Option<i32>,
         limit: u64,
-    ) -> anyhow::Result<Vec<AssetDto>> {
-        let models = self
-            .db
-            .fetch_all::<VisibleAsset>(asset_queries::search_visible_assets(user_id, search, limit))
-            .await?;
+    ) -> anyhow::Result<Vec<AssetSearchResultDto>> {
+        let query = asset_queries::search_visible_assets(
+            SearchVisibleAssetsParams::by_text(user_id, search, limit).with_asset_type(asset_type),
+        );
+        let models = self.db.fetch_all::<VisibleAsset>(query).await?;
+        Ok(models.into_iter().map(Into::into).collect())
+    }
+
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
+    pub async fn search_visible_assets_by_embedding(
+        &self,
+        user_id: Uuid,
+        embedding: Vector,
+        asset_type: Option<i32>,
+        excluded_ids: Vec<i32>,
+        limit: u64,
+    ) -> anyhow::Result<Vec<AssetSearchResultDto>> {
+        let query = asset_queries::search_visible_assets(
+            SearchVisibleAssetsParams::by_embedding(user_id, embedding, excluded_ids, limit)
+                .with_asset_type(asset_type),
+        );
+        let models = self.db.fetch_all::<VisibleAsset>(query).await?;
         Ok(models.into_iter().map(Into::into).collect())
     }
 

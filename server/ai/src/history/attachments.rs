@@ -9,6 +9,7 @@ use rig::message::{
 use uuid::Uuid;
 
 use crate::models::chat::Base64Attachment;
+use crate::models::error::AiError;
 
 const FILE_REFERENCE: &str = "myra-file:";
 
@@ -16,24 +17,34 @@ pub(crate) fn user_message(
     text: String,
     file_ids: &[Uuid],
     files: &HashMap<Uuid, Base64Attachment>,
-) -> Message {
+) -> Result<Message, AiError> {
     let mut content = vec![UserContent::text(text)];
-    content.extend(
-        file_ids
-            .iter()
-            .filter_map(|id| files.get(id).map(|file| reference(*id, &file.media_type))),
-    );
-    Message::User { content }
+    for id in file_ids {
+        if let Some(file) = files.get(id) {
+            content.push(reference(*id, &file.media_type)?);
+        }
+    }
+    Ok(Message::User { content })
 }
 
-fn reference(file_id: Uuid, media_type: &str) -> UserContent {
+fn reference(file_id: Uuid, media_type: &str) -> Result<UserContent, AiError> {
     let url = format!("{FILE_REFERENCE}{file_id}");
-    match ImageMediaType::from_mime_type(media_type) {
-        Some(image) => UserContent::image_url(url, Some(image), None),
-        None => UserContent::Document(Document {
+    if let Some(image) = ImageMediaType::from_mime_type(media_type) {
+        return Ok(UserContent::image_url(url, Some(image), None));
+    }
+    let document = DocumentMediaType::from_mime_type(media_type).or_else(|| {
+        media_type
+            .starts_with("text/")
+            .then_some(DocumentMediaType::TXT)
+    });
+    match document {
+        Some(document) => Ok(UserContent::Document(Document {
             data: DocumentData::File(DocumentSourceKind::Url(url)),
-            media_type: DocumentMediaType::from_mime_type(media_type),
+            media_type: Some(document),
             additional_params: None,
+        })),
+        None => Err(AiError::InvalidAttachment {
+            detail: format!("{media_type} files can't be read"),
         }),
     }
 }

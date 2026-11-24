@@ -3,9 +3,14 @@ use std::sync::Arc;
 use super::{ToolError, ToolMode};
 use crate::data_provider::AiDataProvider;
 use crate::embedding::{embed_query, EmbeddingModel};
+use crate::models::reference::AssetSearchParams;
 use crate::models::tool_output::SearchAssetsArgs;
 use rig::tool::{Tool, ToolContext, ToolExecutionError};
 use serde_json::{json, Value};
+
+const MAX_MATCHES: u64 = 15;
+const MAX_SIMILAR: u64 = 5;
+const CODE_MODE_MAX_MATCHES: u64 = 100;
 
 pub struct SearchAssetsTool<D: AiDataProvider> {
     data: Arc<D>,
@@ -35,7 +40,11 @@ impl<D: AiDataProvider> Tool for SearchAssetsTool<D> {
     type Output = Value;
 
     fn description(&self) -> String {
-        "Search assets (currencies, stocks, commodities) by keyword or semantically. Use this to find valid asset IDs. Each row: {id, asset_name, ticker, asset_type}.".to_string()
+        match self.mode {
+            ToolMode::Normal => "Find asset IDs (currencies, stocks, ETFs, funds, bonds, ETCs, crypto) by ticker or name, e.g. 'EUR', 'Apple', 'VWRL'. Put the kind of asset in asset_type instead of adding words like 'currency' to the query. Returns `matches` (text matches, best first; assets the user holds rank higher) and `similar` (closest by meaning among currencies, crypto and the user's own assets; this catches typos and other names such as 'British pound', but may be unrelated). Each row: {id, asset_name, ticker, asset_type, held}, where held means the user currently holds the asset.",
+            ToolMode::CodeMode => "Assets whose ticker or name matches the query, as a flat array ranked best first (assets the user holds rank higher). args {query, asset_type? (currency|stock|bond|mutual_fund|etf|etc|crypto|real_estate|vehicle)}. Each row: {id, asset_name, ticker, asset_type, held}.",
+        }
+        .to_string()
     }
 
     fn parameters(&self) -> Value {
@@ -44,10 +53,15 @@ impl<D: AiDataProvider> Tool for SearchAssetsTool<D> {
             "properties": {
                 "query": {
                     "type": "string",
-                    "description": "Optional keyword or natural language query to find assets (e.g. 'US dollar', 'bitcoin', 'tech stocks')"
+                    "description": "Ticker or name, e.g. 'EUR', 'Euro', 'AAPL', 'S&P 500'."
+                },
+                "asset_type": {
+                    "type": "string",
+                    "enum": ["currency", "stock", "bond", "mutual_fund", "etf", "etc", "crypto", "real_estate", "vehicle"],
+                    "description": "Optional. Only return assets of this type."
                 }
             },
-            "required": []
+            "required": ["query"]
         })
     }
 
@@ -61,27 +75,33 @@ impl<D: AiDataProvider> Tool for SearchAssetsTool<D> {
         _context: &mut ToolContext,
         args: Self::Args,
     ) -> std::result::Result<Self::Output, Self::Error> {
-        let query_vec = match self.mode {
-            ToolMode::CodeMode => None,
-            ToolMode::Normal => {
-                if let Some(ref q) = args.query {
-                    Some(
-                        embed_query(&self.embedding_model, q)
-                            .await
-                            .map_err(|e| ToolError(e.to_string()))?,
-                    )
-                } else {
-                    None
-                }
-            }
+        let (query_vector, max_matches) = match self.mode {
+            ToolMode::CodeMode => (None, CODE_MODE_MAX_MATCHES),
+            ToolMode::Normal => (
+                Some(
+                    embed_query(&self.embedding_model, &args.query)
+                        .await
+                        .map_err(|e| ToolError(e.to_string()))?,
+                ),
+                MAX_MATCHES,
+            ),
         };
 
-        let assets = self
+        let result = self
             .data
-            .search_assets(args.query.as_deref(), query_vec)
+            .search_assets(AssetSearchParams {
+                query: args.query,
+                asset_type: args.asset_type,
+                query_vector,
+                max_matches,
+                max_similar: MAX_SIMILAR,
+            })
             .await
             .map_err(|e| ToolError(e.to_string()))?;
 
-        serde_json::to_value(&assets).map_err(Into::into)
+        match self.mode {
+            ToolMode::CodeMode => serde_json::to_value(&result.matches).map_err(Into::into),
+            ToolMode::Normal => serde_json::to_value(&result).map_err(Into::into),
+        }
     }
 }

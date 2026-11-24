@@ -1,4 +1,4 @@
-use dal::models::asset_models::{Asset, VisibleAsset};
+use dal::models::asset_models::Asset;
 use serde::{Deserialize, Serialize};
 use uuid::Uuid;
 
@@ -17,18 +17,6 @@ impl From<Asset> for AssetDto {
             ticker: p.ticker,
             name: p.asset_name,
             category: "obselete dto".to_string(),
-            asset_id: p.id,
-            owner: p.user_id,
-        }
-    }
-}
-
-impl From<VisibleAsset> for AssetDto {
-    fn from(p: VisibleAsset) -> Self {
-        Self {
-            ticker: p.ticker,
-            name: p.asset_name,
-            category: p.category,
             asset_id: p.id,
             owner: p.user_id,
         }

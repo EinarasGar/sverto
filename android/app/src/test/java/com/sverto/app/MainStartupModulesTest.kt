@@ -8,7 +8,7 @@ class MainStartupModulesTest {
     fun portfolio_starts_without_hidden_modules() {
         assertEquals(
             MainStartupModules(),
-            mainStartupModules(currentRoute = "portfolio", hasSharedImages = false),
+            mainStartupModules(currentRoute = "portfolio", hasSharedFiles = false),
         )
     }
 
@@ -16,7 +16,7 @@ class MainStartupModulesTest {
     fun transactions_starts_transaction_modules() {
         assertEquals(
             MainStartupModules(transactions = true, quickUploads = true),
-            mainStartupModules(currentRoute = "transactions", hasSharedImages = false),
+            mainStartupModules(currentRoute = "transactions", hasSharedFiles = false),
         )
     }
 
@@ -24,7 +24,7 @@ class MainStartupModulesTest {
     fun myra_starts_only_chat_module() {
         assertEquals(
             MainStartupModules(aiChat = true),
-            mainStartupModules(currentRoute = "ai_chat", hasSharedImages = false),
+            mainStartupModules(currentRoute = "ai_chat", hasSharedFiles = false),
         )
     }
 
@@ -34,16 +34,16 @@ class MainStartupModulesTest {
             MainStartupModules(transactions = true),
             mainStartupModules(
                 currentRoute = "transactionDetail/{txId}",
-                hasSharedImages = false,
+                hasSharedFiles = false,
             ),
         )
     }
 
     @Test
-    fun shared_images_start_transaction_modules() {
+    fun shared_files_start_transaction_modules() {
         assertEquals(
             MainStartupModules(transactions = true, quickUploads = true),
-            mainStartupModules(currentRoute = "portfolio", hasSharedImages = true),
+            mainStartupModules(currentRoute = "portfolio", hasSharedFiles = true),
         )
     }
 

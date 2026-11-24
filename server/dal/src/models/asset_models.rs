@@ -1,10 +1,5 @@
 use sqlx::types::{time::OffsetDateTime, Decimal, Uuid};
 
-pub mod asset_type_ids {
-    pub const CURRENCY: i32 = 1;
-    pub const CRYPTO: i32 = 7;
-}
-
 #[derive(sqlx::FromRow, Debug)]
 pub struct AssetWithMetadata {
     pub id: i32,
@@ -39,11 +34,11 @@ pub struct AssetRaw {
 
 #[derive(sqlx::FromRow, Debug)]
 pub struct VisibleAsset {
-    pub ticker: String,
-    pub asset_name: String,
-    pub category: String,
     pub id: i32,
-    pub user_id: Option<Uuid>,
+    pub asset_name: String,
+    pub ticker: String,
+    pub asset_type: i32,
+    pub held: bool,
 }
 
 pub struct InsertAsset {

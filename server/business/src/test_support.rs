@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
 use dal::enums::{
-    account_types::DatabaseAccountTypes, fee_categories::DatabaseFeeCategories,
+    account_types::DatabaseAccountTypes, asset_types::DatabaseAssetTypes,
+    fee_categories::DatabaseFeeCategories,
     transaction_type_categories::DatabaseTransactionTypeCategories,
 };
 
 use crate::dynamic_enums::{
-    account_types::AccountTypes, fee_categories::FeeCategories,
+    account_types::AccountTypes, asset_types::AssetTypes, fee_categories::FeeCategories,
     transaction_type_categories::TransactionTypeCategories, DynamicEnum,
 };
 
@@ -52,4 +53,16 @@ pub(crate) fn load_dynamic_enums() {
     account_types.insert(DatabaseAccountTypes::WorkplacePension, 6);
     account_types.insert(DatabaseAccountTypes::CryptoWallet, 10);
     AccountTypes::set_static_map(Some(account_types));
+
+    let mut asset_types = HashMap::new();
+    asset_types.insert(DatabaseAssetTypes::Currency, 1);
+    asset_types.insert(DatabaseAssetTypes::Stock, 2);
+    asset_types.insert(DatabaseAssetTypes::Bond, 3);
+    asset_types.insert(DatabaseAssetTypes::MutualFund, 4);
+    asset_types.insert(DatabaseAssetTypes::Etf, 5);
+    asset_types.insert(DatabaseAssetTypes::Etc, 6);
+    asset_types.insert(DatabaseAssetTypes::Crypto, 7);
+    asset_types.insert(DatabaseAssetTypes::RealEstate, 8);
+    asset_types.insert(DatabaseAssetTypes::Vehicle, 9);
+    AssetTypes::set_static_map(Some(asset_types));
 }

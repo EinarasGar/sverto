@@ -51,13 +51,6 @@ private struct TransactionsTab: View {
                 if let notice { toasts.show(notice.message) }
             }
             .sensoryFeedback(.success, trigger: held.decidedCount)
-            .onChange(of: shell.pendingSharedImages, initial: true) { _, images in
-                guard !images.isEmpty else { return }
-                shell.pendingSharedImages = []
-                quickUploads.aiConsent.perform {
-                    Task { await queueSharedImages(images) }
-                }
-            }
             .aiConsentSheet(quickUploads.aiConsent)
             .onAppear { model.start() }
             .onDisappear { model.stop() }
@@ -95,16 +88,6 @@ private struct TransactionsTab: View {
             shell.push(.createTransaction(typeKey: TransactionTypeCatalog.regular.key, quickUploadId: item.id))
         }
     }
-
-    private func queueSharedImages(_ images: [Data]) async {
-        for imageData in images {
-            if let prepared = await ReceiptPhotoImport.prepare(imageData: imageData, mimeType: nil) {
-                quickUploads.queue(prepared)
-            } else {
-                toasts.show(ReceiptPhotoImport.failureMessage)
-            }
-        }
-    }
 }
 
 private struct TransactionSearchToolbar: ViewModifier {
@@ -129,7 +112,9 @@ private struct NewTransactionEntryPoints: ViewModifier {
 
     @State private var isTypePickerPresented = false
     @State private var isPhotoPickerPresented = false
-    @State private var pickedPhoto: PhotosPickerItem?
+    @State private var isCameraPresented = false
+    @State private var isFilePickerPresented = false
+    @State private var pickedPhotos: [PhotosPickerItem] = []
     @State private var routeAfterSheetDismiss: AppRoute?
     @Environment(ShellState.self) private var shell
     @Environment(ToastCenter.self) private var toasts
@@ -145,7 +130,15 @@ private struct NewTransactionEntryPoints: ViewModifier {
                         .labelStyle(.iconOnly)
                         .tint(.primary)
                         NewTransactionMenu(
-                            onAddReceiptPhoto: { quickUploads.aiConsent.perform { isPhotoPickerPresented = true } },
+                            onAddReceipt: { origin in
+                                quickUploads.aiConsent.perform {
+                                    switch origin {
+                                    case .photos: isPhotoPickerPresented = true
+                                    case .camera: isCameraPresented = true
+                                    case .files: isFilePickerPresented = true
+                                    }
+                                }
+                            },
                             onManualEntry: { isTypePickerPresented = true },
                             onNewGroup: { shell.push(.createTransactionGroup(quickUploadId: nil, fromSelection: false)) },
                             onImportStatements: { shell.push(.imports) }
@@ -160,11 +153,31 @@ private struct NewTransactionEntryPoints: ViewModifier {
                     onSelectGroup: { routeAfterSheetDismiss = .createTransactionGroup(quickUploadId: nil, fromSelection: false) }
                 )
             }
-            .photosPicker(isPresented: $isPhotoPickerPresented, selection: $pickedPhoto, matching: .images)
-            .onChange(of: pickedPhoto) { _, item in
-                guard let item else { return }
-                pickedPhoto = nil
-                Task { await importReceipt(item) }
+            .photosPicker(isPresented: $isPhotoPickerPresented, selection: $pickedPhotos, matching: .images)
+            .onChange(of: pickedPhotos) { _, items in
+                guard !items.isEmpty else { return }
+                pickedPhotos = []
+                Task { await queue(ImportFileReader.read(photoItems: items)) }
+            }
+            .fullScreenCover(isPresented: $isCameraPresented) {
+                CameraPicker(
+                    onCapture: { image in
+                        Task { await queue([QuickUploadPrep.read(cameraImage: image)]) }
+                    },
+                    onDismiss: { isCameraPresented = false }
+                )
+                .ignoresSafeArea()
+            }
+            .fileImporter(isPresented: $isFilePickerPresented, allowedContentTypes: [.image, .pdf, .text], allowsMultipleSelection: true) { result in
+                guard case let .success(urls) = result else { return }
+                Task { await queue(ImportFileReader.read(fileURLs: urls)) }
+            }
+            .onChange(of: shell.pendingSharedFiles, initial: true) { _, files in
+                guard !files.isEmpty else { return }
+                shell.pendingSharedFiles = []
+                quickUploads.aiConsent.perform {
+                    Task { await queue(files) }
+                }
             }
     }
 
@@ -174,12 +187,18 @@ private struct NewTransactionEntryPoints: ViewModifier {
         shell.push(route)
     }
 
-    private func importReceipt(_ item: PhotosPickerItem) async {
-        guard let prepared = await ReceiptPhotoImport.prepare(item) else {
-            toasts.show(ReceiptPhotoImport.failureMessage)
-            return
+    private func queue(_ results: [PickResult]) async {
+        var rejected: [PickResult] = []
+        for case let .picked(file) in results {
+            if let prepared = await QuickUploadPrep.prepare(file) {
+                quickUploads.queue(prepared)
+            } else {
+                rejected.append(.unreadable(name: file.name))
+            }
         }
-        quickUploads.queue(prepared)
+        if let message = PickResult.failureMessage(results + rejected) {
+            toasts.show(message)
+        }
     }
 }
 

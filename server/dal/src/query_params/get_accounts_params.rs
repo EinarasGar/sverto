@@ -6,7 +6,7 @@ pub struct GetAccountsParams {
     pub search_type: GetAccountsParamsSeachType,
     pub include_metadata: bool,
     pub include_inactive: bool,
-    pub include_suggested_currency: bool,
+    pub suggested_currency_type: Option<i32>,
     pub user_id: Option<Uuid>,
 }
 
@@ -16,17 +16,17 @@ impl GetAccountsParams {
             search_type: GetAccountsParamsSeachType::ById(id),
             include_metadata: true,
             include_inactive: false,
-            include_suggested_currency: false,
+            suggested_currency_type: None,
             user_id: Some(user_id),
         }
     }
 
-    pub fn by_user_id_with_metadata(user_id: Uuid) -> Self {
+    pub fn by_user_id_with_metadata(user_id: Uuid, currency_type: i32) -> Self {
         Self {
             search_type: GetAccountsParamsSeachType::ByUserId(user_id),
             include_metadata: true,
             include_inactive: false,
-            include_suggested_currency: true,
+            suggested_currency_type: Some(currency_type),
             user_id: None,
         }
     }
@@ -36,7 +36,7 @@ impl GetAccountsParams {
             search_type: GetAccountsParamsSeachType::ByIds(ids),
             include_metadata: false,
             include_inactive: false,
-            include_suggested_currency: false,
+            suggested_currency_type: None,
             user_id: None,
         }
     }

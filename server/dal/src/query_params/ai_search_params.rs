@@ -30,10 +30,3 @@ pub struct SearchCategoriesParams {
     pub embedding: Option<Vector>,
     pub limit: Option<i64>,
 }
-
-pub struct SearchAssetsParams {
-    pub user_id: Uuid,
-    pub query: Option<String>,
-    pub embedding: Option<Vector>,
-    pub limit: Option<i64>,
-}

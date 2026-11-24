@@ -322,7 +322,7 @@ where
         if !passed_over.is_empty() {
             history.push(pairing::close_pending_with(&passed_over, SUPERSEDED));
         }
-        history.push(history::user_message(message, file_ids, &files));
+        history.push(history::user_message(message, file_ids, &files)?);
         Ok(files)
     }
 

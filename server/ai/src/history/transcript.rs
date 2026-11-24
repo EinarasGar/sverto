@@ -170,11 +170,8 @@ mod tests {
         )]);
         let fee = ToolName::new("record_fee").unwrap();
         let mut conversation = Conversation::new();
-        conversation.push(user_message(
-            "Record the fees on this receipt".into(),
-            &[FILE],
-            &files,
-        ));
+        conversation
+            .push(user_message("Record the fees on this receipt".into(), &[FILE], &files).unwrap());
         conversation.push(Message::Assistant(AssistantMessage::new(vec![
             AssistantContent::reasoning("Two fees."),
             AssistantContent::text("Recording them."),
@@ -299,7 +296,7 @@ mod tests {
             },
         )]);
         let mut conversation = Conversation::new();
-        conversation.push(user_message(String::new(), &[FILE], &files));
+        conversation.push(user_message(String::new(), &[FILE], &files).unwrap());
 
         assert_eq!(preview(&saved(conversation)).unwrap(), None);
         assert_eq!(preview(&[]).unwrap(), None);

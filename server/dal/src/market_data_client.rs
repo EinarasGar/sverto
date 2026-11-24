@@ -3,8 +3,6 @@ use serde::{Deserialize, Serialize};
 use time::format_description::well_known::Rfc3339;
 use time::OffsetDateTime;
 
-use crate::models::asset_models::{asset_type_ids, HeldAssetPairDetailModel};
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum AssetClass {
@@ -13,33 +11,12 @@ pub enum AssetClass {
     Other,
 }
 
-impl AssetClass {
-    pub fn from_asset_type_id(id: i32) -> Self {
-        match id {
-            asset_type_ids::CURRENCY => AssetClass::Currency,
-            asset_type_ids::CRYPTO => AssetClass::Crypto,
-            _ => AssetClass::Other,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Serialize)]
 pub struct PairRequest {
     pub base: String,
     pub base_type: AssetClass,
     pub quote: String,
     pub quote_type: AssetClass,
-}
-
-impl From<&HeldAssetPairDetailModel> for PairRequest {
-    fn from(p: &HeldAssetPairDetailModel) -> Self {
-        Self {
-            base: p.asset_ticker.clone(),
-            base_type: AssetClass::from_asset_type_id(p.asset_type),
-            quote: p.base_ticker.clone(),
-            quote_type: AssetClass::from_asset_type_id(p.base_asset_type),
-        }
-    }
 }
 
 #[derive(Serialize)]
@@ -204,14 +181,6 @@ fn pairs_label(pairs: &[PairRequest]) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn maps_asset_type_ids_to_classes() {
-        assert_eq!(AssetClass::from_asset_type_id(1), AssetClass::Currency);
-        assert_eq!(AssetClass::from_asset_type_id(7), AssetClass::Crypto);
-        assert_eq!(AssetClass::from_asset_type_id(2), AssetClass::Other);
-        assert_eq!(AssetClass::from_asset_type_id(5), AssetClass::Other);
-    }
 
     #[test]
     fn serializes_pair_request_with_lowercase_classes() {

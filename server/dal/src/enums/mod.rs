@@ -1,4 +1,5 @@
 pub mod account_types;
+pub mod asset_types;
 pub mod fee_categories;
 pub mod transaction_type_categories;
 pub mod transaction_types;

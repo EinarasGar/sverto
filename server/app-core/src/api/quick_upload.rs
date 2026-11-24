@@ -186,6 +186,16 @@ pub fn mark_failed(
     }
 }
 
+pub fn requeue(conn: &Connection, local_id: &str, server_url: &str) -> bool {
+    conn.execute(
+        "UPDATE pending_uploads SET status = 'queued', retry_count = 0, next_retry_at = NULL, error_message = NULL
+         WHERE local_id = ?1 AND server_url = ?2 AND status IN ('queued', 'failed')",
+        rusqlite::params![local_id, server_url],
+    )
+    .map(|n| n > 0)
+    .unwrap_or(false)
+}
+
 pub fn delete(conn: &Connection, local_id: &str, server_url: &str) -> bool {
     conn.execute(
         "DELETE FROM pending_uploads WHERE local_id = ?1 AND server_url = ?2",

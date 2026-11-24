@@ -42,7 +42,7 @@ import kotlinx.coroutines.withContext
 import uniffi.sverto_core.AppStore
 
 class MainActivity : ComponentActivity() {
-    private val sharedImageUris: MutableState<List<Uri>> = mutableStateOf(emptyList())
+    private val sharedFileUris: MutableState<List<Uri>> = mutableStateOf(emptyList())
     private val sessionViewModel: AppSessionViewModel by viewModels()
     private val appUpdates by lazy { (application as SvertoApp).appUpdates }
     private val updateFlowLauncher =
@@ -54,13 +54,13 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         appUpdates.attach(updateFlowLauncher)
         if (savedInstanceState == null) {
-            consumeSharedImages(intent)
+            consumeSharedFiles(intent)
         }
         setContent {
             SvertoTheme {
                 val appStore = remember { (applicationContext as SvertoApp).appStore }
-                val sharedImages = sharedImageUris.value
-                val onSharedImagesHandled = { sharedImageUris.value = emptyList() }
+                val sharedFiles = sharedFileUris.value
+                val onSharedFilesHandled = { sharedFileUris.value = emptyList() }
                 val sessionState by sessionViewModel.state.collectAsStateWithLifecycle()
                 val currentSession = sessionState
 
@@ -119,8 +119,8 @@ class MainActivity : ComponentActivity() {
                             SignedInGate(
                                 appStore = appStore,
                                 signInKey = Unit,
-                                sharedImageUris = sharedImages,
-                                onSharedImagesHandled = onSharedImagesHandled,
+                                sharedFileUris = sharedFiles,
+                                onSharedFilesHandled = onSharedFilesHandled,
                                 sessionViewModel = sessionViewModel,
                             )
                     }
@@ -132,7 +132,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        consumeSharedImages(intent)
+        consumeSharedFiles(intent)
     }
 
     override fun onResume() {
@@ -155,39 +155,44 @@ class MainActivity : ComponentActivity() {
         appUpdates.onLeavingForActivity()
     }
 
-    private fun consumeSharedImages(intent: Intent?) {
-        val uris = extractSharedImageUris(intent)
+    private fun consumeSharedFiles(intent: Intent?) {
+        val uris = extractSharedFileUris(intent)
         if (uris.isNotEmpty()) {
-            sharedImageUris.value = uris
+            sharedFileUris.value = uris
             intent?.removeExtra(Intent.EXTRA_STREAM)
             intent?.action = Intent.ACTION_MAIN
         }
     }
 
-    private fun extractSharedImageUris(intent: Intent?): List<Uri> {
-        if (intent == null || intent.type?.startsWith("image/") != true) return emptyList()
-        return when (intent.action) {
-            Intent.ACTION_SEND ->
-                IntentCompat
-                    .getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
-                    ?.let { listOf(it) }
-                    ?: emptyList()
-            Intent.ACTION_SEND_MULTIPLE ->
-                IntentCompat
-                    .getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
-                    ?.filterNotNull()
-                    ?: emptyList()
-            else -> emptyList()
-        }
+    private fun extractSharedFileUris(intent: Intent?): List<Uri> {
+        val type = intent?.type ?: return emptyList()
+        val uris =
+            when (intent.action) {
+                Intent.ACTION_SEND ->
+                    IntentCompat
+                        .getParcelableExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                        ?.let { listOf(it) }
+                        ?: emptyList()
+                Intent.ACTION_SEND_MULTIPLE ->
+                    IntentCompat
+                        .getParcelableArrayListExtra(intent, Intent.EXTRA_STREAM, Uri::class.java)
+                        ?.filterNotNull()
+                        ?: emptyList()
+                else -> emptyList()
+            }
+        if (isShareableType(type)) return uris
+        return uris.filter { isShareableType(contentResolver.getType(it)) }
     }
 }
+
+private fun isShareableType(type: String?): Boolean = type != null && (type.startsWith("image/") || type == "application/pdf")
 
 @Composable
 private fun SignedInGate(
     appStore: AppStore,
     signInKey: Any?,
-    sharedImageUris: List<Uri>,
-    onSharedImagesHandled: () -> Unit,
+    sharedFileUris: List<Uri>,
+    onSharedFilesHandled: () -> Unit,
     sessionViewModel: AppSessionViewModel,
 ) {
     var onboarded by remember(signInKey) { mutableStateOf<Boolean?>(null) }
@@ -236,8 +241,8 @@ private fun SignedInGate(
         null -> LoadingScreen()
         true ->
             MainScreen(
-                sharedImageUris = sharedImageUris,
-                onSharedImagesHandled = onSharedImagesHandled,
+                sharedFileUris = sharedFileUris,
+                onSharedFilesHandled = onSharedFilesHandled,
                 sessionViewModel = sessionViewModel,
             )
         false ->

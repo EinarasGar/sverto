@@ -1,9 +1,15 @@
 import Foundation
 
 nonisolated struct PreparedQuickUpload: Sendable {
-    let imageData: Data
+    let data: Data
     let thumbnail: Data
     let mimeType: String
+}
+
+enum QuickUploadOrigin {
+    case photos
+    case camera
+    case files
 }
 
 nonisolated enum ProposalType: String, Hashable {

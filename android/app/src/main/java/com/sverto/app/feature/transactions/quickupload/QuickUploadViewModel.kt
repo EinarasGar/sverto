@@ -2,12 +2,14 @@ package com.sverto.app.feature.transactions.quickupload
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.sverto.app.core.friendlyMessage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import uniffi.sverto_core.ApiException
 import uniffi.sverto_core.AppStore
 import uniffi.sverto_core.QuickUploadsObserver
 import uniffi.sverto_core.QuickUploadsState
@@ -46,12 +48,12 @@ class QuickUploadViewModel(
     }
 
     fun queueUpload(
-        imageData: ByteArray,
+        data: ByteArray,
         thumbnail: ByteArray,
         mimeType: String,
     ) {
         viewModelScope.launch {
-            withContext(Dispatchers.IO) { store.queueQuickUpload(imageData, thumbnail, mimeType) }
+            withContext(Dispatchers.IO) { store.queueQuickUpload(data, thumbnail, mimeType) }
             store.refreshQuickUploads()
             if (!store.getAiFeaturesEnabled()) _heldByAiFeatures.value = true
         }
@@ -65,9 +67,19 @@ class QuickUploadViewModel(
         viewModelScope.launch { store.refreshQuickUploads() }
     }
 
-    @Suppress("UNUSED_PARAMETER")
     fun retry(id: String) {
-        viewModelScope.launch { store.refreshQuickUploads() }
+        viewModelScope.launch {
+            try {
+                store.retryQuickUpload(id)
+            } catch (_: ApiException.AiFeaturesDisabled) {
+                _heldByAiFeatures.value = true
+            } catch (e: ApiException) {
+                _items.value =
+                    _items.value.map { item ->
+                        if (item.id == id) item.copy(errorMessage = e.friendlyMessage()) else item
+                    }
+            }
+        }
     }
 
     fun cancel(id: String) {

@@ -26,6 +26,7 @@ use crate::dtos::transaction_dto::{
     AssetTransferInMetadataDto, TransactionDto, TransactionTypeDto, TransactionVisibilityDto,
 };
 use crate::dtos::validation_error_dto::{BusinessFieldErrorDto, BusinessValidationErrorDto};
+use crate::dynamic_enums::{asset_types::AssetTypes, DynamicEnum};
 
 const LIQUID: i32 = 1;
 
@@ -116,7 +117,7 @@ impl PropertyService {
                     &Uuid::new_v4().simple().to_string()[..8].to_uppercase()
                 ),
                 name: dto.name.clone(),
-                asset_type: dto.kind.asset_type_id(),
+                asset_type: AssetTypes::try_into_dynamic_enum(dto.kind.asset_type())?,
                 base_pair_id: dto.currency_asset_id,
                 user_id,
             })
@@ -231,7 +232,7 @@ impl PropertyService {
                 asset_id: property.asset_id,
                 ticker: asset.ticker,
                 name: dto.name,
-                asset_type: property.kind.asset_type_id(),
+                asset_type: AssetTypes::try_into_dynamic_enum(property.kind.asset_type())?,
                 base_pair_id: property.currency_asset_id,
                 user_id,
             })

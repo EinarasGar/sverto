@@ -76,11 +76,14 @@ impl Debug for DbCopyCommand {
     }
 }
 
-/// Escapes ILIKE metacharacters (% and _) in a search string and wraps it in %...% for partial matching.
-pub fn escape_ilike_pattern(query: &str) -> String {
-    let escaped = query
+pub fn escape_like(query: &str) -> String {
+    query
         .replace('\\', "\\\\")
         .replace('%', "\\%")
-        .replace('_', "\\_");
-    format!("%{}%", escaped)
+        .replace('_', "\\_")
+}
+
+/// Escapes ILIKE metacharacters (% and _) in a search string and wraps it in %...% for partial matching.
+pub fn escape_ilike_pattern(query: &str) -> String {
+    format!("%{}%", escape_like(query))
 }

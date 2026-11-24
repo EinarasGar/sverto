@@ -7,7 +7,9 @@ use std::collections::{HashMap, HashSet};
 
 use ai::models::account::{AccountIdentifierResult, AccountResult};
 use ai::models::aggregate::{AggregateGroupResult, AggregateResult};
-use ai::models::reference::{AssetResult, CategoryResult};
+use ai::models::reference::{
+    AssetResult, AssetSearchParams, AssetSearchResult, AssetType, CategoryResult,
+};
 use ai::models::search::TransactionSearchResult;
 use ai::models::transactions::{
     QueryTransactionsParams, QueryTransactionsResult, TransactionDetailEntry,
@@ -21,7 +23,8 @@ use ai::models::wealth::{
 use anyhow::Result;
 #[mockall_double::double]
 use dal::database_context::MyraDb;
-use dal::models::ai_models::{AiAssetModel, AiCategoryModel, AiTransactionSearchModel};
+use dal::enums::asset_types::DatabaseAssetTypes;
+use dal::models::ai_models::{AiCategoryModel, AiTransactionSearchModel};
 use dal::queries::{account_identifier_queries, ai_queries};
 use dal::query_params::ai_search_params;
 use pgvector::Vector;
@@ -34,6 +37,7 @@ use crate::dtos::asset_rate_dto::AssetRateDto;
 use crate::dtos::assets::asset_dto::AssetDto;
 use crate::dtos::assets::asset_id_dto::AssetIdDto;
 use crate::dtos::assets::asset_pair_ids_dto::AssetPairIdsDto;
+use crate::dtos::assets::asset_search_result_dto::AssetSearchResultDto;
 use crate::dtos::entry_dto::EntryDto;
 use crate::dtos::fee_entry_types_dto::FeeEntryTypesDto;
 use crate::dtos::individual_transaction_filters_dto::IndividualTransactionFiltersDto;
@@ -43,6 +47,7 @@ use crate::dtos::portfolio::overview::asset_overview_dto::PortfolioAssetOverview
 use crate::dtos::portfolio::overview::cash_overview_dto::PortfolioCashOverviewDto;
 use crate::dtos::portfolio::overview::PortfolioOverviewType;
 use crate::dtos::transaction_dto::{TransactionDto, TransactionTypeDto};
+use crate::dynamic_enums::{asset_types::AssetTypes, DynamicEnum};
 
 use super::accounts_service::AccountsService;
 use super::asset_rates_service::AssetRatesService;
@@ -256,22 +261,40 @@ impl AiDataService {
     pub async fn search_assets(
         &self,
         user_id: Uuid,
-        query: Option<&str>,
-        query_vector: Option<Vec<f64>>,
-    ) -> Result<Vec<AssetResult>> {
-        let embedding =
-            query_vector.map(|qv| Vector::from(qv.iter().map(|&x| x as f32).collect::<Vec<f32>>()));
-        let params = ai_search_params::SearchAssetsParams {
-            user_id,
-            query: query.map(|s| s.to_string()),
-            limit: embedding.as_ref().map(|_| 20_i64),
-            embedding,
-        };
-        let rows = self
-            .db
-            .fetch_all::<AiAssetModel>(ai_queries::search_assets(&params))
+        params: AssetSearchParams,
+    ) -> Result<AssetSearchResult> {
+        let asset_type = params.asset_type.map(asset_type_id).transpose()?;
+        let matches = self
+            .assets_service
+            .search_visible_assets(user_id, params.query, asset_type, params.max_matches)
             .await?;
-        Ok(rows.into_iter().map(to_asset_result).collect())
+        let similar = match params.query_vector {
+            Some(query_vector) => {
+                let embedding =
+                    Vector::from(query_vector.iter().map(|&x| x as f32).collect::<Vec<f32>>());
+                let excluded_ids = matches.iter().map(|asset| asset.asset_id).collect();
+                self.assets_service
+                    .search_visible_assets_by_embedding(
+                        user_id,
+                        embedding,
+                        asset_type,
+                        excluded_ids,
+                        params.max_similar,
+                    )
+                    .await?
+            }
+            None => vec![],
+        };
+        Ok(AssetSearchResult {
+            matches: matches
+                .into_iter()
+                .map(to_asset_result)
+                .collect::<Result<_>>()?,
+            similar: similar
+                .into_iter()
+                .map(to_asset_result)
+                .collect::<Result<_>>()?,
+        })
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id))]
@@ -1190,13 +1213,40 @@ fn to_category_result(r: AiCategoryModel) -> CategoryResult {
     }
 }
 
-fn to_asset_result(r: AiAssetModel) -> AssetResult {
-    AssetResult {
-        id: r.id,
-        asset_name: r.asset_name,
-        ticker: r.ticker,
-        asset_type: r.asset_type,
-    }
+fn asset_type_id(asset_type: AssetType) -> Result<i32> {
+    let database_type = match asset_type {
+        AssetType::Currency => DatabaseAssetTypes::Currency,
+        AssetType::Stock => DatabaseAssetTypes::Stock,
+        AssetType::Bond => DatabaseAssetTypes::Bond,
+        AssetType::MutualFund => DatabaseAssetTypes::MutualFund,
+        AssetType::Etf => DatabaseAssetTypes::Etf,
+        AssetType::Etc => DatabaseAssetTypes::Etc,
+        AssetType::Crypto => DatabaseAssetTypes::Crypto,
+        AssetType::RealEstate => DatabaseAssetTypes::RealEstate,
+        AssetType::Vehicle => DatabaseAssetTypes::Vehicle,
+    };
+    Ok(AssetTypes::try_into_dynamic_enum(database_type)?)
+}
+
+fn to_asset_result(asset: AssetSearchResultDto) -> Result<AssetResult> {
+    let asset_type = match AssetTypes::try_from_dynamic_enum(asset.asset_type)? {
+        DatabaseAssetTypes::Currency => AssetType::Currency,
+        DatabaseAssetTypes::Stock => AssetType::Stock,
+        DatabaseAssetTypes::Bond => AssetType::Bond,
+        DatabaseAssetTypes::MutualFund => AssetType::MutualFund,
+        DatabaseAssetTypes::Etf => AssetType::Etf,
+        DatabaseAssetTypes::Etc => AssetType::Etc,
+        DatabaseAssetTypes::Crypto => AssetType::Crypto,
+        DatabaseAssetTypes::RealEstate => AssetType::RealEstate,
+        DatabaseAssetTypes::Vehicle => AssetType::Vehicle,
+    };
+    Ok(AssetResult {
+        id: asset.asset_id,
+        asset_name: asset.name,
+        ticker: asset.ticker,
+        asset_type,
+        held: asset.held,
+    })
 }
 
 fn to_search_result(m: AiTransactionSearchModel) -> TransactionSearchResult {

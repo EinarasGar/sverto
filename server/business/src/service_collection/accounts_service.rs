@@ -2,6 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 #[mockall_double::double]
 use dal::database_context::MyraDb;
+use dal::enums::asset_types::DatabaseAssetTypes;
 use dal::{
     models::account_models::{
         Account, AccountCreationModel, AccountIdentifierInsert, AccountIdentifierRow,
@@ -22,6 +23,7 @@ use crate::dtos::accounts::{
     account_type_dto::AccountTypeDto,
     full_account_dto::FullAccountDto,
 };
+use crate::dynamic_enums::{asset_types::AssetTypes, DynamicEnum};
 
 pub struct AccountsService {
     db: MyraDb,
@@ -182,8 +184,10 @@ impl AccountsService {
         &self,
         user_id: Uuid,
     ) -> anyhow::Result<Vec<FullAccountDto>> {
-        let query =
-            account_queries::get_accounts(GetAccountsParams::by_user_id_with_metadata(user_id));
+        let query = account_queries::get_accounts(GetAccountsParams::by_user_id_with_metadata(
+            user_id,
+            AssetTypes::try_into_dynamic_enum(DatabaseAssetTypes::Currency)?,
+        ));
         let models = self.db.fetch_all::<AccountWithMetadata>(query).await?;
         let mut dtos: Vec<FullAccountDto> = models.into_iter().map_into().collect();
         let ids: Vec<Uuid> = dtos.iter().map(|d| d.id).collect();

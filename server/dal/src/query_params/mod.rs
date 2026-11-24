@@ -16,3 +16,4 @@ pub mod get_transaction_groups_params;
 pub mod get_transaction_with_entries_params;
 pub mod import_params;
 pub mod paging_params;
+pub mod search_visible_assets_params;

@@ -10,9 +10,10 @@ use sea_query_sqlx::SqlxBinder;
 use sqlx::types::{time::OffsetDateTime, Uuid};
 use time::Duration;
 
-use super::property_queries::is_property_asset;
+use super::{escape_like, property_queries::is_property_asset};
 use crate::{
     idens::{
+        account_idens::AccountIden,
         asset_idens::{
             AssetHistoryCalculationIden, AssetHistoryIden, AssetPairSharedMetadataIden,
             AssetPairUserMetadataIden, AssetPairsIden, AssetTypesIden, AssetsAliasIden, AssetsIden,
@@ -21,81 +22,165 @@ use crate::{
         entries_idens::EntryIden,
         ArrayFunc, CustomFunc, Unnest,
     },
-    models::asset_models::{
-        asset_type_ids, AssetPair, AssetPairDate, AssetPairRateInsert, InsertAsset,
-    },
+    models::asset_models::{AssetPair, AssetPairDate, AssetPairRateInsert, InsertAsset},
     query_params::{
         get_asset_refs_params::{GetAssetRefsParams, GetAssetRefsSearchType},
         get_assets_params::{GetAssetsParams, GetAssetsParamsSeachType},
         get_rates_params::{GetRatesParams, GetRatesSeachType},
+        search_visible_assets_params::{SearchVisibleAssetsParams, SearchVisibleAssetsType},
     },
 };
 
 use super::DbQueryWithValues;
 
 #[macros::named_query]
-pub fn search_visible_assets(user_id: Uuid, search: String, limit: u64) -> DbQueryWithValues {
-    let search_lower = search.to_lowercase();
-    Query::select()
+pub fn search_visible_assets(params: SearchVisibleAssetsParams) -> DbQueryWithValues {
+    let held_assets = Alias::new("held_assets");
+    let held = Expr::col((held_assets.clone(), EntryIden::AssetId)).is_not_null();
+
+    let mut query = Query::select();
+    query
         .column((AssetsIden::Table, AssetsIden::Id))
         .column((AssetsIden::Table, AssetsIden::AssetName))
         .column((AssetsIden::Table, AssetsIden::Ticker))
-        .column((AssetsIden::Table, AssetsIden::UserId))
-        .expr_as(
-            Expr::col((AssetTypesIden::Table, AssetTypesIden::AssetTypeName)),
-            Alias::new("category"),
-        )
+        .column((AssetsIden::Table, AssetsIden::AssetType))
+        .expr_as(held.clone(), Alias::new("held"))
         .from(AssetsIden::Table)
-        .inner_join(
-            AssetTypesIden::Table,
-            Expr::col((AssetsIden::Table, AssetsIden::AssetType))
-                .equals((AssetTypesIden::Table, AssetTypesIden::Id)),
-        )
-        .cond_where(
-            Cond::any()
-                .add(Expr::cust_with_values(
-                    "LOWER(assets.ticker) = $1",
-                    [search_lower.clone()],
-                ))
-                .add(
-                    Expr::col((AssetsIden::Table, AssetsIden::Ticker))
-                        .ilike(format!("{}%", search)),
+        .join_subquery(
+            sea_query::JoinType::LeftJoin,
+            Query::select()
+                .distinct()
+                .column((EntryIden::Table, EntryIden::AssetId))
+                .from(EntryIden::Table)
+                .inner_join(
+                    AccountIden::Table,
+                    Expr::col((AccountIden::Table, AccountIden::Id))
+                        .equals((EntryIden::Table, EntryIden::AccountId)),
                 )
-                .add(
-                    Expr::col((AssetsIden::Table, AssetsIden::AssetName))
-                        .ilike(format!("{}%", search)),
-                ),
+                .and_where(Expr::col((AccountIden::Table, AccountIden::UserId)).eq(params.user_id))
+                .group_by_col((EntryIden::Table, EntryIden::AccountId))
+                .group_by_col((EntryIden::Table, EntryIden::AssetId))
+                .and_having(
+                    Expr::col((EntryIden::Table, EntryIden::Quantity))
+                        .sum()
+                        .ne(0),
+                )
+                .take(),
+            held_assets.clone(),
+            Expr::col((held_assets, EntryIden::AssetId))
+                .equals((AssetsIden::Table, AssetsIden::Id)),
         )
         .and_where(
             Expr::col((AssetsIden::Table, AssetsIden::UserId))
                 .is_null()
-                .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(user_id)),
+                .or(Expr::col((AssetsIden::Table, AssetsIden::UserId)).eq(params.user_id)),
         )
-        .and_where(is_property_asset().not())
-        .order_by_expr(
-            Expr::cust_with_values(
-                "CASE \
-                 WHEN LOWER(assets.ticker) = $1 THEN 0 \
-                 WHEN LOWER(assets.asset_name) = $1 THEN 1 \
-                 WHEN LOWER(assets.asset_name) LIKE $2 THEN 2 \
-                 WHEN LOWER(assets.ticker) LIKE $2 THEN 3 \
-                 ELSE 4 END",
-                [search_lower.clone(), format!("{}%", search_lower)],
-            ),
-            Order::Asc,
-        )
-        .order_by_expr(
-            Expr::col((AssetsIden::Table, AssetsIden::UserId)).is_null(),
-            Order::Asc,
-        )
-        .order_by_expr(
-            Expr::cust_with_values(
-                "GREATEST(similarity(assets.asset_name, $1), similarity(assets.ticker, $1))",
-                [search_lower],
-            ),
-            Order::Desc,
-        )
-        .limit(limit)
+        .and_where(is_property_asset().not());
+
+    if let Some(asset_type) = params.asset_type {
+        query.and_where(Expr::col((AssetsIden::Table, AssetsIden::AssetType)).eq(asset_type));
+    }
+
+    match params.search_type {
+        SearchVisibleAssetsType::ByText(text) => {
+            let text = text.to_lowercase();
+            let words: Vec<&str> = text
+                .split_whitespace()
+                .map(|word| word.trim_matches(|c: char| !c.is_alphanumeric()))
+                .filter(|word| word.chars().count() >= 2)
+                .collect();
+            let word_matches: Vec<Expr> =
+                words
+                    .iter()
+                    .map(|word| {
+                        let mut word_start = String::from(r"\m");
+                        for c in word.chars() {
+                            if !c.is_alphanumeric() {
+                                word_start.push('\\');
+                            }
+                            word_start.push(c);
+                        }
+                        Expr::cust_with_values("assets.asset_name ~* $1", [word_start])
+                            .or(Expr::col((AssetsIden::Table, AssetsIden::Ticker))
+                                .ilike(format!("{}%", escape_like(word))))
+                    })
+                    .collect();
+
+            let mut matches = Cond::any()
+                .add(Expr::cust_with_values(
+                    "LOWER(assets.ticker) = $1",
+                    [text.clone()],
+                ))
+                .add(
+                    Expr::col((AssetsIden::Table, AssetsIden::Ticker))
+                        .ilike(format!("{}.%", escape_like(&text))),
+                );
+            // A word under three characters gives the trigram indexes nothing to search with and
+            // turns the query into a full scan, so short words only count towards the ranking.
+            for (word, word_match) in words.iter().zip(&word_matches) {
+                if word.chars().count() >= 3 {
+                    matches = matches.add(word_match.clone());
+                }
+            }
+            let matched_words = word_matches.into_iter().fold(
+                held.clone().cast_as(Alias::new("int")),
+                |score, word_match| score.add(word_match.cast_as(Alias::new("int"))),
+            );
+            let words: Vec<String> = words.into_iter().map(str::to_string).collect();
+
+            query
+                .cond_where(matches)
+                .order_by_expr(
+                    Expr::cust_with_values(
+                        "LOWER(assets.ticker) = $1 OR LOWER(assets.asset_name) = $1",
+                        [text.clone()],
+                    ),
+                    Order::Desc,
+                )
+                .order_by_expr(
+                    Expr::cust_with_values(
+                        "LOWER(SPLIT_PART(assets.ticker, '.', 1)) = $1",
+                        [text],
+                    ),
+                    Order::Desc,
+                )
+                // Holding an asset weighs as much as matching one more word: it lifts the Euro
+                // for "Euro currency" without lifting it above Euro Stoxx funds for "Euro Stoxx 50".
+                .order_by_expr(matched_words, Order::Desc)
+                .order_by_expr(held, Order::Desc)
+                .order_by_expr(
+                    Expr::cust_with_values(
+                        "LOWER(SPLIT_PART(assets.ticker, '.', 1)) = ANY($1) OR LOWER(assets.asset_name) = ANY($1)",
+                        [Value::from(words)],
+                    ),
+                    Order::Desc,
+                )
+                .order_by_expr(
+                    Expr::col((AssetsIden::Table, AssetsIden::UserId)).is_null(),
+                    Order::Asc,
+                )
+                .order_by_expr(Expr::cust("LENGTH(assets.asset_name)"), Order::Asc);
+        }
+        SearchVisibleAssetsType::ByEmbedding {
+            embedding,
+            excluded_ids,
+        } => {
+            query
+                .and_where(Expr::col((AssetsIden::Table, AssetsIden::Embedding)).is_not_null())
+                .and_where(
+                    Expr::col((AssetsIden::Table, AssetsIden::Id))
+                        .ne(PgFunc::all(Expr::val(excluded_ids))),
+                )
+                .order_by_expr(
+                    Expr::col((AssetsIden::Table, AssetsIden::Embedding))
+                        .binary(PgBinOper::CosineDistance, Expr::val(embedding)),
+                    Order::Asc,
+                );
+        }
+    }
+
+    query
+        .limit(params.limit)
         .build_sqlx(PostgresQueryBuilder)
         .into()
 }
@@ -1550,9 +1635,12 @@ pub fn get_held_asset_pair_details(has_rates: bool) -> DbQueryWithValues {
 }
 
 #[macros::named_query]
-pub fn get_currency_cross_pairs(tickers: Vec<String>, has_rates: bool) -> DbQueryWithValues {
+pub fn get_currency_cross_pairs(
+    tickers: Vec<String>,
+    has_rates: bool,
+    currency_type: i32,
+) -> DbQueryWithValues {
     let base_asset = Alias::new("base_asset");
-    let currency_type = asset_type_ids::CURRENCY;
 
     let exists_subquery = Expr::exists(
         Query::select()

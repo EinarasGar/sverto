@@ -1,7 +1,7 @@
 //! Receipt-processing workflow. A thin facade over `Conversation::prompt`:
 //! configures the rig agent with receipt-specific prompt + tools, calls the
 //! wrapper, then parses the agent's final assistant message into a
-//! `Proposal`. All conversation persistence and image fetching is handled
+//! `Proposal`. All conversation persistence and file fetching is handled
 //! by the wrapper — this file is only the workflow's unique parts.
 
 use std::sync::Arc;
@@ -25,26 +25,29 @@ use rig::agent::AgentBuilder;
 use rig::completion::CacheRetention;
 use uuid::Uuid;
 
-const SYSTEM_PROMPT: &str = r#"You are a receipt processing assistant. Your job is to extract transaction details from receipt images.
+const SYSTEM_PROMPT: &str = r#"You are a receipt processing assistant. You get one receipt — a photo, a scan or a PDF — and turn it into transactions the user will review.
 
-Analyze the receipt image and extract:
-1. The merchant/store name (use as description)
-2. The date of the transaction
-3. The total amount
-4. Individual line items (if visible and distinct)
+Read from the receipt:
+1. The merchant name
+2. The date of the purchase
+3. Every line item and its price
+4. The total paid, the currency, and any card ending, account number or IBAN
 
-Use the available tools to:
-- Search for matching accounts (the account the money was spent from)
-- Search for appropriate categories for the transaction
-- Search for the correct currency/asset
-- If the receipt shows a card ending, account number, or IBAN, match it to the account whose `identifiers` contains it (card_last4 = last 4 digits; account_number/iban = exact).
+Look things up with the tools, all in your first turn:
+- list_accounts: the account the money was spent from. If the receipt shows a card ending, account number or IBAN, pick the account whose `identifiers` contains it (card_last4 = last 4 digits; account_number/iban = exact).
+- search_categories with no query: the full list of categories to choose from.
+- search_assets: the currency, by the code or name printed on the receipt (e.g. "EUR") with asset_type "currency".
 
-After gathering information, give your answer.
+Answer with a transaction_group that has one transaction per line item:
+- Each transaction's description is the item's name as printed on the receipt, in the receipt's language: don't translate or reword it. A line with a quantity, such as "2 x Milk", is one transaction for the line total.
+- Give every line its own category: the most specific one that fits that item, not the shop. Cleaning products, toiletries, medicine, alcohol, pet food and clothes each belong in their own categories even on a grocery receipt. Pick from the categories that exist; don't use one category for every line just because the shop sells food.
+- A discount printed against an item reduces that item's amount. A receipt-wide discount, coupon, deposit, bag charge or service fee becomes its own transaction.
+- The amounts must add up exactly to the total paid. If they don't, read the receipt again.
+- The group's description is the merchant name, and its category is the one that fits the shop as a whole.
 
-If the receipt has multiple distinct items with different categories, output a transaction_group.
-If it's a single purchase or all items share the same category, output a single transaction.
+Answer with a single transaction only when the receipt has one line item, or when no individual items can be read; then use the total.
 
-Each transaction has exactly ONE entry — the account the money was spent from, the amount, and the asset (currency). The amount must be negative to represent cash going out (e.g. "-73.59" for a purchase). The system handles the accounting automatically.
+Each transaction has exactly ONE entry: the account the money was spent from, the amount, and the currency asset. Spending amounts are negative because money went out (e.g. "-3.49"); a discount or refund line is positive. The system handles the accounting automatically.
 
 If you cannot determine a field, set it to null.
 "#;
@@ -53,7 +56,7 @@ const INITIAL_USER_PROMPT: &str =
     "Please analyze this receipt and extract the transaction details.";
 
 /// Initial extraction. Records the user prompt with the receipt attachment
-/// and runs the agent. The wrapper handles persistence and image resolution.
+/// and runs the agent. The wrapper handles persistence and file resolution.
 #[tracing::instrument(level = "debug", skip_all, fields(file_id = %source_file_id))]
 pub async fn process<D, C, R>(
     config: AiConfig,
@@ -79,7 +82,7 @@ where
 }
 
 /// Apply a user correction. The wrapper loads the prior history (including
-/// the receipt image) and runs the agent with the correction text.
+/// the receipt file) and runs the agent with the correction text.
 #[tracing::instrument(level = "debug", skip_all)]
 pub async fn correct<D, C, R>(
     config: AiConfig,
@@ -102,6 +105,7 @@ pub async fn retry<D, C, R>(
     data: Arc<D>,
     conversation: Arc<C>,
     rate_limit: Arc<R>,
+    source_file_id: Uuid,
 ) -> anyhow::Result<ReceiptProcessorOutput>
 where
     D: AiDataProvider,
@@ -110,8 +114,18 @@ where
 {
     let agent = build_agent(&config, data);
     let conv = Conversation::new(conversation, rate_limit);
+    // A run that failed before the model was called, or whose answer was rejected, has no turn to
+    // continue, so the retry asks again with the receipt attached.
+    let turn = if conv.can_continue().await? {
+        ChatTurn::Continuation
+    } else {
+        ChatTurn::Message {
+            message: INITIAL_USER_PROMPT.to_string(),
+            file_ids: vec![source_file_id],
+        }
+    };
     let output = conv
-        .run_structured(agent, ChatTurn::Continuation, Persistence::Persist)
+        .run_structured(agent, turn, Persistence::Persist)
         .await?;
 
     proposal_output(output.value)
