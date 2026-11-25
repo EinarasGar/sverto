@@ -89,7 +89,9 @@ private struct EditPropertyForm: View {
                 }
             }
             .onChange(of: model.saveError) { _, message in
-                if let message { AccessibilityNotification.Announcement(message).post() }
+                guard let message else { return }
+                Haptics.error()
+                AccessibilityNotification.Announcement(message).post()
             }
             .task { await model.loadPurchaseDate() }
         }
@@ -101,6 +103,7 @@ private struct EditPropertyForm: View {
         isNameFocused = false
         Task {
             if await model.save() {
+                Haptics.success()
                 await onSaved()
                 dismiss()
             }

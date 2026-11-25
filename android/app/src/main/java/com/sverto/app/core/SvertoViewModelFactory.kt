@@ -24,6 +24,7 @@ import com.sverto.app.feature.imports.ImportItemsViewModel
 import com.sverto.app.feature.imports.ImportSessionViewModel
 import com.sverto.app.feature.imports.ImportsViewModel
 import com.sverto.app.feature.onboarding.OnboardingViewModel
+import com.sverto.app.feature.portfolio.CurrencyDetailViewModel
 import com.sverto.app.feature.portfolio.HomeViewModel
 import com.sverto.app.feature.properties.AddPropertyViewModel
 import com.sverto.app.feature.properties.PropertyDetailViewModel
@@ -76,6 +77,8 @@ object SvertoViewModelFactory : ViewModelProvider.Factory {
                 AiChatViewModel(appStore) as T
             modelClass.isAssignableFrom(AddAccountViewModel::class.java) ->
                 AddAccountViewModel(appStore) as T
+            modelClass.isAssignableFrom(CurrencyDetailViewModel::class.java) ->
+                CurrencyDetailViewModel(appStore) as T
             modelClass.isAssignableFrom(PropertyDetailViewModel::class.java) ->
                 PropertyDetailViewModel(appStore) as T
             modelClass.isAssignableFrom(AddPropertyViewModel::class.java) ->

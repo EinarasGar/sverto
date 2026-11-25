@@ -60,7 +60,9 @@ struct AiConsentSheet: View {
         }
         .interactiveDismissDisabled(gate.isEnabling)
         .onChange(of: gate.error) { _, error in
-            if let error { AccessibilityNotification.Announcement(error).post() }
+            guard let error else { return }
+            Haptics.error()
+            AccessibilityNotification.Announcement(error).post()
         }
     }
 }

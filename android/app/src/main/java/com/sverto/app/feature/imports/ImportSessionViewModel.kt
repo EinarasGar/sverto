@@ -63,6 +63,8 @@ sealed interface ImportSessionEvent {
         val retry: () -> Unit,
     ) : ImportSessionEvent
 
+    data object Applied : ImportSessionEvent
+
     data object Deleted : ImportSessionEvent
 }
 
@@ -371,6 +373,7 @@ class ImportSessionViewModel(
             try {
                 store.applyImportSession(sessionId, fingerprint)
                 _state.update { it.copy(applied = appliedCounts(items)) }
+                _events.send(ImportSessionEvent.Applied)
                 store.refreshTransactions()
             } finally {
                 _state.update { it.copy(applying = false) }

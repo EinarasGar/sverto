@@ -5,6 +5,7 @@ use business::dtos::page_of_results_dto::PageOfResultsDto;
 use business::dtos::transaction_dto::{TransactionDto, TransactionTypeDto};
 use business::service_collection::{
     accounts_service::AccountsService, asset_service::AssetsService,
+    category_service::CategoryService,
 };
 use dal::query_params::ai_conversation_params::ProposalType;
 use itertools::Itertools;
@@ -210,14 +211,17 @@ pub async fn transaction_dtos_to_page(
     dtos: PageOfResultsDto<TransactionDto>,
     asset_service: &AssetsService,
     accounts_service: &AccountsService,
+    category_service: &CategoryService,
 ) -> anyhow::Result<AccountTransactionsPage> {
     let refs = dtos.results.iter().collect::<Vec<_>>();
     let asset_ids = transaction_dtos_to_asset_ids_hashset(&refs);
     let account_ids = transaction_dtos_to_account_ids_hashset(&refs);
+    let category_ids = transaction_dtos_to_category_ids_hashset(&refs);
 
-    let (assets, accounts) = tokio::try_join!(
+    let (assets, accounts, categories) = tokio::try_join!(
         asset_service.get_assets(asset_ids),
         accounts_service.get_accounts(account_ids),
+        category_service.get_categories(category_ids),
     )?;
 
     Ok(AccountTransactionsPage {
@@ -226,7 +230,7 @@ pub async fn transaction_dtos_to_page(
         lookup_tables: MetadataLookupTables {
             assets: assets.into_iter().map_into().collect(),
             accounts: accounts.into_iter().map_into().collect(),
-            ..Default::default()
+            categories: categories.into_iter().map_into().collect(),
         },
     })
 }

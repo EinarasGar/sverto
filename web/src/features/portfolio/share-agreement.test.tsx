@@ -2,6 +2,7 @@ import { screen, within } from "@testing-library/react"
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { createSeriesColors } from "@/components/chart"
+import { foldHoldings } from "@/features/portfolio/api"
 
 import { CompositionPanel } from "./composition-panel"
 import {
@@ -9,7 +10,7 @@ import {
   leveragedHoldingsFixture,
   overviewFixture,
 } from "./fixtures"
-import { buildHoldingRows, summariseHoldings } from "./holdings"
+import { summariseHoldings } from "./holdings"
 import { HoldingsTable } from "./holdings-table"
 import type { PeriodColumn } from "./period"
 import { PERIOD_COLUMN_MOCK_ID } from "./period"
@@ -32,8 +33,8 @@ function percentIn(text: string): number {
 }
 
 async function renderBoth(holdings: ReturnType<typeof holdingsFixture>) {
-  const rows = buildHoldingRows(holdings, overview)
-  const summary = summariseHoldings(rows, holdings, overview)
+  const summary = summariseHoldings(foldHoldings(holdings), overview)
+  const rows = summary.rows
   const colors = createSeriesColors(rows.map((row) => row.key))
 
   await renderPortfolio(
@@ -110,7 +111,7 @@ describe("share basis", () => {
     const { rows, summary } = await renderBoth(leveragedHoldingsFixture())
 
     const summed = rows.reduce((total, row) => total + row.share, 0)
-    expect(summed).toBeCloseTo(summary.totalValue / summary.shareBasis)
+    expect(summed).toBeCloseTo(summary.holdingsTotal / summary.shareBasis)
     expect(summed).toBeLessThan(1)
     expect(
       screen.getByText(/A balance you owe takes a negative share/)
@@ -120,7 +121,7 @@ describe("share basis", () => {
   it("still reads 100% and drops the caveat when nothing is owed", async () => {
     const { rows, summary } = await renderBoth(holdingsFixture())
 
-    expect(summary.shareBasis).toBe(summary.totalValue)
+    expect(summary.shareBasis).toBe(summary.holdingsTotal)
     expect(rows.reduce((total, row) => total + row.share, 0)).toBeCloseTo(1)
     expect(
       screen.queryByText(/A balance you owe takes a negative share/)

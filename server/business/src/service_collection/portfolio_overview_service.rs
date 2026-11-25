@@ -49,8 +49,10 @@ impl PortfolioOverviewService {
         &self,
         user_id: Uuid,
         apply_ownership_share: bool,
+        include_zero_balances: bool,
     ) -> anyhow::Result<Vec<HoldingDto>> {
-        let query = entries_queries::get_holdings(user_id, apply_ownership_share);
+        let query =
+            entries_queries::get_holdings(user_id, apply_ownership_share, include_zero_balances);
         let ret = self.db.fetch_all::<Holding>(query).await?;
         Ok(ret.into_iter().map(|h| h.into()).collect())
     }

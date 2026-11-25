@@ -15,7 +15,6 @@ struct AccountAssetDetailScreen: View {
 
 private struct AccountAssetDetailContent: View {
     @State private var model: AccountAssetDetailViewModel
-    @State private var chartPeriod = ChartPeriod.defaultSelection
     @State private var isRevealed = false
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(ShellState.self) private var shell
@@ -33,7 +32,7 @@ private struct AccountAssetDetailContent: View {
     private var currencySelection: Binding<Bool> {
         Binding(
             get: { model.showsBaseCurrency },
-            set: { showBase in Task { await model.selectCurrency(showBase: showBase) } }
+            set: { model.selectCurrency(showBase: $0) }
         )
     }
 
@@ -63,7 +62,7 @@ private struct AccountAssetDetailContent: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
-                    if !model.state.chartData.isEmpty {
+                    if !model.state.chartData.isEmpty || model.isHeld {
                         chartBlock
                             .modifier(StaggeredReveal(isRevealed: isRevealed, index: 0, reduceMotion: reduceMotion))
                     }
@@ -93,23 +92,34 @@ private struct AccountAssetDetailContent: View {
     }
 
     private var chartBlock: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            if model.state.supportsBaseConversion {
-                Text("Chart currency")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                Picker("Chart currency", selection: currencySelection) {
+        AssetChartSection(
+            showsSeriesSwitch: model.isHeld,
+            series: Binding(get: { model.chartSeries }, set: { model.selectSeries($0) }),
+            period: Binding(get: { model.selectedPeriod }, set: { model.selectPeriod($0) }),
+            periods: model.chartData,
+            ticker: model.chartTicker,
+            isLoading: model.isChartLoading,
+            error: model.chartError,
+            retry: { await model.retryChart() },
+            currencyControl: { currencyChip }
+        )
+    }
+
+    @ViewBuilder
+    private var currencyChip: some View {
+        if model.state.supportsBaseConversion {
+            Menu {
+                Picker("Currency", selection: currencySelection) {
                     Text(model.state.priceTicker).tag(false)
                     Text(model.state.baseTicker).tag(true)
                 }
-                .pickerStyle(.segmented)
-                .labelsHidden()
+            } label: {
+                CurrencyChip(ticker: model.currencyTicker)
             }
-            if model.showsBaseCurrency, model.isBaseChartLoading {
-                ChartSkeleton()
-            } else {
-                ChartView(periods: model.activeChartData, baseTicker: model.activeTicker, selectedPeriod: $chartPeriod)
-            }
+            .tint(.primary)
+            .accessibilityHint("Change currency")
+        } else {
+            CurrencyChip(ticker: model.state.priceTicker, showsChevron: false)
         }
     }
 

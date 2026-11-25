@@ -1,10 +1,12 @@
+import type { PropertyKind } from "@/api"
 import type {
   AssetHolding,
   AssetPosition,
-  HoldingsView,
+  FoldedHoldings,
   PortfolioOverviewView,
 } from "@/features/portfolio/api"
 import { countOf } from "@/lib/format"
+import { accountTypeTaxonomy } from "@/lib/domain/accounts"
 import type { AccountRef, AssetRef } from "@/lib/domain/refs"
 import {
   accountLabel,
@@ -24,6 +26,13 @@ export interface HoldingAccountRow {
   position: AssetPosition | null
 }
 
+export interface PropertyRowPart {
+  propertyId: string
+  kind: PropertyKind
+  assetValue: number
+  loanBalance: number
+}
+
 export interface PortfolioHoldingRow {
   key: string
   assetId: number
@@ -40,6 +49,16 @@ export interface PortfolioHoldingRow {
   accounts: HoldingAccountRow[]
   /** `null` for cash and for anything the overview has no cost basis for. */
   lifetime: AssetHolding | null
+  /** Set on a property's equity row, which links to the property instead of expanding. */
+  property: PropertyRowPart | null
+}
+
+export interface LiabilityRow {
+  key: string
+  accountId: string
+  label: string
+  typeLabel: string
+  value: number
 }
 
 function subLabelOf(asset: AssetRef | null, accountCount: number): string {
@@ -51,14 +70,15 @@ function subLabelOf(asset: AssetRef | null, accountCount: number): string {
 }
 
 /**
- * Net worth is the wrong denominator for a share: a mortgage's negative cash shrinks it
- * below the assets it sits beside, which is how a single holding reaches 104% of the
- * "portfolio". `AllocationBar` already draws its legend against the positive segments, so
- * measuring both against the same basis is what keeps the legend and the table agreeing.
+ * Net worth is the wrong denominator for a share: an overdrawn account's negative cash
+ * shrinks it below the assets it sits beside, which is how a single holding reaches 104%
+ * of the "portfolio". `AllocationBar` already draws its legend against the positive
+ * segments, so measuring both against the same basis is what keeps the legend and the
+ * table agreeing.
  */
-export function holdingsShareBasis(holdings: HoldingsView): number {
-  return holdings.byAsset.reduce(
-    (total, entry) => (entry.value > 0 ? total + entry.value : total),
+export function holdingsShareBasis(rows: readonly { value: number }[]): number {
+  return rows.reduce(
+    (total, row) => (row.value > 0 ? total + row.value : total),
     0
   )
 }
@@ -69,12 +89,12 @@ export function holdingsShareBasis(holdings: HoldingsView): number {
  * and the lifetime half is attached where the overview has one.
  */
 export function buildHoldingRows(
-  holdings: HoldingsView,
+  folded: FoldedHoldings,
   overview: PortfolioOverviewView
 ): PortfolioHoldingRow[] {
-  const total = holdingsShareBasis(holdings)
+  const total = holdingsShareBasis([...folded.assets, ...folded.properties])
 
-  return holdings.byAsset.map((entry) => {
+  const assetRows = folded.assets.map((entry): PortfolioHoldingRow => {
     const asset = entry.asset
     const physical = isPhysicalAssetType(asset?.assetTypeId)
     const positionsByAccount = new Map(
@@ -117,13 +137,58 @@ export function buildHoldingRows(
       ratelessCount: entry.ratelessCount,
       accounts,
       lifetime: overview.assetsById[entry.assetId] ?? null,
+      property: null,
+    }
+  })
+
+  const propertyRows = folded.properties.map((entry): PortfolioHoldingRow => ({
+    key: `property:${entry.property.propertyId}`,
+    assetId: entry.property.assetId,
+    asset: entry.asset,
+    label: entry.property.name,
+    subLabel: null,
+    ticker: entry.property.name,
+    isCash: false,
+    units: null,
+    value: entry.value,
+    share: total === 0 ? 0 : entry.value / total,
+    ratelessCount: entry.ratelessCount,
+    accounts: [],
+    lifetime: null,
+    property: {
+      propertyId: entry.property.propertyId,
+      kind: entry.property.kind,
+      assetValue: entry.assetValue,
+      loanBalance: entry.loanBalance,
+    },
+  }))
+
+  return [...assetRows, ...propertyRows].sort((a, b) => b.value - a.value)
+}
+
+export function buildLiabilityRows(folded: FoldedHoldings): LiabilityRow[] {
+  return folded.liabilities.map((entry) => {
+    const typeId = entry.account?.accountTypeId ?? null
+    return {
+      key: entry.accountId,
+      accountId: entry.accountId,
+      label:
+        entry.account === null
+          ? "Unknown account"
+          : accountLabel(entry.account),
+      typeLabel:
+        accountTypeTaxonomy(typeId === null ? null : { id: typeId })?.name ??
+        "Liability",
+      value: entry.value,
     }
   })
 }
 
 export interface HoldingsSummary {
   rows: PortfolioHoldingRow[]
-  totalValue: number
+  liabilities: LiabilityRow[]
+  holdingsTotal: number
+  liabilitiesTotal: number
   /** Denominator of every share in the table and every slice in the composition bar. */
   shareBasis: number
   /** A share column that cannot total 100%, because something here is owed. */
@@ -137,28 +202,33 @@ export interface HoldingsSummary {
 }
 
 export function summariseHoldings(
-  rows: readonly PortfolioHoldingRow[],
-  holdings: HoldingsView,
+  folded: FoldedHoldings,
   overview: PortfolioOverviewView
 ): HoldingsSummary {
+  const rows = buildHoldingRows(folded, overview)
+  const liabilities = buildLiabilityRows(folded)
   const accountIds = new Set<string>()
   let cashValue = 0
+  let ratelessCount = 0
   for (const row of rows) {
     for (const account of row.accounts) accountIds.add(account.accountId)
     if (row.isCash) cashValue += row.value
+    ratelessCount += row.ratelessCount
   }
 
   return {
-    rows: [...rows],
-    totalValue: holdings.totalValue,
-    shareBasis: holdingsShareBasis(holdings),
+    rows,
+    liabilities,
+    holdingsTotal: folded.holdingsTotal,
+    liabilitiesTotal: folded.liabilitiesTotal,
+    shareBasis: holdingsShareBasis(rows),
     hasNegativeRow: rows.some((row) => row.value < 0),
     totalGains: rows.some((row) => row.lifetime !== null)
       ? overview.totals.totalGains
       : null,
     assetCount: rows.length,
     accountCount: accountIds.size,
-    ratelessCount: holdings.ratelessCount,
+    ratelessCount,
     cashValue,
     pricedValue: overview.totals.marketValue,
   }

@@ -1,16 +1,22 @@
 import { describe, expect, it } from "vitest"
 
-import { buildHoldingsView } from "@/features/portfolio/api"
+import { buildHoldingsView, foldHoldings } from "@/features/portfolio/api"
 
 import {
   BTC,
+  CREDIT_CARD,
   CURRENT,
+  foldableHoldingsFixture,
   GBP,
   holdingsFixture,
   holdingsResponse,
+  HOUSE,
+  HOUSE_PROPERTY,
   IBKR,
   ISA,
+  LINKED_MORTGAGE,
   overviewFixture,
+  propertiesFixture,
   UNPRICED,
   VWRP,
 } from "./fixtures"
@@ -18,7 +24,7 @@ import { buildHoldingRows, lotSummaryOf, summariseHoldings } from "./holdings"
 
 const holdings = holdingsFixture()
 const overview = overviewFixture()
-const rows = buildHoldingRows(holdings, overview)
+const rows = buildHoldingRows(foldHoldings(holdings), overview)
 const byKey = new Map(rows.map((row) => [row.assetId, row]))
 
 describe("buildHoldingRows", () => {
@@ -84,7 +90,7 @@ describe("buildHoldingRows", () => {
         ],
       },
     })
-    const house = buildHoldingRows(withHouse, overview).find(
+    const house = buildHoldingRows(foldHoldings(withHouse), overview).find(
       (row) => row.assetId === HOUSE
     )
     expect(house?.label).toBe("Flat 12")
@@ -96,23 +102,60 @@ describe("buildHoldingRows", () => {
 })
 
 describe("summariseHoldings", () => {
-  const summary = summariseHoldings(rows, holdings, overview)
+  const summary = summariseHoldings(foldHoldings(holdings), overview)
 
   it("totals value from holdings and gains from the overview", () => {
-    expect(summary.totalValue).toBe(holdings.totalValue)
+    expect(summary.holdingsTotal).toBe(holdings.totalValue)
     expect(summary.totalGains).toBe(overview.totals.totalGains)
   })
 
   it("keeps cash out of the priced value it is not part of", () => {
     expect(summary.cashValue).toBe(4200)
     expect(summary.pricedValue).toBe(overview.totals.marketValue)
-    expect(summary.totalValue).not.toBe(summary.pricedValue)
+    expect(summary.holdingsTotal).not.toBe(summary.pricedValue)
   })
 
   it("counts the accounts that actually hold something", () => {
     expect(summary.accountCount).toBe(3)
     expect(summary.assetCount).toBe(4)
     expect(summary.ratelessCount).toBe(1)
+  })
+})
+
+describe("folding properties and liabilities", () => {
+  const view = foldableHoldingsFixture()
+
+  it("keeps debt out of the currency row and folds linked loans into the property", () => {
+    const summary = summariseHoldings(
+      foldHoldings(view, propertiesFixture()),
+      overview
+    )
+    const house = summary.rows.find((row) => row.property !== null)
+
+    expect(summary.rows.find((row) => row.assetId === GBP)?.value).toBe(4200)
+    expect(house?.key).toBe(`property:${HOUSE_PROPERTY}`)
+    expect(house?.value).toBe(164000 - 80153)
+    expect(house?.property).toMatchObject({
+      assetValue: 164000,
+      loanBalance: -80153,
+    })
+    expect(summary.liabilities.map((row) => row.accountId)).toEqual([
+      CREDIT_CARD,
+    ])
+    expect(summary.holdingsTotal + summary.liabilitiesTotal).toBeCloseTo(
+      view.totalValue
+    )
+  })
+
+  it("lists an unlinked mortgage as a liability and the house as a plain asset", () => {
+    const folded = foldHoldings(view)
+
+    expect(folded.liabilities.map((entry) => entry.accountId)).toEqual([
+      LINKED_MORTGAGE,
+      CREDIT_CARD,
+    ])
+    expect(folded.assetsById[HOUSE]?.value).toBe(164000)
+    expect(folded.assetsById[GBP]?.value).toBe(4200)
   })
 })
 

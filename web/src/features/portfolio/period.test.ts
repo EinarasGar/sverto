@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 
+import { foldHoldings } from "@/features/portfolio/api"
 import { mockPortfolioAttribution } from "@/lib/mock"
 
 import { attributionMarket, WHY_IT_MOVED_MOCK_ID } from "./attribution"
@@ -14,7 +15,7 @@ import { buildPeriodColumn, PERIOD_COLUMN_MOCK_ID } from "./period"
 
 const holdings = holdingsFixture()
 const overview = overviewFixture()
-const rows = buildHoldingRows(holdings, overview)
+const rows = buildHoldingRows(foldHoldings(holdings), overview)
 const series = historyFixture()
 const attribution = {
   attribution: mockPortfolioAttribution({ total: series.change ?? 0 }),

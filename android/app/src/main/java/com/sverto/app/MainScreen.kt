@@ -113,7 +113,9 @@ import com.sverto.app.feature.connectors.ProviderAccountDetailScreen
 import com.sverto.app.feature.imports.ImportItemsScreen
 import com.sverto.app.feature.imports.ImportSessionScreen
 import com.sverto.app.feature.imports.ImportsScreen
+import com.sverto.app.feature.portfolio.CurrencyDetailScreen
 import com.sverto.app.feature.portfolio.PortfolioScreen
+import com.sverto.app.feature.portfolio.isCurrencyAssetType
 import com.sverto.app.feature.properties.AddPropertyScreen
 import com.sverto.app.feature.properties.PropertyDetailScreen
 import com.sverto.app.feature.properties.PropertyValuationsScreen
@@ -159,6 +161,8 @@ private const val ADD_ACCOUNT_ROUTE = "addAccount"
 private const val EDIT_ACCOUNT_ROUTE = "editAccount/{accountId}"
 private const val ADD_PROPERTY_ROUTE = "addProperty"
 private const val PROPERTY_DETAIL_ROUTE = "property/{propertyId}/{assetId}"
+private const val CURRENCY_DETAIL_ROUTE = "currency/{assetId}?accountId={accountId}"
+private const val CURRENCY_TRANSACTIONS_ROUTE = "currencyTransactions/{assetId}?title={title}"
 private const val PROPERTY_VALUATIONS_ROUTE = "propertyValuations/{assetId}/{currencyAssetId}"
 private const val MARKET_ASSET_DETAIL_ROUTE = "asset/{assetId}?userAsset={userAsset}"
 private const val ASSET_OVERVIEW_ROUTE = "assetOverview/{assetId}?userAsset={userAsset}"
@@ -619,7 +623,19 @@ private fun MainNavGraph(
                         .fillMaxSize()
                         .padding(innerPadding)
                         .consumeWindowInsets(innerPadding),
-                onAssetClick = { assetId -> navController.navigate("assetOverview/$assetId?userAsset=false") },
+                onHoldingClick = { holding ->
+                    val property = holding.property
+                    when {
+                        property != null -> navController.navigate("property/${property.propertyId}/${holding.assetId}")
+                        isCurrencyAssetType(holding.assetTypeId) -> navController.navigate("currency/${holding.assetId}")
+                        else -> navController.navigate("assetOverview/${holding.assetId}?userAsset=false")
+                    }
+                },
+                onLiabilityClick = { liability ->
+                    navController.navigate(
+                        "accountDetail/${liability.accountId}/${Uri.encode(liability.accountName)}/${liability.accountTypeId}",
+                    )
+                },
             )
         }
         composable(TopLevelRoute.Transactions.route) {
@@ -733,6 +749,66 @@ private fun MainNavGraph(
                 onOpenValuations = { valuedAssetId, currencyAssetId ->
                     navController.navigate("propertyValuations/$valuedAssetId/$currencyAssetId")
                 },
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        composable(
+            route = CURRENCY_DETAIL_ROUTE,
+            arguments =
+                listOf(
+                    navArgument("assetId") { type = NavType.IntType },
+                    navArgument("accountId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    },
+                ),
+        ) { backStackEntry ->
+            val assetId = backStackEntry.arguments?.getInt("assetId") ?: return@composable
+            val accountId = backStackEntry.arguments?.getString("accountId")
+            CurrencyDetailScreen(
+                assetId = assetId,
+                accountId = accountId,
+                onBack = { navController.popBackStack() },
+                onOpenRate = { navController.navigate("assetOverview/$assetId?userAsset=false") },
+                onAccountClick = { account ->
+                    navController.navigate(
+                        "accountDetail/${account.accountId}/${Uri.encode(account.accountName)}/${account.accountTypeId}",
+                    )
+                },
+                onViewAllTransactions = { ticker, accountName ->
+                    if (accountId == null) {
+                        navController.navigate("currencyTransactions/$assetId?title=${Uri.encode(ticker)}")
+                    } else {
+                        navController.navigate(assetTransactionsRoute(assetId, ticker, accountId, accountName))
+                    }
+                },
+                onTransactionClick = { tx -> onNavigateToDetail(tx, false) },
+                sharedTransitionScope = sharedScope,
+                animatedVisibilityScope = this@composable,
+                modifier = Modifier.fillMaxSize(),
+            )
+        }
+        composable(
+            route = CURRENCY_TRANSACTIONS_ROUTE,
+            arguments =
+                listOf(
+                    navArgument("assetId") { type = NavType.IntType },
+                    navArgument("title") {
+                        type = NavType.StringType
+                        defaultValue = "Transactions"
+                    },
+                ),
+        ) { backStackEntry ->
+            val assetId = backStackEntry.arguments?.getInt("assetId") ?: return@composable
+            val title = backStackEntry.arguments?.getString("title") ?: "Transactions"
+            ScopedTransactionsScreen(
+                scope = TransactionListScope.Currency(assetId),
+                title = title,
+                onBack = { navController.popBackStack() },
+                onTransactionClick = { tx -> onNavigateToDetail(tx, false) },
+                sharedTransitionScope = sharedScope,
+                animatedVisibilityScope = this@composable,
                 modifier = Modifier.fillMaxSize(),
             )
         }
@@ -1075,6 +1151,9 @@ private fun MainNavGraph(
                 onBack = { navController.popBackStack() },
                 onHoldingClick = { _, assetId ->
                     navController.navigate("assetDetail/$accountId/$assetId?accountName=${Uri.encode(accountName)}")
+                },
+                onBalanceClick = { assetId ->
+                    navController.navigate("currency/$assetId?accountId=${Uri.encode(accountId)}")
                 },
                 onViewAllTransactions = {
                     navController.navigate("accountTransactions/$accountId")

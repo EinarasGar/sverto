@@ -254,7 +254,7 @@ private struct PropertyDetailContent: View {
 
     private func unlink(_ loan: AccountListItem) async {
         if let error = await model.unlinkLoan(accountId: loan.id) {
-            toasts.show(error)
+            toasts.showError(error)
         }
     }
 }

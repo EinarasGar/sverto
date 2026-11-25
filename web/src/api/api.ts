@@ -10587,6 +10587,62 @@ export class AIQuickUploadApi extends BaseAPI implements AIQuickUploadApiInterfa
 export const AccountPortfolioApiAxiosParamCreator = function (configuration?: Configuration) {
     return {
         /**
+         * Returns the value of one asset held in a specific account at specific points in time, depending on the range provided.
+         * @summary Get Account Asset History
+         * @param {string} userId 
+         * @param {string} accountId 
+         * @param {number} assetId 
+         * @param {string} [range] 
+         * @param {number} [defaultAssetId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAccountAssetHistory: async (userId: string, accountId: string, assetId: number, range?: string, defaultAssetId?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('getAccountAssetHistory', 'userId', userId)
+            // verify required parameter 'accountId' is not null or undefined
+            assertParamExists('getAccountAssetHistory', 'accountId', accountId)
+            // verify required parameter 'assetId' is not null or undefined
+            assertParamExists('getAccountAssetHistory', 'assetId', assetId)
+            const localVarPath = `/api/users/{user_id}/accounts/{account_id}/portfolio/assets/{asset_id}/history`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"account_id"}}`, encodeURIComponent(String(accountId)))
+                .replace(`{${"asset_id"}}`, encodeURIComponent(String(assetId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (range !== undefined) {
+                localVarQueryParameter['range'] = range;
+            }
+
+            if (defaultAssetId !== undefined) {
+                localVarQueryParameter['default_asset_id'] = defaultAssetId;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
          * Returns net worth history scoped to a specific account.
          * @summary Get Account Net Worth History
          * @param {string} userId 
@@ -10753,6 +10809,23 @@ export const AccountPortfolioApiFp = function(configuration?: Configuration) {
     const localVarAxiosParamCreator = AccountPortfolioApiAxiosParamCreator(configuration)
     return {
         /**
+         * Returns the value of one asset held in a specific account at specific points in time, depending on the range provided.
+         * @summary Get Account Asset History
+         * @param {string} userId 
+         * @param {string} accountId 
+         * @param {number} assetId 
+         * @param {string} [range] 
+         * @param {number} [defaultAssetId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getAccountAssetHistory(userId: string, accountId: string, assetId: number, range?: string, defaultAssetId?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GetNetWorthHistoryResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAccountAssetHistory(userId, accountId, assetId, range, defaultAssetId, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['AccountPortfolioApi.getAccountAssetHistory']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
          * Returns net worth history scoped to a specific account.
          * @summary Get Account Net Worth History
          * @param {string} userId 
@@ -10811,6 +10884,20 @@ export const AccountPortfolioApiFactory = function (configuration?: Configuratio
     const localVarFp = AccountPortfolioApiFp(configuration)
     return {
         /**
+         * Returns the value of one asset held in a specific account at specific points in time, depending on the range provided.
+         * @summary Get Account Asset History
+         * @param {string} userId 
+         * @param {string} accountId 
+         * @param {number} assetId 
+         * @param {string} [range] 
+         * @param {number} [defaultAssetId] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getAccountAssetHistory(userId: string, accountId: string, assetId: number, range?: string, defaultAssetId?: number, options?: RawAxiosRequestConfig): AxiosPromise<GetNetWorthHistoryResponse> {
+            return localVarFp.getAccountAssetHistory(userId, accountId, assetId, range, defaultAssetId, options).then((request) => request(axios, basePath));
+        },
+        /**
          * Returns net worth history scoped to a specific account.
          * @summary Get Account Net Worth History
          * @param {string} userId 
@@ -10859,6 +10946,20 @@ export const AccountPortfolioApiFactory = function (configuration?: Configuratio
  */
 export interface AccountPortfolioApiInterface {
     /**
+     * Returns the value of one asset held in a specific account at specific points in time, depending on the range provided.
+     * @summary Get Account Asset History
+     * @param {string} userId 
+     * @param {string} accountId 
+     * @param {number} assetId 
+     * @param {string} [range] 
+     * @param {number} [defaultAssetId] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof AccountPortfolioApiInterface
+     */
+    getAccountAssetHistory(userId: string, accountId: string, assetId: number, range?: string, defaultAssetId?: number, options?: RawAxiosRequestConfig): AxiosPromise<GetNetWorthHistoryResponse>;
+
+    /**
      * Returns net worth history scoped to a specific account.
      * @summary Get Account Net Worth History
      * @param {string} userId 
@@ -10906,6 +11007,22 @@ export interface AccountPortfolioApiInterface {
  * @extends {BaseAPI}
  */
 export class AccountPortfolioApi extends BaseAPI implements AccountPortfolioApiInterface {
+    /**
+     * Returns the value of one asset held in a specific account at specific points in time, depending on the range provided.
+     * @summary Get Account Asset History
+     * @param {string} userId 
+     * @param {string} accountId 
+     * @param {number} assetId 
+     * @param {string} [range] 
+     * @param {number} [defaultAssetId] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof AccountPortfolioApi
+     */
+    public getAccountAssetHistory(userId: string, accountId: string, assetId: number, range?: string, defaultAssetId?: number, options?: RawAxiosRequestConfig) {
+        return AccountPortfolioApiFp(this.configuration).getAccountAssetHistory(userId, accountId, assetId, range, defaultAssetId, options).then((request) => request(this.axios, this.basePath));
+    }
+
     /**
      * Returns net worth history scoped to a specific account.
      * @summary Get Account Net Worth History
@@ -17709,10 +17826,11 @@ export const PortfolioApiAxiosParamCreator = function (configuration?: Configura
          * @summary Get Holdings
          * @param {string} userId 
          * @param {number} [defaultAssetId] 
+         * @param {boolean} [includeZeroBalances] Also return assets an account has held before and now holds none of. Off by default
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getHoldings: async (userId: string, defaultAssetId?: number, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getHoldings: async (userId: string, defaultAssetId?: number, includeZeroBalances?: boolean, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'userId' is not null or undefined
             assertParamExists('getHoldings', 'userId', userId)
             const localVarPath = `/api/users/{user_id}/portfolio/holdings`
@@ -17734,6 +17852,10 @@ export const PortfolioApiAxiosParamCreator = function (configuration?: Configura
 
             if (defaultAssetId !== undefined) {
                 localVarQueryParameter['default_asset_id'] = defaultAssetId;
+            }
+
+            if (includeZeroBalances !== undefined) {
+                localVarQueryParameter['include_zero_balances'] = includeZeroBalances;
             }
 
 
@@ -17782,6 +17904,63 @@ export const PortfolioApiAxiosParamCreator = function (configuration?: Configura
 
             if (defaultAssetId !== undefined) {
                 localVarQueryParameter['default_asset_id'] = defaultAssetId;
+            }
+
+
+    
+            setSearchParams(localVarUrlObj, localVarQueryParameter);
+            let headersFromBaseOptions = baseOptions && baseOptions.headers ? baseOptions.headers : {};
+            localVarRequestOptions.headers = {...localVarHeaderParameter, ...headersFromBaseOptions, ...options.headers};
+
+            return {
+                url: toPathString(localVarUrlObj),
+                options: localVarRequestOptions,
+            };
+        },
+        /**
+         * Returns the value of one asset held across all accounts at specific points in time, depending on the range provided.
+         * @summary Get Portfolio Asset History
+         * @param {string} userId 
+         * @param {number} assetId 
+         * @param {string} [range] 
+         * @param {number} [defaultAssetId] 
+         * @param {boolean} [excludeLiabilities] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getPortfolioAssetHistory: async (userId: string, assetId: number, range?: string, defaultAssetId?: number, excludeLiabilities?: boolean, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+            // verify required parameter 'userId' is not null or undefined
+            assertParamExists('getPortfolioAssetHistory', 'userId', userId)
+            // verify required parameter 'assetId' is not null or undefined
+            assertParamExists('getPortfolioAssetHistory', 'assetId', assetId)
+            const localVarPath = `/api/users/{user_id}/portfolio/assets/{asset_id}/history`
+                .replace(`{${"user_id"}}`, encodeURIComponent(String(userId)))
+                .replace(`{${"asset_id"}}`, encodeURIComponent(String(assetId)));
+            // use dummy base URL string because the URL constructor only accepts absolute URLs.
+            const localVarUrlObj = new URL(localVarPath, DUMMY_BASE_URL);
+            let baseOptions;
+            if (configuration) {
+                baseOptions = configuration.baseOptions;
+            }
+
+            const localVarRequestOptions = { method: 'GET', ...baseOptions, ...options};
+            const localVarHeaderParameter = {} as any;
+            const localVarQueryParameter = {} as any;
+
+            // authentication auth_token required
+            // http bearer authentication required
+            await setBearerAuthToObject(localVarHeaderParameter, configuration)
+
+            if (range !== undefined) {
+                localVarQueryParameter['range'] = range;
+            }
+
+            if (defaultAssetId !== undefined) {
+                localVarQueryParameter['default_asset_id'] = defaultAssetId;
+            }
+
+            if (excludeLiabilities !== undefined) {
+                localVarQueryParameter['exclude_liabilities'] = excludeLiabilities;
             }
 
 
@@ -17900,11 +18079,12 @@ export const PortfolioApiFp = function(configuration?: Configuration) {
          * @summary Get Holdings
          * @param {string} userId 
          * @param {number} [defaultAssetId] 
+         * @param {boolean} [includeZeroBalances] Also return assets an account has held before and now holds none of. Off by default
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getHoldings(userId: string, defaultAssetId?: number, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GetHoldingsResponse>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getHoldings(userId, defaultAssetId, options);
+        async getHoldings(userId: string, defaultAssetId?: number, includeZeroBalances?: boolean, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GetHoldingsResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getHoldings(userId, defaultAssetId, includeZeroBalances, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['PortfolioApi.getHoldings']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -17922,6 +18102,23 @@ export const PortfolioApiFp = function(configuration?: Configuration) {
             const localVarAxiosArgs = await localVarAxiosParamCreator.getNetworthHistory(userId, range, defaultAssetId, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['PortfolioApi.getNetworthHistory']?.[localVarOperationServerIndex]?.url;
+            return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
+        },
+        /**
+         * Returns the value of one asset held across all accounts at specific points in time, depending on the range provided.
+         * @summary Get Portfolio Asset History
+         * @param {string} userId 
+         * @param {number} assetId 
+         * @param {string} [range] 
+         * @param {number} [defaultAssetId] 
+         * @param {boolean} [excludeLiabilities] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        async getPortfolioAssetHistory(userId: string, assetId: number, range?: string, defaultAssetId?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<GetNetWorthHistoryResponse>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getPortfolioAssetHistory(userId, assetId, range, defaultAssetId, excludeLiabilities, options);
+            const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
+            const localVarOperationServerBasePath = operationServerMap['PortfolioApi.getPortfolioAssetHistory']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
         },
         /**
@@ -17968,11 +18165,12 @@ export const PortfolioApiFactory = function (configuration?: Configuration, base
          * @summary Get Holdings
          * @param {string} userId 
          * @param {number} [defaultAssetId] 
+         * @param {boolean} [includeZeroBalances] Also return assets an account has held before and now holds none of. Off by default
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getHoldings(userId: string, defaultAssetId?: number, options?: RawAxiosRequestConfig): AxiosPromise<GetHoldingsResponse> {
-            return localVarFp.getHoldings(userId, defaultAssetId, options).then((request) => request(axios, basePath));
+        getHoldings(userId: string, defaultAssetId?: number, includeZeroBalances?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<GetHoldingsResponse> {
+            return localVarFp.getHoldings(userId, defaultAssetId, includeZeroBalances, options).then((request) => request(axios, basePath));
         },
         /**
          * Returns a list of net worth of an user at specific points in time, depending on the range provided.
@@ -17985,6 +18183,20 @@ export const PortfolioApiFactory = function (configuration?: Configuration, base
          */
         getNetworthHistory(userId: string, range?: string, defaultAssetId?: number, options?: RawAxiosRequestConfig): AxiosPromise<GetNetWorthHistoryResponse> {
             return localVarFp.getNetworthHistory(userId, range, defaultAssetId, options).then((request) => request(axios, basePath));
+        },
+        /**
+         * Returns the value of one asset held across all accounts at specific points in time, depending on the range provided.
+         * @summary Get Portfolio Asset History
+         * @param {string} userId 
+         * @param {number} assetId 
+         * @param {string} [range] 
+         * @param {number} [defaultAssetId] 
+         * @param {boolean} [excludeLiabilities] 
+         * @param {*} [options] Override http request option.
+         * @throws {RequiredError}
+         */
+        getPortfolioAssetHistory(userId: string, assetId: number, range?: string, defaultAssetId?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<GetNetWorthHistoryResponse> {
+            return localVarFp.getPortfolioAssetHistory(userId, assetId, range, defaultAssetId, excludeLiabilities, options).then((request) => request(axios, basePath));
         },
         /**
          * Returns portfolio overview scoped to a specific asset across all accounts.
@@ -18023,11 +18235,12 @@ export interface PortfolioApiInterface {
      * @summary Get Holdings
      * @param {string} userId 
      * @param {number} [defaultAssetId] 
+     * @param {boolean} [includeZeroBalances] Also return assets an account has held before and now holds none of. Off by default
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof PortfolioApiInterface
      */
-    getHoldings(userId: string, defaultAssetId?: number, options?: RawAxiosRequestConfig): AxiosPromise<GetHoldingsResponse>;
+    getHoldings(userId: string, defaultAssetId?: number, includeZeroBalances?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<GetHoldingsResponse>;
 
     /**
      * Returns a list of net worth of an user at specific points in time, depending on the range provided.
@@ -18040,6 +18253,20 @@ export interface PortfolioApiInterface {
      * @memberof PortfolioApiInterface
      */
     getNetworthHistory(userId: string, range?: string, defaultAssetId?: number, options?: RawAxiosRequestConfig): AxiosPromise<GetNetWorthHistoryResponse>;
+
+    /**
+     * Returns the value of one asset held across all accounts at specific points in time, depending on the range provided.
+     * @summary Get Portfolio Asset History
+     * @param {string} userId 
+     * @param {number} assetId 
+     * @param {string} [range] 
+     * @param {number} [defaultAssetId] 
+     * @param {boolean} [excludeLiabilities] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PortfolioApiInterface
+     */
+    getPortfolioAssetHistory(userId: string, assetId: number, range?: string, defaultAssetId?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<GetNetWorthHistoryResponse>;
 
     /**
      * Returns portfolio overview scoped to a specific asset across all accounts.
@@ -18078,12 +18305,13 @@ export class PortfolioApi extends BaseAPI implements PortfolioApiInterface {
      * @summary Get Holdings
      * @param {string} userId 
      * @param {number} [defaultAssetId] 
+     * @param {boolean} [includeZeroBalances] Also return assets an account has held before and now holds none of. Off by default
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof PortfolioApi
      */
-    public getHoldings(userId: string, defaultAssetId?: number, options?: RawAxiosRequestConfig) {
-        return PortfolioApiFp(this.configuration).getHoldings(userId, defaultAssetId, options).then((request) => request(this.axios, this.basePath));
+    public getHoldings(userId: string, defaultAssetId?: number, includeZeroBalances?: boolean, options?: RawAxiosRequestConfig) {
+        return PortfolioApiFp(this.configuration).getHoldings(userId, defaultAssetId, includeZeroBalances, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -18098,6 +18326,22 @@ export class PortfolioApi extends BaseAPI implements PortfolioApiInterface {
      */
     public getNetworthHistory(userId: string, range?: string, defaultAssetId?: number, options?: RawAxiosRequestConfig) {
         return PortfolioApiFp(this.configuration).getNetworthHistory(userId, range, defaultAssetId, options).then((request) => request(this.axios, this.basePath));
+    }
+
+    /**
+     * Returns the value of one asset held across all accounts at specific points in time, depending on the range provided.
+     * @summary Get Portfolio Asset History
+     * @param {string} userId 
+     * @param {number} assetId 
+     * @param {string} [range] 
+     * @param {number} [defaultAssetId] 
+     * @param {boolean} [excludeLiabilities] 
+     * @param {*} [options] Override http request option.
+     * @throws {RequiredError}
+     * @memberof PortfolioApi
+     */
+    public getPortfolioAssetHistory(userId: string, assetId: number, range?: string, defaultAssetId?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig) {
+        return PortfolioApiFp(this.configuration).getPortfolioAssetHistory(userId, assetId, range, defaultAssetId, excludeLiabilities, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -19305,11 +19549,11 @@ export const TransactionsApiAxiosParamCreator = function (configuration?: Config
          * @param {number} assetId 
          * @param {number} [count] 
          * @param {number} [start] 
-         * @param {string} [query] 
+         * @param {boolean} [excludeLiabilities] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getAccountAssetTransactions: async (userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getAccountAssetTransactions: async (userId: string, accountId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'userId' is not null or undefined
             assertParamExists('getAccountAssetTransactions', 'userId', userId)
             // verify required parameter 'accountId' is not null or undefined
@@ -19343,8 +19587,8 @@ export const TransactionsApiAxiosParamCreator = function (configuration?: Config
                 localVarQueryParameter['start'] = start;
             }
 
-            if (query !== undefined) {
-                localVarQueryParameter['query'] = query;
+            if (excludeLiabilities !== undefined) {
+                localVarQueryParameter['exclude_liabilities'] = excludeLiabilities;
             }
 
 
@@ -19365,11 +19609,11 @@ export const TransactionsApiAxiosParamCreator = function (configuration?: Config
          * @param {number} assetId 
          * @param {number} [count] 
          * @param {number} [start] 
-         * @param {string} [query] 
+         * @param {boolean} [excludeLiabilities] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getAssetTransactions: async (userId: string, assetId: number, count?: number, start?: number, query?: string, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
+        getAssetTransactions: async (userId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options: RawAxiosRequestConfig = {}): Promise<RequestArgs> => {
             // verify required parameter 'userId' is not null or undefined
             assertParamExists('getAssetTransactions', 'userId', userId)
             // verify required parameter 'assetId' is not null or undefined
@@ -19400,8 +19644,8 @@ export const TransactionsApiAxiosParamCreator = function (configuration?: Config
                 localVarQueryParameter['start'] = start;
             }
 
-            if (query !== undefined) {
-                localVarQueryParameter['query'] = query;
+            if (excludeLiabilities !== undefined) {
+                localVarQueryParameter['exclude_liabilities'] = excludeLiabilities;
             }
 
 
@@ -19664,12 +19908,12 @@ export const TransactionsApiFp = function(configuration?: Configuration) {
          * @param {number} assetId 
          * @param {number} [count] 
          * @param {number} [start] 
-         * @param {string} [query] 
+         * @param {boolean} [excludeLiabilities] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AccountTransactionsPage>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getAccountAssetTransactions(userId, accountId, assetId, count, start, query, options);
+        async getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AccountTransactionsPage>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAccountAssetTransactions(userId, accountId, assetId, count, start, excludeLiabilities, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['TransactionsApi.getAccountAssetTransactions']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -19681,12 +19925,12 @@ export const TransactionsApiFp = function(configuration?: Configuration) {
          * @param {number} assetId 
          * @param {number} [count] 
          * @param {number} [start] 
-         * @param {string} [query] 
+         * @param {boolean} [excludeLiabilities] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        async getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AccountTransactionsPage>> {
-            const localVarAxiosArgs = await localVarAxiosParamCreator.getAssetTransactions(userId, assetId, count, start, query, options);
+        async getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): Promise<(axios?: AxiosInstance, basePath?: string) => AxiosPromise<AccountTransactionsPage>> {
+            const localVarAxiosArgs = await localVarAxiosParamCreator.getAssetTransactions(userId, assetId, count, start, excludeLiabilities, options);
             const localVarOperationServerIndex = configuration?.serverIndex ?? 0;
             const localVarOperationServerBasePath = operationServerMap['TransactionsApi.getAssetTransactions']?.[localVarOperationServerIndex]?.url;
             return (axios, basePath) => createRequestFunction(localVarAxiosArgs, globalAxios, BASE_PATH, configuration)(axios, localVarOperationServerBasePath || basePath);
@@ -19793,12 +20037,12 @@ export const TransactionsApiFactory = function (configuration?: Configuration, b
          * @param {number} assetId 
          * @param {number} [count] 
          * @param {number} [start] 
-         * @param {string} [query] 
+         * @param {boolean} [excludeLiabilities] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage> {
-            return localVarFp.getAccountAssetTransactions(userId, accountId, assetId, count, start, query, options).then((request) => request(axios, basePath));
+        getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage> {
+            return localVarFp.getAccountAssetTransactions(userId, accountId, assetId, count, start, excludeLiabilities, options).then((request) => request(axios, basePath));
         },
         /**
          * Returns paginated transactions involving an asset across all accounts: transactions with an entry in the asset, and dividends it paid.
@@ -19807,12 +20051,12 @@ export const TransactionsApiFactory = function (configuration?: Configuration, b
          * @param {number} assetId 
          * @param {number} [count] 
          * @param {number} [start] 
-         * @param {string} [query] 
+         * @param {boolean} [excludeLiabilities] 
          * @param {*} [options] Override http request option.
          * @throws {RequiredError}
          */
-        getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage> {
-            return localVarFp.getAssetTransactions(userId, assetId, count, start, query, options).then((request) => request(axios, basePath));
+        getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage> {
+            return localVarFp.getAssetTransactions(userId, assetId, count, start, excludeLiabilities, options).then((request) => request(axios, basePath));
         },
         /**
          * Retrieves a list of all individual and grouped transactions
@@ -19903,12 +20147,12 @@ export interface TransactionsApiInterface {
      * @param {number} assetId 
      * @param {number} [count] 
      * @param {number} [start] 
-     * @param {string} [query] 
+     * @param {boolean} [excludeLiabilities] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof TransactionsApiInterface
      */
-    getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage>;
+    getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage>;
 
     /**
      * Returns paginated transactions involving an asset across all accounts: transactions with an entry in the asset, and dividends it paid.
@@ -19917,12 +20161,12 @@ export interface TransactionsApiInterface {
      * @param {number} assetId 
      * @param {number} [count] 
      * @param {number} [start] 
-     * @param {string} [query] 
+     * @param {boolean} [excludeLiabilities] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof TransactionsApiInterface
      */
-    getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage>;
+    getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig): AxiosPromise<AccountTransactionsPage>;
 
     /**
      * Retrieves a list of all individual and grouped transactions
@@ -20017,13 +20261,13 @@ export class TransactionsApi extends BaseAPI implements TransactionsApiInterface
      * @param {number} assetId 
      * @param {number} [count] 
      * @param {number} [start] 
-     * @param {string} [query] 
+     * @param {boolean} [excludeLiabilities] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof TransactionsApi
      */
-    public getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig) {
-        return TransactionsApiFp(this.configuration).getAccountAssetTransactions(userId, accountId, assetId, count, start, query, options).then((request) => request(this.axios, this.basePath));
+    public getAccountAssetTransactions(userId: string, accountId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig) {
+        return TransactionsApiFp(this.configuration).getAccountAssetTransactions(userId, accountId, assetId, count, start, excludeLiabilities, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**
@@ -20033,13 +20277,13 @@ export class TransactionsApi extends BaseAPI implements TransactionsApiInterface
      * @param {number} assetId 
      * @param {number} [count] 
      * @param {number} [start] 
-     * @param {string} [query] 
+     * @param {boolean} [excludeLiabilities] 
      * @param {*} [options] Override http request option.
      * @throws {RequiredError}
      * @memberof TransactionsApi
      */
-    public getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, query?: string, options?: RawAxiosRequestConfig) {
-        return TransactionsApiFp(this.configuration).getAssetTransactions(userId, assetId, count, start, query, options).then((request) => request(this.axios, this.basePath));
+    public getAssetTransactions(userId: string, assetId: number, count?: number, start?: number, excludeLiabilities?: boolean, options?: RawAxiosRequestConfig) {
+        return TransactionsApiFp(this.configuration).getAssetTransactions(userId, assetId, count, start, excludeLiabilities, options).then((request) => request(this.axios, this.basePath));
     }
 
     /**

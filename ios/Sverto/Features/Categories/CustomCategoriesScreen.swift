@@ -50,6 +50,7 @@ private struct CustomCategoriesContent: View {
                 }
             }
             .pickerStyle(.segmented)
+            .sensoryFeedback(.selection, trigger: tab)
             .padding(.horizontal)
             .padding(.top, 8)
             switch tab {
@@ -210,7 +211,7 @@ private struct CustomCategoriesContent: View {
             try await action()
             completedActions += 1
         } catch {
-            toasts.show(error.friendlyMessage)
+            toasts.showError(error.friendlyMessage)
         }
     }
 

@@ -21,13 +21,15 @@ import {
 import {
   assetHoldingOf,
   useAssetOverviewSuspense,
+  useHoldingsSuspense,
   useRequiredBaseAssetId,
 } from "@/features/portfolio/api"
-import { assetLabel } from "@/lib/domain/refs"
+import { assetLabel, isCurrencyAsset } from "@/lib/domain/refs"
 
 import { AssetHero } from "./asset-hero"
 import { AssetTiles } from "./asset-tiles"
 import { ASSET_EMPTY_BODY, ASSET_EMPTY_HEADLINE, FIFO_SCOPE_NOTE } from "./copy"
+import { CurrencyScreen } from "./currency-screen"
 import { buildLotRows, buildLotTotals } from "./lots"
 import { LotsTable } from "./lots-table"
 import { LOT_ROWS_DRAWN } from "./presentation"
@@ -40,7 +42,30 @@ function BackToPortfolio() {
   )
 }
 
-export function AssetScreen({ assetId }: { assetId: number }) {
+export function AssetScreen({
+  assetId,
+  accountId,
+}: {
+  assetId: number
+  accountId?: string | undefined
+}) {
+  const userId = useUserId()
+  const defaultAssetId = useRequiredBaseAssetId()
+  const holdings = useHoldingsSuspense({
+    userId,
+    defaultAssetId,
+    includeZeroBalances: accountId !== undefined,
+  })
+  const held = holdings.lookups.assetsById[assetId]
+  if (held !== undefined && isCurrencyAsset(held)) {
+    return (
+      <CurrencyScreen asset={held} holdings={holdings} accountId={accountId} />
+    )
+  }
+  return <PositionScreen assetId={assetId} />
+}
+
+function PositionScreen({ assetId }: { assetId: number }) {
   const userId = useUserId()
   const defaultAssetId = useRequiredBaseAssetId()
   const baseCurrency = useBaseCurrency()

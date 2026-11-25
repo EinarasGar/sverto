@@ -52,6 +52,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -84,6 +86,7 @@ fun TransactionDetailScreen(
     with(sharedTransitionScope) {
         var showDeleteConfirmation by remember { mutableStateOf(false) }
         var visibility by remember(transaction.id) { mutableStateOf(transaction.visibility) }
+        val haptics = LocalHapticFeedback.current
         val quickActionLabel = if (isInGroup) "Ungroup" else "Group"
 
         Surface(
@@ -167,6 +170,7 @@ fun TransactionDetailScreen(
                         showReviewed = visibility == TransactionVisibility.GHOST,
                         onReviewed = {
                             visibility = TransactionVisibility.DEFAULT
+                            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                             onMarkReviewed()
                         },
                         modifier = Modifier.padding(horizontal = 16.dp),

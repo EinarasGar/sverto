@@ -1,6 +1,14 @@
 package com.sverto.app.feature.transactions.create
 
-enum class AmountSign { POSITIVE, NEGATIVE, ANY }
+enum class AmountSign {
+    POSITIVE,
+    NEGATIVE,
+    ANY,
+    ;
+
+    // A free-signed amount is usually a purchase, so a new one starts as an expense.
+    val blankAmount: String get() = if (this == ANY) "-" else ""
+}
 
 sealed interface EntryMode {
     data class Single(

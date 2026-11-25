@@ -21,7 +21,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,15 +37,19 @@ import com.sverto.app.core.components.AppUpdateBanner
 import com.sverto.app.core.components.UpdateBannerPlacement
 import com.sverto.app.core.ui.HoldingsListSkeleton
 import com.sverto.app.core.ui.PortfolioChartSkeleton
+import com.sverto.app.core.ui.rememberHapticPullToRefreshState
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.map
+import uniffi.sverto_core.HoldingItem
+import uniffi.sverto_core.LiabilityItem
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun PortfolioScreen(
     modifier: Modifier = Modifier,
-    onAssetClick: (Int) -> Unit = {},
+    onHoldingClick: (HoldingItem) -> Unit = {},
+    onLiabilityClick: (LiabilityItem) -> Unit = {},
     viewModel: HomeViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -61,7 +64,7 @@ fun PortfolioScreen(
             .collect { appUpdates.autoPrompt() }
     }
 
-    val pullToRefreshState = rememberPullToRefreshState()
+    val pullToRefreshState = rememberHapticPullToRefreshState()
 
     PullToRefreshBox(
         isRefreshing = isRefreshing,
@@ -88,12 +91,12 @@ fun PortfolioScreen(
             AppUpdateBanner(UpdateBannerPlacement.HOME)
 
             when {
-                state.isLoading && state.holdings.isEmpty() -> {
+                state.isLoading && state.holdings.isEmpty() && state.liabilities.isEmpty() -> {
                     PortfolioChartSkeleton()
                     HoldingsListSkeleton()
                 }
 
-                state.error != null && state.holdings.isEmpty() -> {
+                state.error != null && state.holdings.isEmpty() && state.liabilities.isEmpty() -> {
                     ErrorState(message = state.error!!, onRetry = viewModel::load)
                 }
 
@@ -110,7 +113,15 @@ fun PortfolioScreen(
                     if (portfolioData.isNotEmpty()) {
                         PortfolioChart(portfolioData = portfolioData, currencyTicker = state.baseTicker)
                     }
-                    HoldingsList(holdings = state.holdings, baseTicker = state.baseTicker, onAssetClick = onAssetClick)
+                    HoldingsList(
+                        holdings = state.holdings,
+                        liabilities = state.liabilities,
+                        holdingsTotal = state.holdingsTotal,
+                        liabilitiesTotal = state.liabilitiesTotal,
+                        baseTicker = state.baseTicker,
+                        onHoldingClick = onHoldingClick,
+                        onLiabilityClick = onLiabilityClick,
+                    )
                 }
             }
 

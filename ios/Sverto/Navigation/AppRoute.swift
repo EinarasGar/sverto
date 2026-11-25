@@ -18,6 +18,8 @@ enum AppRoute: Hashable {
     case addProperty
     case propertyValuations(assetId: Int32, currencyAssetId: Int32, currencyTicker: String)
     case assetOverview(assetId: Int32, userAsset: Bool)
+    case currencyDetail(assetId: Int32, name: String, accountId: String? = nil)
+    case currencyTransactions(assetId: Int32, title: String)
     case customAssets
     case customCategories
     case connectors

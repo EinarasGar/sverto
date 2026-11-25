@@ -138,6 +138,7 @@ private struct CreateTransactionForm: View {
             }
             .onChange(of: model.errorRevision) { _, _ in
                 guard let message = model.errorMessage else { return }
+                Haptics.error()
                 AccessibilityNotification.Announcement(message).post()
                 proxy.scrollTo("transaction-form-error", anchor: .top)
             }

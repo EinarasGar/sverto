@@ -35,7 +35,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleFloatingActionButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -51,6 +50,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
+import com.sverto.app.core.ui.rememberHapticPullToRefreshState
 import com.sverto.app.core.ui.shimmerBrush
 import com.sverto.app.feature.accounts.components.AccountCard
 import com.sverto.app.feature.accounts.components.accountTypeDisplayOrder
@@ -75,7 +75,7 @@ fun AccountsScreen(
     var addMenuExpanded by rememberSaveable { mutableStateOf(false) }
     BackHandler(addMenuExpanded) { addMenuExpanded = false }
 
-    val pullToRefreshState = rememberPullToRefreshState()
+    val pullToRefreshState = rememberHapticPullToRefreshState()
 
     Scaffold(
         modifier = modifier.fillMaxSize(),

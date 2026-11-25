@@ -43,7 +43,9 @@ import androidx.compose.ui.graphics.StrokeJoin
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.clipRect
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -85,6 +87,10 @@ fun PortfolioChart(
     showPeriodSelector: Boolean = true,
     changeSuffix: String = "",
     markers: List<ChartPoint> = emptyList(),
+    showChangePercent: Boolean = true,
+    formatAmount: (amount: Double, signed: Boolean) -> String = { amount, signed ->
+        Money.format(amount, currencyTicker, signed)
+    },
 ) {
     var internalPeriod by remember { mutableStateOf(TimePeriod.MONTH) }
     val activePeriod = selectedPeriod ?: internalPeriod
@@ -96,6 +102,10 @@ fun PortfolioChart(
         derivedStateOf {
             scrubPosition.value?.let { nearestChartPointIndex(points, it) }
         }
+    }
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(scrubIdx) {
+        if (scrubIdx != null) haptics.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
     }
     val dateFormat =
         remember(activePeriod) {
@@ -113,7 +123,7 @@ fun PortfolioChart(
     val scrubDate =
         when {
             scrubbedMarker != null ->
-                "Valued ${Money.format(scrubbedMarker.value, currencyTicker)} · ${dateFormat.format(Date(scrubbedMarker.date * 1000))}"
+                "Valued ${formatAmount(scrubbedMarker.value, false)} · ${dateFormat.format(Date(scrubbedMarker.date * 1000))}"
             scrubbedPoint != null -> dateFormat.format(Date(scrubbedPoint.date * 1000))
             else -> null
         }
@@ -150,13 +160,13 @@ fun PortfolioChart(
         ) {
             Column(Modifier.weight(1f)) {
                 ChartHeadlineValue(
-                    text = Money.format(currentValue, currencyTicker),
+                    text = formatAmount(currentValue, false),
                 )
-                val changeText = Money.format(changeAmount, currencyTicker, signed = true)
+                val changeText = formatAmount(changeAmount, true)
                 val pctText = String.format(Locale.US, "%.2f", changePercent)
                 val pctSign = if (isPositive) "+" else ""
                 Text(
-                    text = "$changeText ($pctSign$pctText%)$changeSuffix",
+                    text = if (showChangePercent) "$changeText ($pctSign$pctText%)$changeSuffix" else "$changeText$changeSuffix",
                     style = MaterialTheme.typography.bodyMedium,
                     color = changeColor,
                 )
@@ -213,6 +223,7 @@ fun PortfolioChart(
                 ToggleButton(
                     checked = activePeriod == period,
                     onCheckedChange = {
+                        if (period != activePeriod) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                         if (onPeriodSelect != null) {
                             onPeriodSelect(period)
                         } else {

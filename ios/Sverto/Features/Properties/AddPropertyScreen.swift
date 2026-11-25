@@ -32,6 +32,7 @@ private struct AddPropertyForm: View {
             form
                 .onChange(of: model.saveError) { _, error in
                     guard let error else { return }
+                    Haptics.error()
                     proxy.scrollTo("property-save-error", anchor: .top)
                     AccessibilityNotification.Announcement(error).post()
                 }
@@ -90,6 +91,7 @@ private struct AddPropertyForm: View {
                     Text(AccountType.vehicle.label).tag(PropertyKind.vehicle)
                 }
                 .pickerStyle(.segmented)
+                .sensoryFeedback(.selection, trigger: model.kind)
                 .listRowBackground(Color.clear)
                 .listRowInsets(EdgeInsets())
             }

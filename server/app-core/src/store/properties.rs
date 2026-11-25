@@ -7,8 +7,10 @@ use super::transactions::{
     evict_transaction_caches, get_editable_transaction, update_individual_transaction,
     TransactionsModule,
 };
-use crate::api::account_transactions::{extract_account_transactions, scoped_transactions_path};
-use crate::api::accounts::extract_accounts;
+use crate::api::account_transactions::{
+    extract_account_transactions, scoped_transactions_page_path,
+};
+use crate::api::accounts::{extract_accounts, LOAN, MORTGAGE};
 use crate::api::holdings::extract_account_balances;
 use crate::api::properties::{
     attach_properties, build_create_property_body, extract_created_property_id, extract_properties,
@@ -354,9 +356,6 @@ pub async fn get_property_detail(
     })
 }
 
-const MORTGAGE: i32 = 7;
-const LOAN: i32 = 8;
-
 pub async fn get_loan_candidates(
     infra: &SharedInfra,
     auth_token: Option<&str>,
@@ -448,10 +447,7 @@ async fn find_purchase_transaction(
     };
     let resp = infra
         .get(
-            &format!(
-                "{}?count=100&start=0",
-                scoped_transactions_path(&user_id, &scope)
-            ),
+            &scoped_transactions_page_path(&user_id, &scope, 100, 0),
             auth_token,
         )
         .await?;

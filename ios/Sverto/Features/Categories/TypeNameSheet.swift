@@ -101,6 +101,7 @@ struct TypeNameSheet: View {
                 try await onSave(submittedName)
                 dismiss()
             } catch {
+                Haptics.error()
                 saveError = error.friendlyMessage
                 AccessibilityNotification.Announcement(error.friendlyMessage).post()
             }

@@ -30,12 +30,15 @@ import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -83,6 +86,10 @@ fun ConnectTrading212Screen(
     var mode by remember { mutableStateOf(T212Mode.STORED) }
     var apiKeyId by remember { mutableStateOf("") }
     var apiKey by remember { mutableStateOf("") }
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(state.error) {
+        if (state.error != null) haptics.performHapticFeedback(HapticFeedbackType.Reject)
+    }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
@@ -112,7 +119,12 @@ fun ConnectTrading212Screen(
             HeroButton(
                 text = if (mode == T212Mode.CLIENT) "Coming soon" else "Connect",
                 onClick = {
-                    mode.credentialMode?.let { viewModel.connect(it, apiKeyId, apiKey, onCreated) }
+                    mode.credentialMode?.let { credentialMode ->
+                        viewModel.connect(credentialMode, apiKeyId, apiKey) { connectionId ->
+                            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                            onCreated(connectionId)
+                        }
+                    }
                 },
                 enabled = mode.credentialMode != null && apiKey.isNotBlank() && !state.submitting,
                 modifier =
@@ -151,7 +163,10 @@ fun ConnectTrading212Screen(
                     T212Mode.entries.forEachIndexed { index, entry ->
                         ToggleButton(
                             checked = mode == entry,
-                            onCheckedChange = { mode = entry },
+                            onCheckedChange = {
+                                if (mode != entry) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                                mode = entry
+                            },
                             modifier =
                                 Modifier
                                     .weight(1f)

@@ -85,6 +85,7 @@ private struct BindingSetupContent: View {
                         }
                     }
                     .pickerStyle(.segmented)
+                    .sensoryFeedback(.selection, trigger: model.importStart)
                     if model.importStart == .date {
                         DatePicker("From", selection: $model.startDate, in: ...Date(), displayedComponents: .date)
                     }

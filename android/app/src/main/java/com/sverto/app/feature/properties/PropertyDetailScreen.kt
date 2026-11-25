@@ -45,7 +45,6 @@ import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -54,7 +53,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -64,6 +65,7 @@ import com.sverto.app.core.Money
 import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.ui.PortfolioChartSkeleton
 import com.sverto.app.core.ui.RowDivider
+import com.sverto.app.core.ui.rememberHapticPullToRefreshState
 import com.sverto.app.feature.accounts.components.MetricItem
 import com.sverto.app.feature.accounts.components.MetricsGrid
 import com.sverto.app.feature.accounts.components.accountTypeContainerColor
@@ -96,8 +98,15 @@ fun PropertyDetailScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(Unit) {
-        viewModel.errors.collect { snackbarHostState.showSnackbar(it) }
+        viewModel.saved.collect { haptics.performHapticFeedback(HapticFeedbackType.Confirm) }
+    }
+    LaunchedEffect(Unit) {
+        viewModel.errors.collect {
+            haptics.performHapticFeedback(HapticFeedbackType.Reject)
+            snackbarHostState.showSnackbar(it)
+        }
     }
 
     var showAddValuation by remember { mutableStateOf(false) }
@@ -107,7 +116,7 @@ fun PropertyDetailScreen(
 
     val detail = state.detail
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val pullToRefreshState = rememberPullToRefreshState()
+    val pullToRefreshState = rememberHapticPullToRefreshState()
 
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -225,7 +234,10 @@ fun PropertyDetailScreen(
             isSaving = state.isSavingEdit,
             onRetryPurchaseDate = viewModel::loadPurchaseDate,
             onSubmit = { name, share, purchaseDate ->
-                viewModel.saveEdit(name, share, purchaseDate) { showEdit = false }
+                viewModel.saveEdit(name, share, purchaseDate) {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    showEdit = false
+                }
             },
             onDismiss = { showEdit = false },
         )

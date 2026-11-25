@@ -5,12 +5,14 @@ import {
   COMPOSITION_LENSES,
   NON_CASH_SEGMENT_KEY,
 } from "./composition"
+import { foldHoldings } from "@/features/portfolio/api"
+
 import { GBP, holdingsFixture, overviewFixture } from "./fixtures"
 import { buildHoldingRows } from "./holdings"
 
 const holdings = holdingsFixture()
 const overview = overviewFixture()
-const rows = buildHoldingRows(holdings, overview)
+const rows = buildHoldingRows(foldHoldings(holdings), overview)
 
 describe("buildComposition", () => {
   it.each(COMPOSITION_LENSES)(

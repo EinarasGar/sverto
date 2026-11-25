@@ -6,6 +6,7 @@ use super::infra::SharedInfra;
 use super::{CHART_LABELS, CHART_RANGES};
 use crate::api::account_overview::extract_account_overview;
 use crate::api::account_transactions::extract_account_transactions;
+use crate::api::holdings::{account_holdings_path, extract_account_currency_balances};
 use crate::models::{AccountDetailState, ChartPeriodData, ChartPoint};
 
 #[uniffi::export(callback_interface)]
@@ -37,6 +38,7 @@ impl AccountDetailModule {
                 account_type_id: 0,
                 chart_data: vec![],
                 holdings: vec![],
+                balances: vec![],
                 cash_balance: 0.0,
                 total_value: 0.0,
                 total_cost_basis: 0.0,
@@ -71,6 +73,7 @@ impl AccountDetailModule {
             account_type_id: 0,
             chart_data: vec![],
             holdings: vec![],
+            balances: vec![],
             cash_balance: 0.0,
             total_value: 0.0,
             total_cost_basis: 0.0,
@@ -125,6 +128,7 @@ pub async fn load_account_detail(
     let overview_path = format!("/api/users/{user_id}/accounts/{account_id}/portfolio/overview");
     let tx_path =
         format!("/api/users/{user_id}/accounts/{account_id}/transactions?count=5&start=0");
+    let holdings_path = account_holdings_path(&user_id);
     let chart_paths: Vec<String> = CHART_RANGES
         .iter()
         .map(|range| {
@@ -138,9 +142,10 @@ pub async fn load_account_detail(
         .collect();
 
     // Fetch overview, transactions, and all chart periods concurrently
-    let (overview_result, tx_result, chart_results) = tokio::join!(
+    let (overview_result, tx_result, holdings_result, chart_results) = tokio::join!(
         infra.get(&overview_path, auth_token),
         infra.get(&tx_path, auth_token),
+        infra.get(&holdings_path, auth_token),
         futures_util::future::join_all(chart_futures),
     );
 
@@ -166,6 +171,14 @@ pub async fn load_account_detail(
         }
     } else if let Err(e) = overview_result {
         error = Some(e.to_string());
+    }
+
+    match holdings_result {
+        Ok(resp) => match extract_account_currency_balances(&resp.body, account_id) {
+            Ok(balances) => m.state.balances = balances,
+            Err(e) => error = Some(e),
+        },
+        Err(e) => error = Some(e.to_string()),
     }
 
     // Process transactions
@@ -230,6 +243,7 @@ pub async fn refresh_account_detail(
     };
 
     infra.evict_memory_cache_prefix(&format!("/api/users/{}/accounts/{}", user_id, account_id));
+    infra.evict_memory_cache_prefix(&format!("/api/users/{}/portfolio/holdings", user_id));
     load_account_detail(
         infra,
         module,

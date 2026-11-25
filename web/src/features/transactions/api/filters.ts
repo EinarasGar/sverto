@@ -14,6 +14,7 @@ export type LedgerFilterToken =
       readonly key: "asset"
       readonly assetId: AssetId
       readonly label: string
+      readonly excludeLiabilities?: boolean
     }
   | {
       readonly key: "category"
@@ -102,6 +103,7 @@ export interface LedgerQueryPlan {
   readonly source: "combined" | "account" | "asset"
   readonly accountId: AccountId | null
   readonly assetId: AssetId | null
+  readonly excludeLiabilities: boolean
   readonly query: string | undefined
   readonly appliedTokens: readonly LedgerFilterToken[]
   readonly unsupportedTokens: readonly LedgerFilterToken[]
@@ -123,6 +125,7 @@ export function planLedgerQuery(
   let query: string | undefined
   let accountId: AccountId | null = null
   let assetId: AssetId | null = null
+  let excludeLiabilities = false
 
   for (const token of tokens) {
     if (token.key === "account" && accountId === null) {
@@ -130,6 +133,7 @@ export function planLedgerQuery(
     }
     if (token.key === "asset" && assetId === null) {
       assetId = token.assetId
+      excludeLiabilities = token.excludeLiabilities === true
     }
   }
 
@@ -178,6 +182,7 @@ export function planLedgerQuery(
       assetId !== null ? "asset" : accountId !== null ? "account" : "combined",
     accountId,
     assetId,
+    excludeLiabilities,
     query,
     appliedTokens: applied,
     unsupportedTokens: unsupported,

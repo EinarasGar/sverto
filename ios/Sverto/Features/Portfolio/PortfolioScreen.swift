@@ -68,8 +68,12 @@ private struct PortfolioSearchSwitch: View {
                     shell.push(.assetOverview(assetId: asset.id, userAsset: false))
                 }
             } else {
-                PortfolioContent(model: portfolio) { holding in
-                    shell.push(.assetOverview(assetId: holding.assetId, userAsset: false))
+                PortfolioContent(model: portfolio, onSelectHolding: selectHolding) { liability in
+                    shell.push(.accountDetail(
+                        accountId: liability.accountId,
+                        accountName: liability.accountName,
+                        accountTypeId: liability.accountTypeId
+                    ))
                 }
             }
         }
@@ -77,6 +81,16 @@ private struct PortfolioSearchSwitch: View {
             if searching {
                 markets.onSearchExpanded()
             }
+        }
+    }
+
+    private func selectHolding(_ holding: HoldingItem) {
+        if let property = holding.property {
+            shell.push(.propertyDetail(propertyId: property.propertyId, name: holding.assetName))
+        } else if holding.assetTypeId == HoldingAssetType.currency.rawValue {
+            shell.push(.currencyDetail(assetId: holding.assetId, name: holding.assetName))
+        } else {
+            shell.push(.assetOverview(assetId: holding.assetId, userAsset: false))
         }
     }
 }

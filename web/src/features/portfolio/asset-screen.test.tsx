@@ -1,15 +1,49 @@
 import { screen, within } from "@testing-library/react"
+import userEvent from "@testing-library/user-event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
-import type { PortfolioOverviewView } from "@/features/portfolio/api"
+import type {
+  PortfolioHistoryQueryParams,
+  PortfolioOverviewView,
+} from "@/features/portfolio/api"
 
 const overviewView = vi.fn<() => PortfolioOverviewView>()
 
-vi.mock("@/features/portfolio/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/portfolio/api")>()),
-  useRequiredBaseAssetId: () => 1,
-  useAssetOverviewSuspense: () => overviewView(),
-}))
+vi.mock("@/features/portfolio/api", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/features/portfolio/api")>()
+  return {
+    ...actual,
+    useRequiredBaseAssetId: () => 1,
+    useAssetOverviewSuspense: () => overviewView(),
+    usePortfolioHistorySuspense: ({
+      assetId,
+      defaultAssetId,
+      range,
+    }: PortfolioHistoryQueryParams) =>
+      actual.buildHistorySeries(
+        {
+          range,
+          sums:
+            defaultAssetId === assetId
+              ? [
+                  { date: 1777593600, rate: 30 },
+                  { date: 1782864000, rate: 45 },
+                ]
+              : [
+                  { date: 1777593600, rate: 3000 },
+                  { date: 1782864000, rate: 4600 },
+                ],
+        },
+        range
+      ),
+    useHoldingsSuspense: () =>
+      actual.buildHoldingsView({
+        holdings: [],
+        lookup_tables: { accounts: [], assets: [] },
+      }),
+  }
+})
 
 vi.mock("@/features/assets/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/assets/api")>()),
@@ -61,8 +95,26 @@ describe("AssetScreen", () => {
     )
   })
 
-  it("draws the average cost on the price line and a ring for every lot", async () => {
+  it("charts the holding's value by default and its units in the asset itself, neither with a percentage", async () => {
+    const user = userEvent.setup()
     await renderPortfolio(<AssetScreen assetId={VWRP} />)
+
+    expect(screen.getByText("Value of your holdings")).toBeInTheDocument()
+    expect(screen.getByText("£4,600.00")).toBeInTheDocument()
+    expect(screen.queryByText(/avg cost/)).toBeNull()
+
+    await user.click(screen.getByRole("button", { name: "Units" }))
+    expect(await screen.findByText("Units you hold")).toBeInTheDocument()
+    expect(screen.getByText("45.0000")).toBeInTheDocument()
+    expect(
+      document.querySelector('[data-slot="hero-chart-note"] [data-figure]')
+    ).toBeNull()
+  })
+
+  it("draws the average cost on the price line and a ring for every lot", async () => {
+    const user = userEvent.setup()
+    await renderPortfolio(<AssetScreen assetId={VWRP} />)
+    await user.click(screen.getByRole("button", { name: "Price" }))
 
     expect(await screen.findByText(/avg cost £94\.29/)).toBeInTheDocument()
     expect(

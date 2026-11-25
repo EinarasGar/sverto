@@ -45,6 +45,10 @@ struct RouteDestination: View {
             PropertyValuationsScreen(assetId: assetId, currencyAssetId: currencyAssetId, currencyTicker: currencyTicker)
         case let .assetOverview(assetId, userAsset):
             AssetOverviewScreen(assetId: assetId, userAsset: userAsset)
+        case let .currencyDetail(assetId, name, accountId):
+            CurrencyDetailScreen(assetId: assetId, name: name, accountId: accountId)
+        case let .currencyTransactions(assetId, title):
+            ScopedTransactionsScreen(scope: .currency(assetId: assetId), title: title)
         case .customAssets:
             CustomAssetsScreen()
         case .customCategories:

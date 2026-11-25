@@ -16,6 +16,7 @@ use crate::{
     query_params::get_binned_entries_params::GetBinnedEntriesParams,
 };
 
+use super::account_queries::account_type_not_in;
 use super::DbQueryWithValues;
 
 #[macros::named_query]
@@ -44,7 +45,11 @@ pub fn insert_entries(models: Vec<AddEntryModel>) -> DbQueryWithValues {
 }
 
 #[macros::named_query]
-pub fn get_holdings(user_id: Uuid, apply_ownership_share: bool) -> DbQueryWithValues {
+pub fn get_holdings(
+    user_id: Uuid,
+    apply_ownership_share: bool,
+    include_zero_balances: bool,
+) -> DbQueryWithValues {
     let quantity_sum = || {
         if apply_ownership_share {
             Expr::sum(
@@ -56,7 +61,8 @@ pub fn get_holdings(user_id: Uuid, apply_ownership_share: bool) -> DbQueryWithVa
         }
     };
 
-    Query::select()
+    let mut query = Query::select();
+    query
         .column((EntryIden::Table, EntryIden::AssetId))
         .column((EntryIden::Table, EntryIden::AccountId))
         .expr_as(quantity_sum(), Alias::new("total_quantity"))
@@ -69,10 +75,11 @@ pub fn get_holdings(user_id: Uuid, apply_ownership_share: bool) -> DbQueryWithVa
         )
         .and_where(Expr::col((AccountIden::Table, AccountIden::UserId)).eq(user_id))
         .group_by_col((EntryIden::Table, EntryIden::AccountId))
-        .group_by_col((EntryIden::Table, EntryIden::AssetId))
-        .and_having(quantity_sum().ne(0))
-        .build_sqlx(PostgresQueryBuilder)
-        .into()
+        .group_by_col((EntryIden::Table, EntryIden::AssetId));
+    if !include_zero_balances {
+        query.and_having(quantity_sum().ne(0));
+    }
+    query.build_sqlx(PostgresQueryBuilder).into()
 }
 
 /// This query takes start time, interval and user id. It then queries the database
@@ -160,6 +167,10 @@ pub fn get_binned_entries(params: GetBinnedEntriesParams) -> DbQueryWithValues {
         .apply_if(account_id, |q, id| {
             q.and_where(Expr::col((EntryIden::Table, EntryIden::AccountId)).eq(id));
         })
+        .apply_if(params.asset_id, |q, id| {
+            q.and_where(Expr::col((EntryIden::Table, EntryIden::AssetId)).eq(id));
+        })
+        .and_where(account_type_not_in(&params.excluded_account_types))
         .apply_if(params.start_date, |q, v| {
             q.and_where(
                 Expr::col((TransactionIden::Table, TransactionIden::DateTransacted)).gte(
@@ -204,6 +215,10 @@ pub fn get_binned_entries(params: GetBinnedEntriesParams) -> DbQueryWithValues {
                 .apply_if(account_id, |q, id| {
                     q.and_where(Expr::col((EntryIden::Table, EntryIden::AccountId)).eq(id));
                 })
+                .apply_if(params.asset_id, |q, id| {
+                    q.and_where(Expr::col((EntryIden::Table, EntryIden::AssetId)).eq(id));
+                })
+                .and_where(account_type_not_in(&params.excluded_account_types))
                 .and_where(
                     Expr::col((TransactionIden::Table, TransactionIden::DateTransacted))
                         .lt(CustomFunc::date_bin_time(params.interval, v)
@@ -219,7 +234,12 @@ pub fn get_binned_entries(params: GetBinnedEntriesParams) -> DbQueryWithValues {
 }
 
 #[macros::named_query]
-pub fn get_oldest_entry_date(user_id: Uuid, account_id: Option<Uuid>) -> DbQueryWithValues {
+pub fn get_oldest_entry_date(
+    user_id: Uuid,
+    account_id: Option<Uuid>,
+    asset_id: Option<i32>,
+    excluded_account_types: Vec<i32>,
+) -> DbQueryWithValues {
     let mut query = Query::select()
         .expr(Expr::min(Expr::col((
             TransactionIden::Table,
@@ -229,7 +249,7 @@ pub fn get_oldest_entry_date(user_id: Uuid, account_id: Option<Uuid>) -> DbQuery
         .and_where(Expr::col((TransactionIden::Table, TransactionIden::UserId)).eq(user_id))
         .to_owned();
 
-    if let Some(account_id) = account_id {
+    if account_id.is_some() || asset_id.is_some() || !excluded_account_types.is_empty() {
         query
             .join(
                 JoinType::Join,
@@ -237,7 +257,19 @@ pub fn get_oldest_entry_date(user_id: Uuid, account_id: Option<Uuid>) -> DbQuery
                 Expr::col((EntryIden::Table, EntryIden::TransactionId))
                     .equals((TransactionIden::Table, TransactionIden::Id)),
             )
-            .and_where(Expr::col((EntryIden::Table, EntryIden::AccountId)).eq(account_id));
+            .join(
+                JoinType::Join,
+                AccountIden::Table,
+                Expr::col((EntryIden::Table, EntryIden::AccountId))
+                    .equals((AccountIden::Table, AccountIden::Id)),
+            )
+            .apply_if(account_id, |q, id| {
+                q.and_where(Expr::col((EntryIden::Table, EntryIden::AccountId)).eq(id));
+            })
+            .apply_if(asset_id, |q, id| {
+                q.and_where(Expr::col((EntryIden::Table, EntryIden::AssetId)).eq(id));
+            })
+            .and_where(account_type_not_in(&excluded_account_types));
     }
 
     query.build_sqlx(PostgresQueryBuilder).into()

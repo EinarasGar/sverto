@@ -1,4 +1,7 @@
-use sea_query::{Expr, ExprTrait, Func, JoinType, Order, PostgresQueryBuilder, Query};
+use sea_query::{
+    extension::postgres::PgFunc, Expr, ExprTrait, Func, JoinType, Order, PostgresQueryBuilder,
+    Query, SimpleExpr,
+};
 use sea_query_sqlx::SqlxBinder;
 use sqlx::types::Uuid;
 
@@ -224,4 +227,10 @@ pub fn get_account_liquidity_types() -> DbQueryWithValues {
         .from(AccountLiquidityTypesIden::Table)
         .build_sqlx(PostgresQueryBuilder)
         .into()
+}
+
+/// For queries joining `account`; an empty list excludes nothing.
+pub fn account_type_not_in(account_types: &[i32]) -> SimpleExpr {
+    Expr::col((AccountIden::Table, AccountIden::AccountType))
+        .ne(PgFunc::all(Expr::val(account_types.to_vec())))
 }

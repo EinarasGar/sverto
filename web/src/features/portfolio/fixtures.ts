@@ -13,6 +13,8 @@ import {
   buildHoldingsView,
   buildPortfolioOverviewView,
 } from "@/features/portfolio/api"
+import type { PropertiesView } from "@/features/properties/api"
+import { buildPropertiesView } from "@/features/properties/api"
 
 export const ISA = "aaaaaaaa-0000-0000-0000-000000000000"
 export const IBKR = "bbbbbbbb-0000-0000-0000-000000000000"
@@ -24,8 +26,8 @@ export const BTC = 7
 export const UNPRICED = 9
 
 const ACCOUNTS = [
-  { account_id: ISA, account_type: 4, name: "Trading 212 ISA" },
-  { account_id: IBKR, account_type: 4, name: "Interactive Brokers" },
+  { account_id: ISA, account_type: 3, name: "Trading 212 ISA" },
+  { account_id: IBKR, account_type: 3, name: "Interactive Brokers" },
   { account_id: CURRENT, account_type: 1, name: "Lloyds Current" },
 ]
 
@@ -197,6 +199,66 @@ export function leveragedHoldingsFixture(): HoldingsView {
       ],
       assets: ASSETS,
     },
+  })
+}
+
+export const HOUSE_ACCOUNT = "eeeeeeee-0000-0000-0000-000000000000"
+export const LINKED_MORTGAGE = "ffffffff-0000-0000-0000-000000000000"
+export const CREDIT_CARD = "abababab-0000-0000-0000-000000000000"
+export const HOUSE = 11
+export const HOUSE_PROPERTY = "99999999-0000-0000-0000-000000000000"
+
+export function foldableHoldingsFixture(): HoldingsView {
+  return buildHoldingsView({
+    holdings: [
+      ...holdingsResponse.holdings,
+      { account_id: HOUSE_ACCOUNT, asset_id: HOUSE, units: 0.5, value: 164000 },
+      {
+        account_id: LINKED_MORTGAGE,
+        asset_id: GBP,
+        units: -80153,
+        value: -80153,
+      },
+      { account_id: CREDIT_CARD, asset_id: GBP, units: -1868, value: -1868 },
+    ],
+    lookup_tables: {
+      accounts: [
+        ...ACCOUNTS,
+        { account_id: HOUSE_ACCOUNT, account_type: 9, name: "Flat 12" },
+        {
+          account_id: LINKED_MORTGAGE,
+          account_type: 7,
+          name: "Halifax Mortgage",
+        },
+        { account_id: CREDIT_CARD, account_type: 4, name: "Amex" },
+      ],
+      assets: [
+        ...ASSETS,
+        {
+          asset_id: HOUSE,
+          asset_type: 8,
+          name: "Flat 12",
+          ticker: "HOME-30D7F2E7",
+        },
+      ],
+    },
+  })
+}
+
+export function propertiesFixture(): PropertiesView {
+  return buildPropertiesView({
+    properties: [
+      {
+        property_id: HOUSE_PROPERTY,
+        kind: "real_estate",
+        name: "Flat 12",
+        account_id: HOUSE_ACCOUNT,
+        asset_id: HOUSE,
+        currency_asset_id: GBP,
+        ownership_share: 0.5,
+        loan_account_ids: [LINKED_MORTGAGE],
+      },
+    ],
   })
 }
 

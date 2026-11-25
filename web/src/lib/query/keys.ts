@@ -41,10 +41,13 @@ export interface DenominatedParams {
 
 export interface HoldingsParams extends DenominatedParams {
   applyOwnershipShare: boolean
+  includeZeroBalances?: boolean | undefined
 }
 
 export interface HistoryParams extends DenominatedParams {
   range: PortfolioRange
+  assetId?: AssetId | undefined
+  excludeLiabilities?: boolean | undefined
 }
 
 export interface RatesParams {
@@ -213,7 +216,10 @@ export const queryKeys = {
         },
         byAsset: (
           assetId: AssetId,
-          params: OffsetPageParams & { accountId: AccountId | null }
+          params: OffsetPageParams & {
+            accountId: AccountId | null
+            excludeLiabilities: boolean
+          }
         ) => [...transactionsRoot, "asset", assetId, params] as const,
         purchase: (accountId: AccountId, assetId: AssetId) =>
           [...transactionsRoot, "purchase", accountId, assetId] as const,

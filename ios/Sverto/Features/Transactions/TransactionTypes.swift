@@ -56,6 +56,9 @@ nonisolated enum AmountSign: Hashable {
     case positive
     case negative
     case any
+
+    // A free-signed amount is usually a purchase, so a new one starts as an expense.
+    var blankAmount: String { self == .any ? "-" : "" }
 }
 
 nonisolated struct SingleEntryMode: Hashable {

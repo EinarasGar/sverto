@@ -159,6 +159,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
             )
+            optimization {
+                keepRules {
+                    ignoreFrom("com.clerk:clerk-android-api", "com.clerk:clerk-android-ui")
+                }
+            }
         }
     }
 

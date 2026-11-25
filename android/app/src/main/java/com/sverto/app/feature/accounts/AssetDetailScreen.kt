@@ -15,6 +15,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
@@ -24,9 +27,9 @@ import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MediumFlexibleTopAppBar
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
@@ -37,20 +40,28 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.Money
 import com.sverto.app.core.SvertoViewModelFactory
+import com.sverto.app.core.ui.PortfolioChartSkeleton
 import com.sverto.app.feature.accounts.components.LotCard
 import com.sverto.app.feature.accounts.components.MetricItem
 import com.sverto.app.feature.accounts.components.MetricsGrid
+import com.sverto.app.feature.assets.components.CurrencyChip
+import com.sverto.app.feature.assets.components.HoldingChartHeader
+import com.sverto.app.feature.assets.components.HoldingSeries
+import com.sverto.app.feature.assets.components.formatQuantity
 import com.sverto.app.feature.portfolio.ChartPoint
 import com.sverto.app.feature.portfolio.PortfolioChart
 import com.sverto.app.feature.portfolio.TimePeriod
 import kotlinx.coroutines.delay
+import uniffi.sverto_core.AssetDetailState
 import java.text.NumberFormat
 
 private const val STAGGER_STEP_MS = 80L
@@ -67,6 +78,7 @@ fun AssetDetailScreen(
     viewModel: AssetDetailViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val chart by viewModel.chart.collectAsStateWithLifecycle()
 
     LaunchedEffect(accountId, assetId) {
         viewModel.load(accountId, assetId)
@@ -103,9 +115,20 @@ fun AssetDetailScreen(
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
+    val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(Unit) {
+        viewModel.errors.collect { message ->
+            haptics.performHapticFeedback(HapticFeedbackType.Reject)
+            snackbarHostState.currentSnackbarData?.dismiss()
+            snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Long)
+        }
+    }
+
     Scaffold(
         modifier = modifier.nestedScroll(scrollBehavior.nestedScrollConnection),
         containerColor = MaterialTheme.colorScheme.surfaceContainer,
+        snackbarHost = { SnackbarHost(snackbarHostState) },
         topBar = {
             MediumFlexibleTopAppBar(
                 title = { Text(state.ticker) },
@@ -183,33 +206,19 @@ fun AssetDetailScreen(
                             .padding(horizontal = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp),
                 ) {
-                    // Price chart (staggered animation)
-                    if (chartData.isNotEmpty()) {
+                    if (chartData.isNotEmpty() || chart.isHeld) {
                         AnimatedVisibility(
                             visible = chartVisible,
                             enter =
                                 fadeIn(motionScheme.defaultEffectsSpec()) +
                                     slideInVertically(motionScheme.defaultSpatialSpec()) { it / 4 },
                         ) {
-                            var showBase by remember { mutableStateOf(false) }
-                            val activeChart = if (showBase) baseChartData else chartData
-                            val activeTicker = if (showBase) state.baseTicker else state.priceTicker
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                if (state.supportsBaseConversion) {
-                                    CurrencyToggle(
-                                        nativeTicker = state.priceTicker,
-                                        baseTicker = state.baseTicker,
-                                        showBase = showBase,
-                                        onSelect = { base ->
-                                            showBase = base
-                                            if (base && state.baseChartData.isEmpty()) {
-                                                viewModel.loadBaseChart()
-                                            }
-                                        },
-                                    )
-                                }
-                                PortfolioChart(portfolioData = activeChart, currencyTicker = activeTicker)
-                            }
+                            HoldingChartSection(
+                                state = state,
+                                chart = chart,
+                                priceData = if (chart.showBase) baseChartData else chartData,
+                                viewModel = viewModel,
+                            )
                         }
                     }
 
@@ -298,28 +307,77 @@ fun AssetDetailScreen(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun CurrencyToggle(
-    nativeTicker: String,
-    baseTicker: String,
+private fun HoldingChartSection(
+    state: AssetDetailState,
+    chart: HoldingChartUiState,
+    priceData: Map<TimePeriod, List<ChartPoint>>,
+    viewModel: AssetDetailViewModel,
+) {
+    val series = chart.series
+    val ticker = if (chart.showBase) state.baseTicker else state.priceTicker
+    val data =
+        when (series) {
+            HoldingSeries.PRICE -> priceData
+            HoldingSeries.VALUE -> chart.valueByPeriod
+            HoldingSeries.UNITS -> chart.unitsByPeriod
+        }
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        HoldingChartHeader(
+            series = series,
+            held = chart.isHeld,
+            onSeriesSelect = viewModel::selectSeries,
+            currencyChip = {
+                CurrencyMenuChip(
+                    state = state,
+                    showBase = chart.showBase,
+                    onSelect = viewModel::selectBaseCurrency,
+                )
+            },
+        )
+        if (series != HoldingSeries.PRICE && !data.containsKey(chart.period)) {
+            PortfolioChartSkeleton()
+        } else {
+            PortfolioChart(
+                portfolioData = data,
+                currencyTicker = ticker,
+                selectedPeriod = chart.period,
+                onPeriodSelect = viewModel::selectPeriod,
+                showChangePercent = series == HoldingSeries.PRICE,
+                formatAmount =
+                    if (series == HoldingSeries.UNITS) {
+                        ::formatQuantity
+                    } else {
+                        { amount, signed -> Money.format(amount, ticker, signed) }
+                    },
+            )
+        }
+    }
+}
+
+@Composable
+private fun CurrencyMenuChip(
+    state: AssetDetailState,
     showBase: Boolean,
     onSelect: (Boolean) -> Unit,
 ) {
-    SingleChoiceSegmentedButtonRow {
-        SegmentedButton(
-            selected = !showBase,
-            onClick = { onSelect(false) },
-            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-        ) {
-            Text(nativeTicker)
-        }
-        SegmentedButton(
-            selected = showBase,
-            onClick = { onSelect(true) },
-            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-        ) {
-            Text(baseTicker)
+    var menuOpen by remember { mutableStateOf(false) }
+    Box {
+        CurrencyChip(
+            ticker = if (showBase) state.baseTicker else state.priceTicker,
+            onClick = { menuOpen = true }.takeIf { state.supportsBaseConversion },
+        )
+        DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
+            listOf(false to state.priceTicker, true to state.baseTicker).forEach { (base, ticker) ->
+                DropdownMenuItem(
+                    text = { Text(ticker) },
+                    trailingIcon = { if (base == showBase) Icon(Icons.Filled.Check, contentDescription = "Selected") },
+                    onClick = {
+                        menuOpen = false
+                        if (base != showBase) onSelect(base)
+                    },
+                )
+            }
         }
     }
 }

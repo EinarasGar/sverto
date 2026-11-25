@@ -32,6 +32,9 @@ class CustomAssetsViewModel(
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val errors = _errors.asSharedFlow()
 
+    private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saved = _saved.asSharedFlow()
+
     fun load() {
         viewModelScope.launch(Dispatchers.IO) {
             // Only show the full-screen spinner on the first load; a refresh-on-return
@@ -74,6 +77,7 @@ class CustomAssetsViewModel(
         baseAssetId: Int,
     ) = launchCatching(_errors) {
         store.createUserAsset(name, ticker, assetType, baseAssetId)
+        _saved.emit(Unit)
         load()
     }
 }

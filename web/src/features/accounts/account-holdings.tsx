@@ -23,7 +23,11 @@ import type {
   AssetHolding,
   PortfolioOverviewView,
 } from "@/features/portfolio/api"
-import { isPhysicalAssetType, readableAssetLabel } from "@/lib/domain/refs"
+import {
+  isCurrencyAssetType,
+  isPhysicalAssetType,
+  readableAssetLabel,
+} from "@/lib/domain/refs"
 
 import {
   holdingsColumns,
@@ -56,15 +60,25 @@ export function AccountHoldings({
   overview: PortfolioOverviewView
 }) {
   const width = useShellWidth()
-  const colors = useMemo(
+  const holdings = useMemo(
     () =>
-      createSeriesColors(overview.assets.map((asset) => String(asset.assetId))),
+      overview.assets.filter(
+        (holding) => !isCurrencyAssetType(holding.asset?.assetTypeId)
+      ),
     [overview.assets]
   )
+  const colors = useMemo(
+    () => createSeriesColors(holdings.map((asset) => String(asset.assetId))),
+    [holdings]
+  )
 
-  if (overview.assets.length === 0) return null
+  if (holdings.length === 0) return null
 
-  const total = overview.totals.marketValue
+  const total = holdings.reduce((sum, holding) => sum + holding.marketValue, 0)
+  const totalGains = holdings.reduce(
+    (sum, holding) => sum + holding.totalGains,
+    0
+  )
   const { showUnits, showShare, showGains } = holdingsColumns(width)
 
   return (
@@ -97,7 +111,7 @@ export function AccountHoldings({
           </DataTableHeaderRow>
         </DataTableHead>
         <DataTableBody>
-          {overview.assets.map((holding) => {
+          {holdings.map((holding) => {
             const share = total === 0 ? 0 : holding.marketValue / total
             const name = holdingName(holding)
             const sub = holdingSubLabel(holding)
@@ -191,7 +205,7 @@ export function AccountHoldings({
             {showGains ? (
               <FigureCell>
                 <Figure
-                  value={overview.totals.totalGains}
+                  value={totalGains}
                   intent="gainLoss"
                   size="base"
                   className="font-semibold"

@@ -49,7 +49,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -79,6 +81,7 @@ fun ConnectionDetailScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     var expandedBindingId by remember { mutableStateOf<String?>(null) }
+    val haptics = LocalHapticFeedback.current
     var deleteBindingId by remember { mutableStateOf<String?>(null) }
     var showRevokeConfirm by remember { mutableStateOf(false) }
     val dateFormatter = remember { SimpleDateFormat("d MMM yyyy", Locale.getDefault()) }
@@ -338,6 +341,9 @@ fun ConnectionDetailScreen(
                                                     Switch(
                                                         checked = binding.writeMode == BindingWriteMode.TRUSTED,
                                                         onCheckedChange = { checked ->
+                                                            haptics.performHapticFeedback(
+                                                                if (checked) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff,
+                                                            )
                                                             viewModel.updateBinding(
                                                                 binding,
                                                                 if (checked) BindingWriteMode.TRUSTED else BindingWriteMode.GHOST,
@@ -358,6 +364,9 @@ fun ConnectionDetailScreen(
                                                     Switch(
                                                         checked = !paused,
                                                         onCheckedChange = { checked ->
+                                                            haptics.performHapticFeedback(
+                                                                if (checked) HapticFeedbackType.ToggleOn else HapticFeedbackType.ToggleOff,
+                                                            )
                                                             viewModel.updateBinding(
                                                                 binding,
                                                                 binding.writeMode,

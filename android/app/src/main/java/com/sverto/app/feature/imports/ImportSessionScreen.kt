@@ -41,8 +41,10 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -81,6 +83,7 @@ fun ImportSessionScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = LocalHapticFeedback.current
     val scope = rememberCoroutineScope()
     val resolver = LocalContext.current.contentResolver
     val listState = rememberLazyListState()
@@ -103,8 +106,12 @@ fun ImportSessionScreen(
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
-                is ImportSessionEvent.Message -> launch { snackbarHostState.showSnackbar(event.text) }
+                is ImportSessionEvent.Message -> {
+                    haptics.performHapticFeedback(HapticFeedbackType.Reject)
+                    launch { snackbarHostState.showSnackbar(event.text) }
+                }
                 is ImportSessionEvent.AiBlocked -> aiFeaturesGate.promptToEnable(event.retry)
+                ImportSessionEvent.Applied -> haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                 ImportSessionEvent.Deleted -> currentOnBack()
             }
         }
@@ -115,6 +122,7 @@ fun ImportSessionScreen(
             if (uris.isEmpty()) return@rememberLauncherForActivityResult
             scope.launch {
                 val results = uris.map { readPickedFile(resolver, it) }
+                if (results.any { it !is PickResult.Picked }) haptics.performHapticFeedback(HapticFeedbackType.Reject)
                 results.forEach { result ->
                     when (result) {
                         is PickResult.TooLarge -> launch { snackbarHostState.showSnackbar("“${result.name}” is over 20 MB") }

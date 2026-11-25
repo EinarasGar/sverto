@@ -12,6 +12,7 @@ import {
   portfolioHistoryQueryOptions,
   portfolioOverviewQueryOptions,
 } from "@/features/portfolio/api"
+import { propertiesQueryOptions } from "@/features/properties/api"
 import { warm } from "@/lib/query"
 
 import { optionalEnum, optionalText } from "../../-search"
@@ -41,6 +42,7 @@ export const Route = createFileRoute("/_auth/_shell/portfolio/")({
       queryClient.ensureQueryData(
         portfolioOverviewQueryOptions({ userId, defaultAssetId })
       ),
+      queryClient.ensureQueryData(propertiesQueryOptions(userId)),
       queryClient.ensureQueryData(
         portfolioHistoryQueryOptions({
           userId,

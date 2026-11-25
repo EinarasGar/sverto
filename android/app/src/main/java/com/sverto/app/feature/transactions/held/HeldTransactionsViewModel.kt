@@ -4,8 +4,10 @@ import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sverto.app.core.friendlyMessage
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -33,6 +35,9 @@ class HeldTransactionsViewModel(
     private val _state = MutableStateFlow(HeldTransactionsUiState())
     val state: StateFlow<HeldTransactionsUiState> = _state.asStateFlow()
 
+    private val _decisionSucceeded = MutableSharedFlow<Boolean>(extraBufferCapacity = 1)
+    val decisionSucceeded = _decisionSucceeded.asSharedFlow()
+
     fun load() {
         viewModelScope.launch {
             try {
@@ -54,9 +59,11 @@ class HeldTransactionsViewModel(
             try {
                 store.decideHeldTransaction(heldTransactionId, decision)
                 _state.update { state -> state.copy(items = state.items.filterNot { it.id == heldTransactionId }) }
+                _decisionSucceeded.emit(true)
                 store.refreshTransactions()
             } catch (e: ApiException) {
                 _state.update { it.copy(error = HeldDecisionError(heldTransactionId, e.friendlyMessage())) }
+                _decisionSucceeded.emit(false)
             } finally {
                 _state.update { it.copy(decidingId = null) }
             }

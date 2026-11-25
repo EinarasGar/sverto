@@ -47,7 +47,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -317,10 +319,18 @@ private fun ImportFromChoice(
                     null to "A date",
                 )
             val colors = ToggleButtonDefaults.toggleButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)
+            val haptics = LocalHapticFeedback.current
             options.forEachIndexed { index, (option, label) ->
                 ToggleButton(
                     checked = if (option == null) importFrom is ConnectorImportFrom.Date else importFrom == option,
-                    onCheckedChange = { if (option == null) pickingDate = true else onChange(option) },
+                    onCheckedChange = {
+                        if (option == null) {
+                            pickingDate = true
+                        } else {
+                            if (importFrom != option) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                            onChange(option)
+                        }
+                    },
                     enabled = enabled,
                     modifier =
                         Modifier

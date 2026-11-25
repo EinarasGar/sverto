@@ -64,8 +64,10 @@ import com.sverto.app.feature.accounts.components.isInvestmentAccountType
 import com.sverto.app.feature.connectors.TransientKeySheet
 import com.sverto.app.feature.connectors.relativeTime
 import com.sverto.app.feature.portfolio.ChartPoint
+import com.sverto.app.feature.portfolio.CurrencyBalanceRow
 import com.sverto.app.feature.portfolio.PortfolioChart
 import com.sverto.app.feature.portfolio.TimePeriod
+import com.sverto.app.feature.portfolio.isCurrencyAssetType
 import com.sverto.app.feature.transactions.TransactionAmount
 import com.sverto.app.feature.transactions.TransactionGlyph
 import uniffi.sverto_core.TransactionListItem
@@ -80,6 +82,7 @@ fun AccountDetailScreen(
     accountTypeId: Int,
     onBack: () -> Unit,
     onHoldingClick: (String, Int) -> Unit,
+    onBalanceClick: (Int) -> Unit,
     onViewAllTransactions: () -> Unit,
     onTransactionClick: (TransactionListItem) -> Unit,
     onEdit: (String) -> Unit,
@@ -119,7 +122,9 @@ fun AccountDetailScreen(
             period to points
         }
 
-    val holdings = state.holdings
+    val holdings = state.holdings.filterNot { isCurrencyAssetType(it.assetTypeId) }
+    val balances = state.balances
+    val showsBalances = if (showsInvestmentView) balances.isNotEmpty() else balances.size > 1
     val transactions = state.recentTransactions
 
     val listState = rememberLazyListState()
@@ -272,7 +277,41 @@ fun AccountDetailScreen(
                                     Spacer(modifier = Modifier.height(24.dp))
                                 }
                             }
+                        }
 
+                        if (showsBalances) {
+                            item(key = "balances") {
+                                Column(modifier = Modifier.animateItem()) {
+                                    Text(
+                                        text = if (showsInvestmentView) "Cash" else "Balances",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.SemiBold,
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+
+                                    Surface(
+                                        shape = RoundedCornerShape(20.dp),
+                                        color = MaterialTheme.colorScheme.surfaceBright,
+                                    ) {
+                                        Column {
+                                            balances.forEachIndexed { index, balance ->
+                                                CurrencyBalanceRow(
+                                                    balance = balance,
+                                                    baseTicker = state.baseTicker,
+                                                    onClick = { onBalanceClick(balance.assetId) },
+                                                )
+                                                if (index < balances.lastIndex) {
+                                                    RowDivider()
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(24.dp))
+                                }
+                            }
+                        }
+
+                        if (showsInvestmentView) {
                             item(key = "holdings") {
                                 Column(modifier = Modifier.animateItem()) {
                                     Row(

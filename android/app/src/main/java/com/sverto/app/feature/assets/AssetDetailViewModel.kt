@@ -37,6 +37,9 @@ class AssetDetailViewModel(
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val errors = _errors.asSharedFlow()
 
+    private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saved = _saved.asSharedFlow()
+
     private var assetId: Int = 0
 
     fun load(
@@ -57,7 +60,11 @@ class AssetDetailViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val detail = store.getAssetDetail(assetId, userAsset)
-                val defaultPair = detail.basePairId ?: detail.pairs.firstOrNull()?.assetId
+                val baseCurrencyId = store.getDefaultAssetId()
+                val defaultPair =
+                    detail.basePairId
+                        ?: detail.pairs.firstOrNull { it.assetId == baseCurrencyId }?.assetId
+                        ?: detail.pairs.firstOrNull()?.assetId
                 _state.value =
                     _state.value.copy(isLoading = false, detail = detail, selectedPairId = defaultPair)
                 if (defaultPair != null) selectPair(defaultPair)
@@ -159,6 +166,7 @@ class AssetDetailViewModel(
     ) = launchCatching(_errors) {
         val referenceId = _state.value.selectedPairId ?: return@launchCatching
         store.addUserAssetRate(assetId, referenceId, date, rate)
+        _saved.emit(Unit)
         _state.value = _state.value.copy(chartByPeriod = emptyMap())
         selectPair(referenceId)
     }

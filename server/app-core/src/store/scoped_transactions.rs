@@ -1,7 +1,9 @@
 use std::sync::Mutex;
 
 use super::infra::SharedInfra;
-use crate::api::account_transactions::{extract_account_transactions, scoped_transactions_path};
+use crate::api::account_transactions::{
+    extract_account_transactions, scoped_transactions_page_path, scoped_transactions_path,
+};
 use crate::models::{ScopedTransactionsState, TransactionListScope};
 
 const PAGE_SIZE: u32 = 20;
@@ -79,8 +81,6 @@ pub async fn load_scoped_transactions(
     let Some(user_id) = infra.user_id() else {
         return;
     };
-    let base = scoped_transactions_path(&user_id, &scope);
-
     {
         let mut m = module.lock().unwrap();
         m.scope = Some(scope.clone());
@@ -90,7 +90,7 @@ pub async fn load_scoped_transactions(
         m.notify();
     }
 
-    let path = format!("{base}?count={PAGE_SIZE}&start=0");
+    let path = scoped_transactions_page_path(&user_id, &scope, PAGE_SIZE, 0);
     let result = match infra.get(&path, auth_token).await {
         Ok(resp) => extract_account_transactions(&resp.body),
         Err(e) => Err(e.to_string()),
@@ -138,10 +138,7 @@ pub async fn load_more_scoped_transactions(
         m.notify();
     }
 
-    let path = format!(
-        "{}?count={PAGE_SIZE}&start={start}",
-        scoped_transactions_path(&user_id, &scope)
-    );
+    let path = scoped_transactions_page_path(&user_id, &scope, PAGE_SIZE, start);
     let result = match infra.get(&path, auth_token).await {
         Ok(resp) => extract_account_transactions(&resp.body),
         Err(e) => Err(e.to_string()),

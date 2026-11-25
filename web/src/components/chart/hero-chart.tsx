@@ -52,11 +52,12 @@ export interface ChartReferenceLine {
   label?: string
 }
 
-export type HeroChartKind = "money" | "rate" | "plain"
+export type HeroChartKind = "money" | "rate" | "plain" | "units"
 
 interface HeroChartBaseProps {
   data: readonly ChartPoint[]
   label?: ReactNode
+  controls?: ReactNode
   value?: number | null
   shape?: ChartShape
   size?: HeroChartSize
@@ -67,6 +68,7 @@ interface HeroChartBaseProps {
   note?: ReactNode
   summary?: ReactNode
   footer?: ReactNode
+  showChangeRatio?: boolean
   degraded?: ReactNode
   markers?: readonly ChartMarker[]
   referenceLine?: ChartReferenceLine
@@ -88,6 +90,7 @@ const PLOT_MARGIN = { top: 2, right: 0, bottom: 0, left: 0 } as const
 export function HeroChart({
   data,
   label,
+  controls,
   value,
   currency,
   kind = "money",
@@ -100,6 +103,7 @@ export function HeroChart({
   note,
   summary,
   footer,
+  showChangeRatio = true,
   degraded,
   markers,
   referenceLine,
@@ -222,6 +226,11 @@ export function HeroChart({
         className="flex flex-wrap items-end justify-between gap-x-6 gap-y-3 md:flex-nowrap"
       >
         <div className="min-w-0">
+          {controls === undefined ? null : (
+            <div data-slot="hero-chart-controls" className="mb-[14px]">
+              {controls}
+            </div>
+          )}
           {label === undefined ? null : (
             <div
               data-slot="hero-chart-label"
@@ -270,15 +279,17 @@ export function HeroChart({
                 ) : (
                   (note ?? (
                     <>
-                      <Figure
-                        value={delta === null ? null : delta.ratio}
-                        kind="percent"
-                        scale="ratio"
-                        intent="secondary"
-                        sign="always"
-                        size="base"
-                        locale={locale}
-                      />
+                      {showChangeRatio ? (
+                        <Figure
+                          value={delta === null ? null : delta.ratio}
+                          kind="percent"
+                          scale="ratio"
+                          intent="secondary"
+                          sign="always"
+                          size="base"
+                          locale={locale}
+                        />
+                      ) : null}
                       <span>{periodNote(spanInDays(points))}</span>
                     </>
                   ))

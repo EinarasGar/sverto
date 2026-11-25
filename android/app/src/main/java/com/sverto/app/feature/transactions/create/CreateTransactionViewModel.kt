@@ -199,7 +199,11 @@ class CreateTransactionViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 _accounts.value = store.getAccountsList()
-                _formState.value = TransactionFormState(date = System.currentTimeMillis() / 1000)
+                _formState.value =
+                    TransactionFormState(
+                        date = System.currentTimeMillis() / 1000,
+                        primaryEntry = EntryFormState(amount = primarySign(config).blankAmount),
+                    )
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {

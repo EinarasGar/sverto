@@ -1,3 +1,5 @@
+import type { ReactNode } from "react"
+
 import { useShellWidth } from "@/components/layout/breakpoints"
 import { SkeletonBar } from "@/components/states/loading-state"
 import { cn } from "@/lib/utils"
@@ -9,6 +11,7 @@ import { CHART_PERIODS, type ChartPeriod } from "./periods"
 export interface HeroChartSkeletonProps {
   size?: HeroChartSize
   label?: string
+  controls?: ReactNode
   period?: ChartPeriod
   periods?: readonly ChartPeriod[]
   onPeriodChange?: (period: ChartPeriod) => void
@@ -19,6 +22,7 @@ export interface HeroChartSkeletonProps {
 export function HeroChartSkeleton({
   size = "default",
   label = "Loading chart",
+  controls,
   period,
   periods = CHART_PERIODS,
   onPeriodChange,
@@ -42,7 +46,10 @@ export function HeroChartSkeleton({
         data-slot="hero-chart-skeleton-header"
         className="flex items-end justify-between gap-6"
       >
-        <SkeletonBar width={240} height={44} anchor />
+        <div className="flex flex-col gap-[14px]">
+          {controls}
+          <SkeletonBar width={240} height={44} anchor />
+        </div>
         {showPeriods ? (
           <PeriodSelector
             value={period}

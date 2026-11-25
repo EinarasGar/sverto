@@ -1,44 +1,55 @@
 import SvertoCore
 import SwiftUI
 
-struct AssetChartSection: View {
-    let model: AssetOverviewViewModel
-    let onPairPickerOpen: () -> Void
+struct AssetChartSection<CurrencyControl: View>: View {
+    let showsSeriesSwitch: Bool
+    @Binding var series: HoldingChartSeries
+    @Binding var period: ChartPeriod
+    let periods: [ChartPeriodData]
+    let ticker: String
+    let isLoading: Bool
+    let error: String?
+    let retry: () async -> Void
+    @ViewBuilder let currencyControl: () -> CurrencyControl
 
     var body: some View {
-        if model.isChartLoading {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack {
+                if showsSeriesSwitch {
+                    HoldingChartSwitch(selection: $series)
+                }
+                Spacer(minLength: 8)
+                if series != .units {
+                    currencyControl()
+                }
+            }
+            chart
+        }
+    }
+
+    @ViewBuilder
+    private var chart: some View {
+        if isLoading {
             ChartSkeleton()
-                .padding(.vertical, 16)
-        } else if let error = model.chartError {
+        } else if let error {
             ContentUnavailableView {
                 Label("Couldn't load chart", systemImage: "exclamationmark.triangle")
             } description: {
                 Text(error)
             } actions: {
                 Button("Retry") {
-                    Task { await model.retryChart() }
+                    Task { await retry() }
                 }
                 .buttonStyle(.bordered)
             }
         } else {
             ChartView(
-                periods: model.chartPeriods,
-                baseTicker: model.referenceTicker,
-                selectedPeriod: periodBinding,
-                headerTrailing: pairAnchor
+                periods: periods,
+                baseTicker: ticker,
+                selectedPeriod: $period,
+                caption: showsSeriesSwitch ? series.caption : nil,
+                valueFormat: series.valueFormat
             )
-            .padding(.vertical, 16)
         }
-    }
-
-    private var periodBinding: Binding<ChartPeriod> {
-        Binding(get: { model.selectedPeriod }, set: { model.selectPeriod($0) })
-    }
-
-    private var pairAnchor: (() -> AnyView)? {
-        guard let detail = model.detail, let selected = model.selectedPair else { return nil }
-        let label = "\(detail.displaySymbol)/\(selected.ticker)"
-        let switchable = detail.pairs.count > 1
-        return { AnyView(PairAnchor(label: label, switchable: switchable, action: onPairPickerOpen)) }
     }
 }

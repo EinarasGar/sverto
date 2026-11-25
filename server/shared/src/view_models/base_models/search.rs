@@ -42,6 +42,32 @@ impl Default for PaginatedSearchQuery {
     }
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize, utoipa::IntoParams)]
+#[into_params(parameter_in = Query)]
+#[serde(default)]
+pub struct AssetTransactionsQuery {
+    #[param(maximum = 100, minimum = 1, example = 10)]
+    /// How many items to return in a single page
+    pub count: u64,
+
+    /// The index in the list of the fist element of the page.
+    #[param(minimum = 0, example = 30)]
+    pub start: u64,
+
+    /// Leave out entries in credit card, mortgage and loan accounts
+    pub exclude_liabilities: bool,
+}
+
+impl Default for AssetTransactionsQuery {
+    fn default() -> Self {
+        Self {
+            count: 10,
+            start: 0,
+            exclude_liabilities: false,
+        }
+    }
+}
+
 macro_rules! define_page_schema {
     ($name:ident, $item:ty, $lookup:ty) => {
         #[derive(Clone, Debug, Serialize, Deserialize, utoipa::ToSchema)]

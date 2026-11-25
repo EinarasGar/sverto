@@ -10,12 +10,15 @@ export { toPortfolioLookups } from "./refs"
 export type {
   AccountHoldings,
   AssetHoldings,
+  FoldedHoldings,
   Holding,
   HoldingsQueryParams,
   HoldingsView,
+  PropertyHoldings,
 } from "./holdings"
 export {
   buildHoldingsView,
+  foldHoldings,
   HOLDINGS_APPLY_OWNERSHIP_SHARE,
   holdingsQueryOptions,
   useHoldings,

@@ -1,4 +1,5 @@
 pub mod base_models;
+pub mod get_asset_history;
 pub mod get_holdings;
 pub mod get_networth_history;
 pub mod get_overview;

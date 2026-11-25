@@ -11,6 +11,7 @@ nonisolated enum TypeConversion {
         let targetSecondarySign: AmountSign = if case let .dual(mode) = to.entryMode { mode.secondarySign } else { .any }
 
         var primaryEntry = primarySource?.entryFormState(sign: targetPrimarySign) ?? EntryFormState()
+        if primaryEntry.amount.isEmpty { primaryEntry.amount = targetPrimarySign.blankAmount }
         let secondaryEntry = secondarySource?.entryFormState(sign: targetSecondarySign) ?? EntryFormState()
 
         if case let .dual(mode) = to.entryMode, let filled = primarySource ?? secondarySource {

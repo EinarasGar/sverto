@@ -42,6 +42,7 @@ class AccountDetailViewModel(
                 accountTypeId = 0,
                 chartData = emptyList(),
                 holdings = emptyList(),
+                balances = emptyList(),
                 cashBalance = 0.0,
                 totalValue = 0.0,
                 totalCostBasis = 0.0,

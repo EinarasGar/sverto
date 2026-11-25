@@ -23,6 +23,7 @@ import type { GroupByMode } from "./pivot"
 export interface ExploreSearch {
   readonly account?: string
   readonly asset?: number
+  readonly excludeLiabilities?: boolean
   readonly q?: string
   readonly category?: number
   readonly type?: string
@@ -99,10 +100,12 @@ export function buildLedgerTokens(
   }
 
   if (search.asset !== undefined) {
+    const name = labels.assetName(search.asset)
     tokens.push({
       key: "asset",
       assetId: search.asset,
-      label: labels.assetName(search.asset),
+      label: search.excludeLiabilities ? `${name} excl. liabilities` : name,
+      excludeLiabilities: search.excludeLiabilities === true,
     })
   }
 
@@ -181,7 +184,7 @@ export function clearToken(token: LedgerFilterToken): ExploreSearchPatch {
     case "account":
       return { account: undefined }
     case "asset":
-      return { asset: undefined }
+      return { asset: undefined, excludeLiabilities: undefined }
     case "category":
       return { category: undefined }
     case "type":
@@ -200,6 +203,7 @@ export const CLEARED_SEARCH: Required<
 > = {
   account: undefined,
   asset: undefined,
+  excludeLiabilities: undefined,
   q: undefined,
   category: undefined,
   type: undefined,

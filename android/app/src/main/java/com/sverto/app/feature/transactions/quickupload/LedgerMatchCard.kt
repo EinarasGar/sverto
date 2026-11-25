@@ -17,6 +17,8 @@ import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -58,10 +60,14 @@ fun LedgerMatchCard(
             horizontalArrangement = Arrangement.spacedBy(ButtonGroupDefaults.ConnectedSpaceBetween),
         ) {
             val colors = ToggleButtonDefaults.toggleButtonColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHighest)
+            val haptics = LocalHapticFeedback.current
             listOf(true to "Merge into it", false to "It's a different purchase").forEachIndexed { index, (merge, label) ->
                 ToggleButton(
                     checked = matches.merge == merge,
-                    onCheckedChange = { onMergeChange(merge) },
+                    onCheckedChange = {
+                        if (matches.merge != merge) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onMergeChange(merge)
+                    },
                     shapes =
                         if (index == 0) {
                             ButtonGroupDefaults.connectedLeadingButtonShapes()

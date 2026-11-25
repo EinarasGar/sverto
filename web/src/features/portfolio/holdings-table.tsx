@@ -16,12 +16,15 @@ import {
   DisclosureCaret,
   EntityMark,
   FigureCell,
+  focusRing,
   Panel,
   PanelFootnote,
+  SectionHeader,
   TableFoldRow,
   Truncate,
 } from "@/components/primitives"
 import { TableCell, TableRow } from "@/components/ui/table"
+import { PROPERTY_KIND_LABELS } from "@/features/properties/presentation"
 import { mockAttributes, MockBadge } from "@/lib/mock"
 import { countOf } from "@/lib/format"
 import { cn } from "@/lib/utils"
@@ -32,7 +35,12 @@ import {
   PERIOD_COLUMN_UNAVAILABLE_FOOTNOTE,
   SHARE_BASIS_FOOTNOTE,
 } from "./copy"
-import type { HoldingsSummary, PortfolioHoldingRow } from "./holdings"
+import type {
+  HoldingsSummary,
+  LiabilityRow,
+  PortfolioHoldingRow,
+  PropertyRowPart,
+} from "./holdings"
 import { lotSummaryOf } from "./holdings"
 import type { PeriodColumn } from "./period"
 import type { HoldingsColumns } from "./presentation"
@@ -60,6 +68,71 @@ function activate(event: KeyboardEvent<HTMLTableRowElement>, run: () => void) {
   if (event.key !== "Enter" && event.key !== " ") return
   event.preventDefault()
   run()
+}
+
+const ROW_LINK_CLASS = cn(
+  "min-w-0 text-[13px] leading-[1.3] font-medium outline-none",
+  "after:absolute after:inset-0 after:z-10 after:content-['']",
+  focusRing.row
+)
+
+export function SectionTotal({
+  label,
+  total,
+  currency,
+}: {
+  label: string
+  total: number
+  currency: string
+}) {
+  return (
+    <SectionHeader
+      label={label}
+      action={
+        <Figure
+          value={total}
+          currency={currency}
+          size="base"
+          className="text-[12.5px] font-semibold"
+          aria-label={`${label} total`}
+        />
+      }
+    />
+  )
+}
+
+function PropertyMeta({
+  property,
+  currency,
+}: {
+  property: PropertyRowPart
+  currency: string
+}) {
+  return (
+    <Truncate className="block ps-[19px] text-[11px] leading-[1.4] text-ink-3">
+      {PROPERTY_KIND_LABELS[property.kind]}
+      {property.loanBalance === 0 ? null : (
+        <>
+          {" · Value "}
+          <Figure
+            value={property.assetValue}
+            currency={currency}
+            intent="meta"
+            size="micro"
+            className="text-[11px]"
+          />
+          {" · Loan "}
+          <Figure
+            value={Math.abs(property.loanBalance)}
+            currency={currency}
+            intent="meta"
+            size="micro"
+            className="text-[11px]"
+          />
+        </>
+      )}
+    </Truncate>
+  )
 }
 
 export function HoldingsTable({
@@ -115,9 +188,25 @@ export function HoldingsTable({
 
         <DataTableBody>
           {rows.map((row) => {
-            const open = expanded.has(row.key)
+            const property = row.property
+            const open = property === null && expanded.has(row.key)
             const change = period.byHolding[row.key]
             const colour = colors.colorFor(row.key)
+            const toggle =
+              property === null
+                ? {
+                    tabIndex: 0,
+                    "aria-expanded": open,
+                    onClick: () => {
+                      onToggle(row.key)
+                    },
+                    onKeyDown: (event: KeyboardEvent<HTMLTableRowElement>) => {
+                      activate(event, () => {
+                        onToggle(row.key)
+                      })
+                    },
+                  }
+                : {}
 
             return (
               <Fragment key={row.key}>
@@ -125,42 +214,56 @@ export function HoldingsTable({
                   size="two-line"
                   variant={open ? "group" : "default"}
                   interactive
-                  tabIndex={0}
-                  aria-expanded={open}
-                  onClick={() => {
-                    onToggle(row.key)
-                  }}
-                  onKeyDown={(event) => {
-                    activate(event, () => {
-                      onToggle(row.key)
-                    })
-                  }}
-                  className={rowHeight}
+                  {...toggle}
+                  className={cn(
+                    rowHeight,
+                    property === null
+                      ? undefined
+                      : "relative focus-within:bg-surface-2"
+                  )}
                 >
-                  <DataCell>
+                  <DataCell
+                    className={
+                      property === null ? undefined : "overflow-visible"
+                    }
+                  >
                     <div className="flex min-w-0 items-center gap-[11px]">
                       <SeriesSwatch color={colour} />
-                      <Truncate
-                        text={row.label}
-                        className="min-w-0 text-[13px] leading-[1.3] font-medium"
-                      />
-                    </div>
-                    <Truncate className="block ps-[19px] font-mono text-[11px] leading-[1.4] text-ink-3">
-                      {row.subLabel}
-                      {columns.showUnits || row.units === null ? null : (
-                        <>
-                          {" · "}
-                          <Figure
-                            value={row.units}
-                            kind="units"
-                            ticker={row.asset?.ticker ?? null}
-                            intent="meta"
-                            size="micro"
-                            className="text-[11px]"
-                          />
-                        </>
+                      {property === null ? (
+                        <Truncate
+                          text={row.label}
+                          className="min-w-0 text-[13px] leading-[1.3] font-medium"
+                        />
+                      ) : (
+                        <Link
+                          to="/properties/$propertyId"
+                          params={{ propertyId: property.propertyId }}
+                          className={ROW_LINK_CLASS}
+                        >
+                          <Truncate text={row.label} className="block" />
+                        </Link>
                       )}
-                    </Truncate>
+                    </div>
+                    {property === null ? (
+                      <Truncate className="block ps-[19px] font-mono text-[11px] leading-[1.4] text-ink-3">
+                        {row.subLabel}
+                        {columns.showUnits || row.units === null ? null : (
+                          <>
+                            {" · "}
+                            <Figure
+                              value={row.units}
+                              kind="units"
+                              ticker={row.asset?.ticker ?? null}
+                              intent="meta"
+                              size="micro"
+                              className="text-[11px]"
+                            />
+                          </>
+                        )}
+                      </Truncate>
+                    ) : (
+                      <PropertyMeta property={property} currency={currency} />
+                    )}
                   </DataCell>
 
                   {columns.showUnits ? (
@@ -260,7 +363,16 @@ export function HoldingsTable({
 
                   {columns.showCaret ? (
                     <DataCell>
-                      <DisclosureCaret expanded={open} />
+                      {property === null ? (
+                        <DisclosureCaret expanded={open} />
+                      ) : (
+                        <span
+                          aria-hidden
+                          className="block text-right text-[11px] leading-none text-ink-3"
+                        >
+                          ›
+                        </span>
+                      )}
                     </DataCell>
                   ) : null}
                 </DataRow>
@@ -297,7 +409,7 @@ export function HoldingsTable({
             {columns.showUnits ? <DataCell /> : null}
             <FigureCell>
               <Figure
-                value={summary.totalValue}
+                value={summary.holdingsTotal}
                 currency={currency}
                 size="base"
                 className="text-[14px] font-bold"
@@ -309,7 +421,7 @@ export function HoldingsTable({
                   value={
                     summary.shareBasis === 0
                       ? null
-                      : summary.totalValue / summary.shareBasis
+                      : summary.holdingsTotal / summary.shareBasis
                   }
                   kind="percent"
                   scale="ratio"
@@ -356,6 +468,95 @@ export function HoldingsTable({
           : ""}
       </PanelFootnote>
     </Panel>
+  )
+}
+
+export function LiabilitiesTable({
+  rows,
+  total,
+  currency,
+}: {
+  rows: readonly LiabilityRow[]
+  total: number
+  currency: string
+}) {
+  const width = useShellWidth()
+  const columns = holdingsColumns(width)
+  const rowHeight = holdingsRowHeight(width)
+
+  return (
+    <section data-slot="liabilities-section">
+      <SectionTotal label="Liabilities" total={total} currency={currency} />
+      <Panel>
+        <DataTable
+          columns={HOLDINGS_COLUMNS}
+          gap={HOLDINGS_GAP}
+          padding={HOLDINGS_PADDING}
+          aria-label="Liabilities"
+        >
+          <DataTableHead className="sr-only">
+            <DataTableHeaderRow>
+              <DataTableHeaderCell>Account</DataTableHeaderCell>
+              {columns.showUnits ? <DataTableHeaderCell /> : null}
+              <DataTableHeaderCell numeric>Balance</DataTableHeaderCell>
+              {columns.showShare ? <DataTableHeaderCell /> : null}
+              {columns.showPeriod ? <DataTableHeaderCell /> : null}
+              {columns.showLifetime ? <DataTableHeaderCell /> : null}
+              {columns.showCaret ? <DataTableHeaderCell /> : null}
+            </DataTableHeaderRow>
+          </DataTableHead>
+          <DataTableBody className="[&>tr:last-child]:border-b-0">
+            {rows.map((row) => (
+              <DataRow
+                key={row.key}
+                size="two-line"
+                interactive
+                className={cn(rowHeight, "relative focus-within:bg-surface-2")}
+              >
+                <DataCell className="overflow-visible">
+                  <div className="flex min-w-0 items-center gap-[11px]">
+                    <EntityMark seed={row.accountId} label={row.label} />
+                    <div className="min-w-0 flex-1">
+                      <Link
+                        to="/accounts/$accountId"
+                        params={{ accountId: row.accountId }}
+                        className={cn(ROW_LINK_CLASS, "block truncate")}
+                      >
+                        <Truncate text={row.label} className="block" />
+                      </Link>
+                      <Truncate
+                        text={row.typeLabel}
+                        className="block text-[11px] leading-[1.4] text-ink-3"
+                      />
+                    </div>
+                  </div>
+                </DataCell>
+                {columns.showUnits ? <DataCell /> : null}
+                <FigureCell>
+                  <Figure
+                    value={row.value}
+                    currency={currency}
+                    size="base"
+                    className="font-semibold"
+                  />
+                </FigureCell>
+                {columns.showShare ? <DataCell /> : null}
+                {columns.showPeriod ? <DataCell /> : null}
+                {columns.showLifetime ? <DataCell /> : null}
+                {columns.showCaret ? (
+                  <DataCell
+                    aria-hidden
+                    className="text-right text-[11px] leading-none text-ink-3"
+                  >
+                    ›
+                  </DataCell>
+                ) : null}
+              </DataRow>
+            ))}
+          </DataTableBody>
+        </DataTable>
+      </Panel>
+    </section>
   )
 }
 

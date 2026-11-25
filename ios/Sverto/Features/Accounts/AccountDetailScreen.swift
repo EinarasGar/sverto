@@ -127,14 +127,25 @@ private struct AccountDetailContent: View {
                         ChartView(periods: model.state.chartData, baseTicker: model.state.baseTicker, selectedPeriod: $chartPeriod)
                             .modifier(StaggeredReveal(isRevealed: isRevealed, index: 0, reduceMotion: reduceMotion))
                     }
+                    let balancesOffset = model.showsBalances ? 1 : 0
                     if model.isInvestmentAccount {
                         investmentSummary
                             .modifier(StaggeredReveal(isRevealed: isRevealed, index: 1, reduceMotion: reduceMotion))
+                    }
+                    if model.showsBalances {
+                        balances
+                            .modifier(StaggeredReveal(isRevealed: isRevealed, index: model.isInvestmentAccount ? 2 : 1, reduceMotion: reduceMotion))
+                    }
+                    if model.isInvestmentAccount {
                         holdings
-                            .modifier(StaggeredReveal(isRevealed: isRevealed, index: 2, reduceMotion: reduceMotion))
+                            .modifier(StaggeredReveal(isRevealed: isRevealed, index: 2 + balancesOffset, reduceMotion: reduceMotion))
                     }
                     transactions
-                        .modifier(StaggeredReveal(isRevealed: isRevealed, index: model.isInvestmentAccount ? 3 : 1, reduceMotion: reduceMotion))
+                        .modifier(StaggeredReveal(
+                            isRevealed: isRevealed,
+                            index: (model.isInvestmentAccount ? 3 : 1) + balancesOffset,
+                            reduceMotion: reduceMotion
+                        ))
                 }
                 .padding(.horizontal, Layout.cardPadding)
                 .padding(.vertical, 8)
@@ -161,8 +172,27 @@ private struct AccountDetailContent: View {
         }
     }
 
+    private var balances: some View {
+        let balances = model.state.balances
+        return VStack(alignment: .leading, spacing: 12) {
+            SectionHeader(model.isInvestmentAccount ? "Cash" : "Balances")
+            GroupedCard {
+                VStack(spacing: 0) {
+                    ForEach(Array(balances.enumerated()), id: \.element.assetId) { index, balance in
+                        AccountBalanceRow(balance: balance, baseTicker: model.state.baseTicker) {
+                            shell.push(.currencyDetail(assetId: balance.assetId, name: balance.name, accountId: model.accountId))
+                        }
+                        if index < balances.count - 1 {
+                            RowDivider(leadingInset: Layout.cardPadding + 40 + Layout.rowSpacing)
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     private var holdings: some View {
-        let holdings = model.state.holdings
+        let holdings = model.state.holdings.filter { $0.assetTypeId != HoldingAssetType.currency.rawValue }
         return VStack(alignment: .leading, spacing: 12) {
             SectionHeader("Holdings", trailing: {
                 AnyView(
@@ -248,7 +278,7 @@ private struct AccountDetailContent: View {
 
     private func deleteAccount() async {
         if let error = await model.delete() {
-            toasts.show(error)
+            toasts.showError(error)
             return
         }
         shell.pop()

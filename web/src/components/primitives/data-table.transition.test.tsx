@@ -15,11 +15,11 @@ import type {
 } from "@/features/accounts/rows"
 import { renderAccounts } from "@/features/accounts/test-harness"
 import {
-  buildHoldingRows,
   buildPeriodColumn,
   HOLDINGS_ROWS_DRAWN,
   summariseHoldings,
 } from "@/features/portfolio"
+import { foldHoldings } from "@/features/portfolio/api"
 import { holdingsFixture, overviewFixture } from "@/features/portfolio/fixtures"
 import { HoldingsTable } from "@/features/portfolio/holdings-table"
 import { renderPortfolio } from "@/features/portfolio/test-harness"
@@ -220,10 +220,14 @@ const CASH_GROUP: AccountIndexGroup = {
 }
 
 function holdings() {
-  const rows = buildHoldingRows(holdingsFixture(), overviewFixture())
+  const summary = summariseHoldings(
+    foldHoldings(holdingsFixture()),
+    overviewFixture()
+  )
+  const rows = summary.rows
   return (
     <HoldingsTable
-      summary={summariseHoldings(rows, holdingsFixture(), overviewFixture())}
+      summary={summary}
       period={buildPeriodColumn(rows, "1m", 1318.9)}
       colors={createSeriesColors(rows.map((row) => row.key))}
       currency="GBP"

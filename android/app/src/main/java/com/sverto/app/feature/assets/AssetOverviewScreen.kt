@@ -45,7 +45,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -58,7 +60,11 @@ import com.sverto.app.feature.accounts.components.MetricItem
 import com.sverto.app.feature.accounts.components.MetricsGrid
 import com.sverto.app.feature.assets.components.AddRateSheet
 import com.sverto.app.feature.assets.components.AssetPickerSheet
+import com.sverto.app.feature.assets.components.CurrencyChip
+import com.sverto.app.feature.assets.components.HoldingChartHeader
+import com.sverto.app.feature.assets.components.HoldingSeries
 import com.sverto.app.feature.assets.components.PairPickerSheet
+import com.sverto.app.feature.assets.components.formatQuantity
 import com.sverto.app.feature.portfolio.PortfolioChart
 import kotlinx.coroutines.delay
 import uniffi.sverto_core.AssetOverviewState
@@ -82,8 +88,13 @@ fun AssetOverviewScreen(
     }
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(Unit) {
+        viewModel.saved.collect { haptics.performHapticFeedback(HapticFeedbackType.Confirm) }
+    }
     LaunchedEffect(Unit) {
         viewModel.errors.collect { message ->
+            haptics.performHapticFeedback(HapticFeedbackType.Reject)
             snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(message, duration = SnackbarDuration.Long)
         }
@@ -356,40 +367,51 @@ private fun AssetChartSection(
     referenceTicker: String,
     onPairPickerOpen: () -> Unit,
 ) {
-    val ratesLoading = state.selectedPairId != null && !state.chartByPeriod.containsKey(state.selectedPeriod)
-    if (state.isLoading || ratesLoading) {
+    if (state.isLoading) {
         PortfolioChartSkeleton(modifier = Modifier.padding(vertical = 16.dp))
         return
     }
 
-    PortfolioChart(
-        portfolioData = state.chartByPeriod,
-        currencyTicker = referenceTicker,
-        selectedPeriod = state.selectedPeriod,
-        onPeriodSelect = viewModel::selectPeriod,
-        headerTrailing = {
-            PairAnchorHeader(
-                state = state,
-                onPairPickerOpen = onPairPickerOpen,
-            )
-        },
+    val series = state.series
+    Column(
         modifier = Modifier.padding(vertical = 16.dp),
-    )
-}
-
-@Composable
-private fun PairAnchorHeader(
-    state: AssetOverviewUiState,
-    onPairPickerOpen: () -> Unit,
-) {
-    val detail = state.detail ?: return
-    val pairs = detail.pairs
-    val selected = pairs.firstOrNull { it.assetId == state.selectedPairId } ?: return
-    PairAnchor(
-        label = "${detail.displaySymbol}/${selected.ticker}",
-        switchable = pairs.size > 1,
-        onClick = onPairPickerOpen,
-    )
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+    ) {
+        HoldingChartHeader(
+            series = series,
+            held = state.isHeld == true,
+            onSeriesSelect = viewModel::selectSeries,
+            currencyChip = {
+                val pairs = state.detail?.pairs.orEmpty()
+                if (pairs.any { it.assetId == state.selectedPairId }) {
+                    CurrencyChip(
+                        ticker = referenceTicker,
+                        onClick = onPairPickerOpen.takeIf { pairs.size > 1 },
+                    )
+                }
+            },
+        )
+        val seriesLoading =
+            state.isHeld == null ||
+                (state.selectedPairId != null && !state.seriesData.containsKey(state.selectedPeriod))
+        if (seriesLoading) {
+            PortfolioChartSkeleton()
+        } else {
+            PortfolioChart(
+                portfolioData = state.seriesData,
+                currencyTicker = referenceTicker,
+                selectedPeriod = state.selectedPeriod,
+                onPeriodSelect = viewModel::selectPeriod,
+                showChangePercent = series == HoldingSeries.PRICE,
+                formatAmount =
+                    if (series == HoldingSeries.UNITS) {
+                        ::formatQuantity
+                    } else {
+                        { amount, signed -> Money.format(amount, referenceTicker, signed) }
+                    },
+            )
+        }
+    }
 }
 
 @Composable

@@ -17,6 +17,11 @@ final class ToastCenter {
         }
     }
 
+    func showError(_ message: String) {
+        Haptics.error()
+        show(message)
+    }
+
     func dismiss() {
         dismissTask?.cancel()
         message = nil
@@ -75,7 +80,7 @@ private struct ErrorToast<Event: Equatable>: ViewModifier {
     func body(content: Content) -> some View {
         content.onChange(of: event) { _, event in
             guard let event else { return }
-            toasts.show(message(event))
+            toasts.showError(message(event))
             onShown()
         }
     }

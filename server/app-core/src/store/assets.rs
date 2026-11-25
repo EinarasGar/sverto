@@ -1,3 +1,5 @@
+use shared::view_models::portfolio::get_networth_history::GetNetWorthHistoryResponseViewModel;
+
 use super::infra::SharedInfra;
 use crate::api::asset_rates::extract_asset_rates;
 use crate::api::assets::{
@@ -140,6 +142,45 @@ pub async fn get_asset_pair_converted_rates(
         return Err(server_error(resp.status, &resp.body));
     }
     extract_asset_rates(&resp.body).map_err(|e| ApiError::Parse { reason: e })
+}
+
+// Valuing a holding in its own asset makes the history service return units held instead of money.
+pub async fn get_holding_history(
+    infra: &SharedInfra,
+    asset_id: i32,
+    account_id: Option<&str>,
+    value_in_asset_id: i32,
+    range: &str,
+    auth_token: Option<&str>,
+) -> Result<Vec<ChartPoint>, ApiError> {
+    let user_id = infra.user_id().ok_or_else(|| ApiError::Parse {
+        reason: "no user_id".into(),
+    })?;
+    let scope = match account_id {
+        Some(account_id) => format!("/api/users/{user_id}/accounts/{account_id}"),
+        None => format!("/api/users/{user_id}"),
+    };
+    let path = format!(
+        "{scope}/portfolio/assets/{asset_id}/history?range={range}&default_asset_id={value_in_asset_id}"
+    );
+    let resp = infra.get(&path, auth_token).await?;
+    if resp.status >= 400 {
+        return Err(server_error(resp.status, &resp.body));
+    }
+    let parsed =
+        serde_json::from_str::<GetNetWorthHistoryResponseViewModel>(&resp.body).map_err(|e| {
+            ApiError::Parse {
+                reason: e.to_string(),
+            }
+        })?;
+    Ok(parsed
+        .sums
+        .into_iter()
+        .map(|p| ChartPoint {
+            timestamp: p.date,
+            value: p.rate,
+        })
+        .collect())
 }
 
 pub async fn get_asset_types(

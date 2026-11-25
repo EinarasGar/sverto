@@ -77,26 +77,43 @@ export interface PortfolioHistoryQueryParams {
   userId: string
   defaultAssetId: number
   range: PortfolioRange
+  assetId?: number
+  excludeLiabilities?: boolean
 }
 
 export function portfolioHistoryQueryOptions({
   userId,
   defaultAssetId,
   range,
+  assetId,
+  excludeLiabilities,
 }: PortfolioHistoryQueryParams) {
   return apiQueryOptions({
     queryKey: queryKeys.user(userId).portfolio.history({
       defaultAssetId,
       range,
+      assetId,
+      excludeLiabilities,
     }),
     staleTime: STALE_TIMES.short,
     fetch: async ({ signal }): Promise<HistorySeries> => {
-      const response = await api(PortfolioApiFactory).getNetworthHistory(
-        userId,
-        range,
-        defaultAssetId,
-        { signal }
-      )
+      const portfolioApi = api(PortfolioApiFactory)
+      const response =
+        assetId === undefined
+          ? await portfolioApi.getNetworthHistory(
+              userId,
+              range,
+              defaultAssetId,
+              { signal }
+            )
+          : await portfolioApi.getPortfolioAssetHistory(
+              userId,
+              assetId,
+              range,
+              defaultAssetId,
+              excludeLiabilities,
+              { signal }
+            )
       return buildHistorySeries(response.data, range)
     },
     meta: { errorContext: "Net worth history could not be loaded" },
@@ -113,7 +130,10 @@ export function usePortfolioHistorySuspense(
   return useSuspenseQuery(portfolioHistoryQueryOptions(params)).data
 }
 
-export interface AccountHistoryQueryParams extends PortfolioHistoryQueryParams {
+export interface AccountHistoryQueryParams extends Omit<
+  PortfolioHistoryQueryParams,
+  "excludeLiabilities"
+> {
   accountId: string
 }
 
@@ -122,18 +142,34 @@ export function accountPortfolioHistoryQueryOptions({
   accountId,
   defaultAssetId,
   range,
+  assetId,
 }: AccountHistoryQueryParams) {
   return apiQueryOptions({
-    queryKey: queryKeys
-      .user(userId)
-      .accounts.portfolioHistory(accountId, { defaultAssetId, range }),
+    queryKey: queryKeys.user(userId).accounts.portfolioHistory(accountId, {
+      defaultAssetId,
+      range,
+      assetId,
+    }),
     staleTime: STALE_TIMES.short,
     fetch: async ({ signal }): Promise<HistorySeries> => {
-      const response = await api(
-        AccountPortfolioApiFactory
-      ).getAccountNetworthHistory(userId, accountId, range, defaultAssetId, {
-        signal,
-      })
+      const accountApi = api(AccountPortfolioApiFactory)
+      const response =
+        assetId === undefined
+          ? await accountApi.getAccountNetworthHistory(
+              userId,
+              accountId,
+              range,
+              defaultAssetId,
+              { signal }
+            )
+          : await accountApi.getAccountAssetHistory(
+              userId,
+              accountId,
+              assetId,
+              range,
+              defaultAssetId,
+              { signal }
+            )
       return buildHistorySeries(response.data, range)
     },
     meta: { errorContext: "Account history could not be loaded" },

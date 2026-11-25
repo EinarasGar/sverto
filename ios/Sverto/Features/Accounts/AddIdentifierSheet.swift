@@ -89,6 +89,7 @@ struct AddIdentifierSheet: View {
         guard !isValueBlank else { return }
         if let validationError = onAdd(kind, value) {
             error = validationError
+            Haptics.error()
             AccessibilityNotification.Announcement(validationError).post()
         } else {
             dismiss()

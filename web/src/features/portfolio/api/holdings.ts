@@ -5,6 +5,7 @@ import { PortfolioApiFactory } from "@/api"
 import { decimal, decimalOrNull } from "@/lib/domain/decimals"
 import { api } from "@/lib/api"
 import type { AccountRef, AssetRef } from "@/lib/domain/refs"
+import type { PropertiesView, Property } from "@/features/properties/api"
 import { apiQueryOptions, queryKeys, STALE_TIMES } from "@/lib/query"
 
 import type { PortfolioLookups } from "./refs"
@@ -66,6 +67,38 @@ function byValueDesc(a: { value: number }, b: { value: number }): number {
   return b.value - a.value
 }
 
+function groupByAsset(
+  holdings: readonly Holding[]
+): Record<number, AssetHoldings | undefined> {
+  const byAssetId: Record<number, AssetHoldings | undefined> = {}
+  for (const holding of holdings) {
+    const rateless = holding.value === null
+    const asset = (byAssetId[holding.assetId] ??= {
+      assetId: holding.assetId,
+      asset: holding.asset,
+      units: 0,
+      value: 0,
+      ratelessCount: 0,
+      accountCount: 0,
+      holdings: [],
+    })
+    asset.units += holding.units
+    asset.value += holding.value ?? 0
+    asset.ratelessCount += rateless ? 1 : 0
+    asset.holdings.push(holding)
+    asset.accountCount = asset.holdings.length
+  }
+  return byAssetId
+}
+
+function sortedByValue<T extends { value: number }>(
+  index: Record<string | number, T | undefined>
+): T[] {
+  return Object.values(index)
+    .filter((entry) => entry !== undefined)
+    .sort(byValueDesc)
+}
+
 export function buildHoldingsView(
   response: GetHoldingsResponse,
   appliesOwnershipShare: boolean = HOLDINGS_APPLY_OWNERSHIP_SHARE
@@ -82,7 +115,6 @@ export function buildHoldingsView(
   }))
 
   const byAccountId: Record<string, AccountHoldings | undefined> = {}
-  const byAssetId: Record<number, AssetHoldings | undefined> = {}
   let totalValue = 0
   let ratelessCount = 0
 
@@ -102,32 +134,15 @@ export function buildHoldingsView(
     account.value += value
     account.ratelessCount += rateless ? 1 : 0
     account.holdings.push(holding)
-
-    const asset = (byAssetId[holding.assetId] ??= {
-      assetId: holding.assetId,
-      asset: holding.asset,
-      units: 0,
-      value: 0,
-      ratelessCount: 0,
-      accountCount: 0,
-      holdings: [],
-    })
-    asset.units += holding.units
-    asset.value += value
-    asset.ratelessCount += rateless ? 1 : 0
-    asset.holdings.push(holding)
-    asset.accountCount = asset.holdings.length
   }
+
+  const byAssetId = groupByAsset(holdings)
 
   return {
     holdings,
-    byAccount: Object.values(byAccountId)
-      .filter((entry) => entry !== undefined)
-      .sort(byValueDesc),
+    byAccount: sortedByValue(byAccountId),
     byAccountId,
-    byAsset: Object.values(byAssetId)
-      .filter((entry) => entry !== undefined)
-      .sort(byValueDesc),
+    byAsset: sortedByValue(byAssetId),
     byAssetId,
     totalValue,
     ratelessCount,
@@ -137,27 +152,117 @@ export function buildHoldingsView(
   }
 }
 
+export interface PropertyHoldings {
+  property: Property
+  asset: AssetRef | null
+  assetValue: number
+  loanBalance: number
+  value: number
+  ratelessCount: number
+}
+
+/**
+ * The Portfolio page's sections. A property absorbs its own account and every linked
+ * loan; any other Credit, Mortgage or Loan account is a liability on its own; what is
+ * left is summed per asset, so a currency row never carries debt.
+ */
+export interface FoldedHoldings {
+  assets: AssetHoldings[]
+  assetsById: Record<number, AssetHoldings | undefined>
+  properties: PropertyHoldings[]
+  /** Largest debt first. */
+  liabilities: AccountHoldings[]
+  holdingsTotal: number
+  liabilitiesTotal: number
+}
+
+/** Without `properties` (still loading, or failed) property accounts stay plain assets. */
+export function foldHoldings(
+  view: HoldingsView,
+  properties?: PropertiesView
+): FoldedHoldings {
+  const byPropertyId = new Map<string, PropertyHoldings>()
+  const liabilities: AccountHoldings[] = []
+  const foldedAccountIds = new Set<string>()
+
+  for (const account of view.byAccount) {
+    const property =
+      properties?.byAccountId.get(account.accountId) ??
+      properties?.byLoanAccountId.get(account.accountId)
+
+    if (property === undefined) {
+      if (account.account?.isLiability === true) {
+        liabilities.push(account)
+        foldedAccountIds.add(account.accountId)
+      }
+      continue
+    }
+
+    foldedAccountIds.add(account.accountId)
+    let entry = byPropertyId.get(property.propertyId)
+    if (entry === undefined) {
+      entry = {
+        property,
+        asset: view.lookups.assetsById[property.assetId] ?? null,
+        assetValue: 0,
+        loanBalance: 0,
+        value: 0,
+        ratelessCount: 0,
+      }
+      byPropertyId.set(property.propertyId, entry)
+    }
+    if (account.accountId === property.accountId) {
+      entry.assetValue += account.value
+    } else {
+      entry.loanBalance += account.value
+    }
+    entry.value += account.value
+    entry.ratelessCount += account.ratelessCount
+  }
+
+  const assetsById = groupByAsset(
+    view.holdings.filter((holding) => !foldedAccountIds.has(holding.accountId))
+  )
+  const assets = sortedByValue(assetsById)
+  const propertyHoldings = [...byPropertyId.values()].sort(byValueDesc)
+  const sum = (entries: readonly { value: number }[]) =>
+    entries.reduce((total, entry) => total + entry.value, 0)
+
+  return {
+    assets,
+    assetsById,
+    properties: propertyHoldings,
+    liabilities: liabilities.sort((a, b) => a.value - b.value),
+    holdingsTotal: sum(assets) + sum(propertyHoldings),
+    liabilitiesTotal: sum(liabilities),
+  }
+}
+
 export interface HoldingsQueryParams {
   userId: string
   defaultAssetId: number
   applyOwnershipShare?: boolean
+  includeZeroBalances?: boolean
 }
 
 export function holdingsQueryOptions({
   userId,
   defaultAssetId,
   applyOwnershipShare = HOLDINGS_APPLY_OWNERSHIP_SHARE,
+  includeZeroBalances = false,
 }: HoldingsQueryParams) {
   return apiQueryOptions({
     queryKey: queryKeys.user(userId).portfolio.holdings({
       defaultAssetId,
       applyOwnershipShare,
+      includeZeroBalances,
     }),
     staleTime: STALE_TIMES.short,
     fetch: async ({ signal }): Promise<HoldingsView> => {
       const response = await api(PortfolioApiFactory).getHoldings(
         userId,
         defaultAssetId,
+        includeZeroBalances,
         {
           signal,
           params: { apply_ownership_share: applyOwnershipShare },

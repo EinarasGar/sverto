@@ -28,8 +28,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sverto.app.core.ui.RowDivider
@@ -153,7 +151,6 @@ internal fun TransactionRow(
     sharedTransitionScope: SharedTransitionScope?,
     animatedVisibilityScope: AnimatedVisibilityScope?,
 ) {
-    val haptics = LocalHapticFeedback.current
     val containerColor by
         animateColorAsState(
             targetValue =
@@ -184,13 +181,7 @@ internal fun TransactionRow(
             sharedModifier
                 .combinedClickable(
                     onClick = onClick,
-                    onLongClick =
-                        onLongClick?.let { callback ->
-                            {
-                                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                                callback()
-                            }
-                        },
+                    onLongClick = onLongClick,
                 ).alpha(
                     if (transaction.visibility == TransactionVisibility.GHOST && !selected) 0.55f else 1f,
                 ),

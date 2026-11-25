@@ -17,6 +17,7 @@ fun convertFormState(
     val targetSecondarySign = (to.entryMode as? EntryMode.Dual)?.secondarySign ?: AmountSign.ANY
 
     var primaryEntry = primarySource?.toEntryFormState(targetPrimarySign) ?: EntryFormState()
+    if (primaryEntry.amount.isEmpty()) primaryEntry = primaryEntry.copy(amount = targetPrimarySign.blankAmount)
     val secondaryEntry = secondarySource?.toEntryFormState(targetSecondarySign) ?: EntryFormState()
 
     val mode = to.entryMode

@@ -28,6 +28,7 @@ final class AccountDetailViewModel {
             accountTypeId: accountTypeId,
             chartData: [],
             holdings: [],
+            balances: [],
             cashBalance: 0,
             totalValue: 0,
             totalCostBasis: 0,
@@ -40,6 +41,7 @@ final class AccountDetailViewModel {
     }
 
     var isInvestmentAccount: Bool { AccountTypeVisuals.isInvestment(accountTypeId) }
+    var showsBalances: Bool { state.balances.count > (isInvestmentAccount ? 0 : 1) }
     var showsLoading: Bool { state.isLoading && !isRefreshing }
 
     func start() async {

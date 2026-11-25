@@ -96,8 +96,10 @@ struct ValuationSheet: View {
         Task {
             do {
                 try await onSubmit(value, date)
+                Haptics.success()
                 dismiss()
             } catch {
+                Haptics.error()
                 submitError = error.friendlyMessage
                 isSaving = false
             }

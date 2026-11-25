@@ -76,9 +76,11 @@ describe("query wiring", () => {
     })
 
     expect(options.queryKey).toEqual(
-      queryKeys
-        .user(USER)
-        .portfolio.holdings({ defaultAssetId: GBP, applyOwnershipShare: true })
+      queryKeys.user(USER).portfolio.holdings({
+        defaultAssetId: GBP,
+        applyOwnershipShare: true,
+        includeZeroBalances: false,
+      })
     )
 
     const view = await client.fetchQuery(options)
@@ -86,6 +88,7 @@ describe("query wiring", () => {
     expect(methods.getHoldings).toHaveBeenCalledWith(
       USER,
       GBP,
+      false,
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
     expect(view.totalValue).toBe(0)

@@ -51,7 +51,7 @@ private struct AssetOverviewContent: View {
             .onDisappear { model.stop() }
             .onChange(of: model.lastError) { _, event in
                 if let event {
-                    toasts.show(event.message)
+                    toasts.showError(event.message)
                 }
             }
             .sheet(isPresented: $isPairPickerPresented) {
@@ -91,7 +91,18 @@ private struct AssetOverviewContent: View {
         } else {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    AssetChartSection(model: model) { isPairPickerPresented = true }
+                    AssetChartSection(
+                        showsSeriesSwitch: model.isHeld,
+                        series: Binding(get: { model.chartSeries }, set: { model.selectSeries($0) }),
+                        period: Binding(get: { model.selectedPeriod }, set: { model.selectPeriod($0) }),
+                        periods: model.chartPeriods,
+                        ticker: model.chartTicker,
+                        isLoading: model.isChartLoading,
+                        error: model.chartError,
+                        retry: { await model.retryChart() },
+                        currencyControl: { currencyChip }
+                    )
+                    .padding(.vertical, 16)
                     if let info = model.pairInfo, info.hasMetadata {
                         AssetInfoCard(info: info)
                     }
@@ -111,6 +122,21 @@ private struct AssetOverviewContent: View {
                 }
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var currencyChip: some View {
+        if let selected = model.selectedPair {
+            if model.pairs.count > 1 {
+                Button { isPairPickerPresented = true } label: {
+                    CurrencyChip(ticker: selected.ticker)
+                }
+                .buttonStyle(.plain)
+                .accessibilityHint("Change currency")
+            } else {
+                CurrencyChip(ticker: selected.ticker, showsChevron: false)
             }
         }
     }

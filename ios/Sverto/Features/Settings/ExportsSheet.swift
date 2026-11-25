@@ -23,6 +23,7 @@ struct ExportsSheet: View {
                             }
                         }
                         .pickerStyle(.segmented)
+                        .sensoryFeedback(.selection, trigger: format)
                         Button {
                             Task { await model.createExport(format) }
                         } label: {

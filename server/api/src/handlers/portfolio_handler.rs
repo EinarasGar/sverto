@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use axum::{extract::Path, Json};
 use business::dtos::{
     assets::{asset_id_dto::AssetIdDto, asset_pair_ids_dto::AssetPairIdsDto},
-    net_worth::range_dto::RangeDto,
+    net_worth::{portfolio_history_filter_dto::PortfolioHistoryFilterDto, range_dto::RangeDto},
     portfolio::overview::PortfolioOverviewType,
 };
 use itertools::Itertools;
@@ -24,6 +24,7 @@ use crate::{
         errors::GetResponses,
         portfolio::{
             base_models::metadata_lookup::HoldingsMetadataLookupTables,
+            get_asset_history::GetPortfolioAssetHistoryRequestParams,
             get_holdings::{GetHoldingsResponseViewModel, GetHoldingsResponseViewModelRow},
             get_networth_history::{
                 GetNetWorthHistoryRequestParams, GetNetWorthHistoryResponseViewModel,
@@ -37,6 +38,7 @@ use crate::{
 pub struct GetPortfolioQueryParams {
     default_asset_id: Option<i32>,
     apply_ownership_share: Option<bool>,
+    include_zero_balances: Option<bool>,
 }
 
 #[derive(Deserialize)]
@@ -58,6 +60,7 @@ pub(crate) struct AssetIdPath {
     params(
         ("user_id" = Uuid, Path, description = "User id for who to retrieve holdings"),
         ("default_asset_id" = Option<i32>, Query, description = "Default asset id to use for retrieving current value of units. If not provided, the default asset id from the user will be used"),
+        ("include_zero_balances" = Option<bool>, Query, description = "Also return assets an account has held before and now holds none of. Off by default"),
     )
 )]
 #[allow(clippy::too_many_arguments)]
@@ -80,7 +83,11 @@ pub async fn get_holdings(
     };
 
     let holdings = portfolio_service
-        .get_holdings(user_id, query_params.apply_ownership_share.unwrap_or(true))
+        .get_holdings(
+            user_id,
+            query_params.apply_ownership_share.unwrap_or(true),
+            query_params.include_zero_balances.unwrap_or(false),
+        )
         .await?;
 
     let account_ids: HashSet<Uuid> = holdings.iter().map(|x| x.account_id).collect();
@@ -151,7 +158,67 @@ pub async fn get_networth_history(
     });
 
     let history = portfolio_service
-        .get_full_portfolio_history(user_id, default_asset, range, None)
+        .get_full_portfolio_history(
+            user_id,
+            default_asset,
+            range,
+            PortfolioHistoryFilterDto::default(),
+        )
+        .await?;
+
+    let response = GetNetWorthHistoryResponseViewModel {
+        sums: history.into_iter().map_into().collect(),
+        range: query_params.range.to_string(),
+    };
+
+    Ok(response.into())
+}
+
+/// Get Portfolio Asset History
+///
+/// Returns the value of one asset held across all accounts at specific points in time, depending on the range provided.
+#[utoipa::path(
+    get,
+    path = "/api/users/{user_id}/portfolio/assets/{asset_id}/history",
+    tag = "Portfolio",
+    responses(
+        (status = 200, description = "Portfolio asset history calculated successfully", body = GetNetWorthHistoryResponseViewModel),
+        GetResponses
+    ),
+    params(
+        ("user_id" = Uuid, Path, description = "User id for who to retrieve asset history"),
+        ("asset_id" = i32, Path, description = "Asset ID"),
+        GetPortfolioAssetHistoryRequestParams
+    )
+)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, asset_id = asset_id))]
+pub async fn get_portfolio_asset_history(
+    AuthenticatedUserId(user_id): AuthenticatedUserId,
+    Path(AssetIdPath { asset_id }): Path<AssetIdPath>,
+    ValidatedQuery(query_params): ValidatedQuery<GetPortfolioAssetHistoryRequestParams>,
+    PortfolioServiceState(portfolio_service): PortfolioServiceState,
+    UsersServiceState(user_service): UsersServiceState,
+) -> Result<Json<GetNetWorthHistoryResponseViewModel>, ApiError> {
+    let range = RangeDto::StringBased(query_params.range.clone());
+    let default_asset = AssetIdDto(match &query_params.default_asset_id {
+        Some(id) => id.0,
+        None => user_service
+            .get_default_asset(user_id)
+            .await?
+            .ok_or_else(|| ApiError::Conflict("User has no base currency set".to_string()))?,
+    });
+
+    let history = portfolio_service
+        .get_full_portfolio_history(
+            user_id,
+            default_asset,
+            range,
+            PortfolioHistoryFilterDto {
+                account_id: None,
+                asset_id: Some(asset_id),
+                exclude_liabilities: query_params.exclude_liabilities,
+            },
+        )
         .await?;
 
     let response = GetNetWorthHistoryResponseViewModel {

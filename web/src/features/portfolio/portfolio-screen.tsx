@@ -1,4 +1,5 @@
 import { startTransition, useMemo } from "react"
+import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "@tanstack/react-router"
 
 import { useBaseCurrency, useUserId } from "@/auth"
@@ -28,12 +29,14 @@ import {
   CollapsibleTrigger,
 } from "@/components/ui/collapsible"
 import {
+  foldHoldings,
   useHoldings,
   useHoldingsSuspense,
   usePortfolioHistorySuspense,
   usePortfolioOverviewSuspense,
   useRequiredBaseAssetId,
 } from "@/features/portfolio/api"
+import { propertiesQueryOptions } from "@/features/properties/api"
 import { formatDateTimeStamp } from "@/lib/format"
 import { mockAttributes, MockBadge } from "@/lib/mock"
 import { cn } from "@/lib/utils"
@@ -54,8 +57,8 @@ import {
   STALE_PRICES_BODY,
   STALE_PRICES_HEADLINE,
 } from "./copy"
-import { buildHoldingRows, summariseHoldings } from "./holdings"
-import { HoldingsTable } from "./holdings-table"
+import { summariseHoldings } from "./holdings"
+import { HoldingsTable, LiabilitiesTable, SectionTotal } from "./holdings-table"
 import { usePeriodColumn } from "./period"
 import { PortfolioHero } from "./portfolio-hero"
 import { HOLDINGS_ROWS_DRAWN } from "./presentation"
@@ -75,15 +78,13 @@ function PortfolioBody({ period }: { period: ChartPeriod }) {
     defaultAssetId,
     range: period,
   })
+  const { data: properties } = useQuery(propertiesQueryOptions(userId))
 
-  const rows = useMemo(
-    () => buildHoldingRows(holdings, overview),
-    [holdings, overview]
-  )
   const summary = useMemo(
-    () => summariseHoldings(rows, holdings, overview),
-    [rows, holdings, overview]
+    () => summariseHoldings(foldHoldings(holdings, properties), overview),
+    [holdings, properties, overview]
   )
+  const rows = summary.rows
   const attribution = usePortfolioAttribution(series)
   const periodColumn = usePeriodColumn(
     rows,
@@ -113,7 +114,7 @@ function PortfolioBody({ period }: { period: ChartPeriod }) {
   const navigate = useNavigate()
   const prices = useMemo(() => pricesAsOf(), [])
 
-  if (rows.length === 0) {
+  if (rows.length === 0 && summary.liabilities.length === 0) {
     return (
       <EmptyState
         size="page"
@@ -237,18 +238,33 @@ function PortfolioBody({ period }: { period: ChartPeriod }) {
         accountColors={accountColors}
       />
 
-      <HoldingsTable
-        summary={summary}
-        period={periodColumn}
-        colors={assetColors}
-        currency={baseCurrency}
-        expanded={expanded}
-        onToggle={toggle}
-        shown={allRows ? summary.rows.length : HOLDINGS_ROWS_DRAWN}
-        onShowAll={() => {
-          setAllRows(true)
-        }}
-      />
+      <section data-slot="holdings-section">
+        <SectionTotal
+          label="Holdings"
+          total={summary.holdingsTotal}
+          currency={baseCurrency}
+        />
+        <HoldingsTable
+          summary={summary}
+          period={periodColumn}
+          colors={assetColors}
+          currency={baseCurrency}
+          expanded={expanded}
+          onToggle={toggle}
+          shown={allRows ? summary.rows.length : HOLDINGS_ROWS_DRAWN}
+          onShowAll={() => {
+            setAllRows(true)
+          }}
+        />
+      </section>
+
+      {summary.liabilities.length === 0 ? null : (
+        <LiabilitiesTable
+          rows={summary.liabilities}
+          total={summary.liabilitiesTotal}
+          currency={baseCurrency}
+        />
+      )}
 
       <Footnote className="mt-0" {...mockAttributes(prices.mockId)}>
         {pricesAsOfLabel(formatDateTimeStamp(prices.asOf))} ·{" "}

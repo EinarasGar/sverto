@@ -135,6 +135,7 @@ private struct GroupFormView: View {
             }
             .onChange(of: model.errorRevision) { _, _ in
                 guard let message = model.errorMessage else { return }
+                Haptics.error()
                 AccessibilityNotification.Announcement(message).post()
                 proxy.scrollTo("group-form-error", anchor: .top)
             }

@@ -6,7 +6,9 @@ use uuid::Uuid;
 
 use crate::dtos::asset_rate_dto::AssetRateDto;
 use crate::dtos::assets::asset_id_dto::AssetIdDto;
+use crate::dtos::net_worth::portfolio_history_filter_dto::PortfolioHistoryFilterDto;
 use crate::dtos::net_worth::range_dto::RangeDto;
+use crate::dynamic_enums::account_types::AccountTypes;
 use crate::entities::net_worth::net_wroth_history::NetWorthHistory;
 use crate::entities::range::{Range, RangeError};
 
@@ -28,20 +30,30 @@ impl PortfolioService {
         }
     }
 
-    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, account_id = ?account_id))]
+    #[tracing::instrument(level = "debug", skip_all, fields(user_id = %user_id, filter = ?filter))]
     pub async fn get_full_portfolio_history(
         &self,
         user_id: Uuid,
         reference_asset: AssetIdDto,
         range_dto: RangeDto,
-        account_id: Option<Uuid>,
+        filter: PortfolioHistoryFilterDto,
     ) -> anyhow::Result<Vec<AssetRateDto>> {
+        let excluded_account_types = if filter.exclude_liabilities {
+            AccountTypes::liability_ids()?
+        } else {
+            vec![]
+        };
         let range = match range_dto.clone().try_into() {
             Ok(r) => r,
             Err(RangeError::StartDateNotSpecified) => {
                 let oldest_date = self
                     .entries_service
-                    .get_oldest_entry_date(user_id, account_id)
+                    .get_oldest_entry_date(
+                        user_id,
+                        filter.account_id,
+                        filter.asset_id,
+                        excluded_account_types.clone(),
+                    )
                     .await?;
                 match oldest_date {
                     Some(date) => Range::try_from_with_time(range_dto.clone(), date)?,
@@ -55,7 +67,14 @@ impl PortfolioService {
 
         let scoped_sums = self
             .entries_service
-            .get_entries_interval_sums(user_id, range, account_id, account_id.is_none())
+            .get_entries_interval_sums(
+                user_id,
+                range,
+                filter.account_id,
+                filter.asset_id,
+                excluded_account_types,
+                filter.account_id.is_none(),
+            )
             .await?;
 
         net_worth_history.add_entries(scoped_sums);

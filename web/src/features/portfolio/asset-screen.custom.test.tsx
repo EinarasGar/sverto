@@ -7,11 +7,20 @@ import type { AssetRef } from "@/lib/domain/refs"
 const overviewView = vi.fn<() => PortfolioOverviewView>()
 const customAsset = vi.fn<() => AssetRef | null>()
 
-vi.mock("@/features/portfolio/api", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("@/features/portfolio/api")>()),
-  useRequiredBaseAssetId: () => 45,
-  useAssetOverviewSuspense: () => overviewView(),
-}))
+vi.mock("@/features/portfolio/api", async (importOriginal) => {
+  const actual =
+    await importOriginal<typeof import("@/features/portfolio/api")>()
+  return {
+    ...actual,
+    useRequiredBaseAssetId: () => 45,
+    useAssetOverviewSuspense: () => overviewView(),
+    useHoldingsSuspense: () =>
+      actual.buildHoldingsView({
+        holdings: [],
+        lookup_tables: { accounts: [], assets: [] },
+      }),
+  }
+})
 
 vi.mock("@/features/assets/api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/features/assets/api")>()),

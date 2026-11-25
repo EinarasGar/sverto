@@ -27,6 +27,7 @@ struct LedgerMatchSection: View {
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                .sensoryFeedback(.selection, trigger: controller.mergesIntoMatch)
             } header: {
                 Text("Already in your ledger")
             } footer: {

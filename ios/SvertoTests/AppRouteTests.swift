@@ -25,6 +25,8 @@ private let everyRoute: [AppRoute] = [
     .propertyValuations(assetId: 7, currencyAssetId: 45, currencyTicker: "GBP"),
     .assetOverview(assetId: 12, userAsset: false),
     .assetOverview(assetId: 13, userAsset: true),
+    .currencyDetail(assetId: 45, name: "British Pound"),
+    .currencyTransactions(assetId: 45, title: "GBP"),
     .customAssets,
     .customCategories,
     .connectors,
@@ -57,8 +59,8 @@ struct AppRouteTests {
         }
     }
 
-    @Test func coversAllThirtyCases() {
-        #expect(Set(everyRoute.map(caseName)).count == 30)
+    @Test func coversAllThirtyTwoCases() {
+        #expect(Set(everyRoute.map(caseName)).count == 32)
     }
 
     @Test func routesAreDistinguishedByPayload() {

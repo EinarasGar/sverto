@@ -27,6 +27,7 @@ use crate::{
     },
 };
 
+use super::account_queries::account_type_not_in;
 use super::DbQueryWithValues;
 
 #[macros::named_query]
@@ -89,9 +90,16 @@ pub fn get_transaction_with_entries(params: GetTransactionWithEntriesParams) -> 
         }
         (None, Some(asset_id)) => {
             let entry_asset_subquery = Query::select()
-                .column(EntryIden::TransactionId)
+                .column((EntryIden::Table, EntryIden::TransactionId))
                 .from(EntryIden::Table)
-                .and_where(Expr::col(EntryIden::AssetId).eq(asset_id))
+                .join(
+                    sea_query::JoinType::Join,
+                    AccountIden::Table,
+                    Expr::col((EntryIden::Table, EntryIden::AccountId))
+                        .equals((AccountIden::Table, AccountIden::Id)),
+                )
+                .and_where(Expr::col((EntryIden::Table, EntryIden::AssetId)).eq(asset_id))
+                .and_where(account_type_not_in(&params.excluded_account_types))
                 .to_owned();
 
             eligible_transactions_builder.and_where(
@@ -102,10 +110,17 @@ pub fn get_transaction_with_entries(params: GetTransactionWithEntriesParams) -> 
         }
         (Some(account_id), Some(asset_id)) => {
             let account_asset_entries = Query::select()
-                .column(EntryIden::TransactionId)
+                .column((EntryIden::Table, EntryIden::TransactionId))
                 .from(EntryIden::Table)
-                .and_where(Expr::col(EntryIden::AccountId).eq(account_id))
-                .and_where(Expr::col(EntryIden::AssetId).eq(asset_id))
+                .join(
+                    sea_query::JoinType::Join,
+                    AccountIden::Table,
+                    Expr::col((EntryIden::Table, EntryIden::AccountId))
+                        .equals((AccountIden::Table, AccountIden::Id)),
+                )
+                .and_where(Expr::col((EntryIden::Table, EntryIden::AccountId)).eq(account_id))
+                .and_where(Expr::col((EntryIden::Table, EntryIden::AssetId)).eq(asset_id))
+                .and_where(account_type_not_in(&params.excluded_account_types))
                 .to_owned();
 
             eligible_transactions_builder.and_where(

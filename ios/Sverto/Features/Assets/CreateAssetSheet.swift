@@ -141,8 +141,10 @@ struct CreateAssetSheet: View {
         Task {
             do {
                 try await onSubmit(name, ticker, typeId, baseAsset.id)
+                Haptics.success()
                 dismiss()
             } catch {
+                Haptics.error()
                 submitError = error.friendlyMessage
                 isSaving = false
             }

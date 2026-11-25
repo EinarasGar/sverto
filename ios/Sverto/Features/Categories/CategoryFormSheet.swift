@@ -146,6 +146,7 @@ struct CategoryFormSheet: View {
                 try await onSubmit(result)
                 dismiss()
             } catch {
+                Haptics.error()
                 saveError = error.friendlyMessage
                 AccessibilityNotification.Announcement(error.friendlyMessage).post()
             }

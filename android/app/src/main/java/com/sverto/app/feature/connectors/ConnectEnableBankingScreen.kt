@@ -56,8 +56,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -89,8 +91,11 @@ fun ConnectEnableBankingScreen(
             CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
         }
     }
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(state.phase) {
+        if (state.phase == EnableBankingPhase.FAILED) haptics.performHapticFeedback(HapticFeedbackType.Reject)
         if (state.phase == EnableBankingPhase.COMPLETED) {
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             val connectionId = state.connectionId
             viewModel.consumeCompleted()
             connectionId?.let(onCompleted)

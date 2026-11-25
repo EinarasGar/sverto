@@ -17,6 +17,7 @@ import {
 } from "@/features/portfolio/api"
 
 import { AccountConnection } from "./account-connection"
+import { AccountCurrencies } from "./account-currencies"
 import { AccountEditor } from "./account-editor"
 import { AccountFacts } from "./account-facts"
 import { AccountHero } from "./account-hero"
@@ -46,6 +47,11 @@ function AccountBody({
   })
   const holdings = useHoldingsSuspense({ userId, defaultAssetId })
   const entry = holdings.byAccountId[accountId]
+  const everHeld = useHoldingsSuspense({
+    userId,
+    defaultAssetId,
+    includeZeroBalances: true,
+  }).byAccountId[accountId]
 
   return (
     <div className="flex flex-col gap-[26px]">
@@ -60,6 +66,11 @@ function AccountBody({
         account={account}
         overview={overview}
         balance={entry?.value ?? null}
+      />
+
+      <AccountCurrencies
+        account={account}
+        holdings={everHeld?.holdings ?? []}
       />
 
       <AccountHoldings overview={overview} />

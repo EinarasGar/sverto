@@ -51,7 +51,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -92,8 +94,10 @@ fun AddPropertyScreen(
     val submitState by viewModel.submitState.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(submitState) {
         val error = submitState as? SubmitState.Error ?: return@LaunchedEffect
+        haptics.performHapticFeedback(HapticFeedbackType.Reject)
         snackbarHostState.showSnackbar(error.message)
         viewModel.clearError()
     }
@@ -138,7 +142,12 @@ fun AddPropertyScreen(
                 label = "Save property",
                 isLoading = isLoading,
                 enabled = isValid && !isLoading,
-                onSave = { viewModel.save(onSuccess) },
+                onSave = {
+                    viewModel.save {
+                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                        onSuccess()
+                    }
+                },
             )
         },
         modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -278,13 +287,17 @@ private fun KindSelector(
                 ToggleButtonDefaults.toggleButtonColors(
                     containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                 )
+            val haptics = LocalHapticFeedback.current
             listOf(
                 Triple(PropertyKind.REAL_ESTATE, "Real estate", Icons.Outlined.Home),
                 Triple(PropertyKind.VEHICLE, "Vehicle", Icons.Outlined.DirectionsCar),
             ).forEachIndexed { index, (option, label, icon) ->
                 ToggleButton(
                     checked = kind == option,
-                    onCheckedChange = { onSelect(option) },
+                    onCheckedChange = {
+                        if (kind != option) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        onSelect(option)
+                    },
                     enabled = enabled,
                     shapes =
                         if (index == 0) {

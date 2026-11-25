@@ -37,6 +37,7 @@ private struct OAuthConnectEffects: ViewModifier {
                 shell.finishConnecting(connectionId: connectionId, in: shell.navigationOwner)
             }
             .sensoryFeedback(.success, trigger: model.phase) { _, phase in phase == .completed }
+            .sensoryFeedback(.error, trigger: model.phase) { _, phase in phase == .failed }
             .onDisappear { webSession.cancel() }
     }
 

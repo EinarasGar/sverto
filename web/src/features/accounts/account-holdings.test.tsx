@@ -183,6 +183,30 @@ describe("AccountHoldings grid", () => {
     expect(screen.getByText("+£1,120.10")).toBeInTheDocument()
   })
 
+  it("leaves currencies to the cash section and totals what is left", async () => {
+    stubViewport(VIEWPORTS.full)
+    await renderAccounts(
+      <AccountHoldings
+        overview={overview([
+          ...TWO_HOLDINGS,
+          holding({
+            assetId: 45,
+            asset: {
+              assetId: 45,
+              ticker: "GBP",
+              name: "Pound",
+              assetTypeId: 1,
+            },
+            marketValue: 5000,
+            totalGains: 300,
+          }),
+        ])}
+      />
+    )
+    expect(screen.queryByText("GBP")).toBeNull()
+    expect(screen.getByText("£12,320.75")).toBeInTheDocument()
+  })
+
   it("says nothing at all when the account holds no priced assets", async () => {
     stubViewport(VIEWPORTS.full)
     const { container } = await renderAccounts(

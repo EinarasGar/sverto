@@ -32,8 +32,10 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -63,8 +65,11 @@ fun ConnectTrueLayerScreen(
             CustomTabsIntent.Builder().build().launchUrl(context, Uri.parse(url))
         }
     }
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(state.phase) {
+        if (state.phase == TrueLayerPhase.FAILED) haptics.performHapticFeedback(HapticFeedbackType.Reject)
         if (state.phase == TrueLayerPhase.COMPLETED) {
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             val connectionId = state.connectionId
             viewModel.consumeCompleted()
             connectionId?.let(onCompleted)

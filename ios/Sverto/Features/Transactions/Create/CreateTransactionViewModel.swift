@@ -84,7 +84,10 @@ final class CreateTransactionViewModel {
             accounts = try await store.getAccountsList()
             switch mode {
             case .new, .groupAdd:
-                formState = TransactionFormState(date: Int64(Date().timeIntervalSince1970))
+                formState = TransactionFormState(
+                    date: Int64(Date().timeIntervalSince1970),
+                    primaryEntry: EntryFormState(amount: config.entryMode.primarySign.blankAmount)
+                )
             case let .edit(transactionId):
                 let editable = try await store.getEditableTransaction(txId: transactionId)
                 editTransactionId = transactionId

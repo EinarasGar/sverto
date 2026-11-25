@@ -39,7 +39,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
@@ -70,8 +72,13 @@ fun CustomCategoriesScreen(
     val categoriesListState = rememberLazyListState()
     val typesListState = rememberLazyListState()
 
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(Unit) {
+        viewModel.saved.collect { haptics.performHapticFeedback(HapticFeedbackType.Confirm) }
+    }
     LaunchedEffect(Unit) {
         viewModel.errors.collect { msg ->
+            haptics.performHapticFeedback(HapticFeedbackType.Reject)
             snackbarHostState.currentSnackbarData?.dismiss()
             snackbarHostState.showSnackbar(msg)
         }

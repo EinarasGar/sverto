@@ -31,7 +31,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -46,6 +45,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.ui.RowDivider
+import com.sverto.app.core.ui.rememberHapticPullToRefreshState
 import uniffi.sverto_core.TransactionListItem
 import uniffi.sverto_core.TransactionListScope
 import uniffi.sverto_core.TransactionVisibility
@@ -109,7 +109,7 @@ fun ScopedTransactionsScreen(
         @Suppress("NewApi")
         DateTimeFormatter.ofPattern("MMM d, yyyy")
 
-    val pullToRefreshState = rememberPullToRefreshState()
+    val pullToRefreshState = rememberHapticPullToRefreshState()
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
 
     Scaffold(

@@ -1,7 +1,3 @@
-# Disable obfuscation — keep minification and optimization
-# Source is open, and readable crash logs are more valuable
--dontobfuscate
-
 # Keep JNA classes used by UniFFI bindings
 -keep class com.sun.jna.** { *; }
 -keep class * implements com.sun.jna.** { *; }
@@ -24,21 +20,55 @@
 # OkHttp
 -dontwarn okhttp3.internal.**
 
-# Room (used by Clerk SDK via WorkManager)
--keep class * extends androidx.room.RoomDatabase { *; }
--keep @androidx.room.Entity class * { *; }
--keep @androidx.room.Dao interface * { *; }
-
-# WorkManager (used by Clerk SDK)
--keep class androidx.work.** { *; }
-
-# Clerk SDK
+# Clerk SDK. Its bundled rules also keep all of Compose runtime, Material 3, Coil, Play services,
+# Credentials and every ViewModel, which blocks R8 on most of the app. build.gradle.kts ignores
+# them, and the rest of this file repeats them without those library-wide keeps.
 -keep class com.clerk.** { *; }
 -dontwarn com.clerk.**
+-keep class com.auth0.android.jwt.** { *; }
+-keepclassmembers class * extends androidx.lifecycle.ViewModel {
+    <init>(...);
+}
 
-# Kotlin serialization (used by Clerk)
--keepattributes *Annotation*
--keep class kotlinx.serialization.** { *; }
+-keepattributes *Annotation*, InnerClasses, Signature, Exceptions
+-dontnote kotlinx.serialization.AnnotationsKt
+-keepclassmembers class kotlinx.serialization.json.** {
+    *** Companion;
+}
+-keepclasseswithmembers class kotlinx.serialization.json.** {
+    kotlinx.serialization.KSerializer serializer(...);
+}
 -keepclassmembers class * {
     @kotlinx.serialization.Serializable <fields>;
 }
+
+-keepclassmembers,allowshrinking,allowobfuscation interface * {
+    @retrofit2.http.* <methods>;
+}
+-if interface * { @retrofit2.http.* <methods>; }
+-keep,allowobfuscation interface <1>
+-if interface * { @retrofit2.http.* <methods>; }
+-keep,allowobfuscation interface * extends <1>
+-keep,allowobfuscation,allowshrinking class kotlin.coroutines.Continuation
+-dontwarn org.codehaus.mojo.animal_sniffer.IgnoreJRERequirement
+-dontwarn javax.annotation.**
+-dontwarn kotlin.Unit
+-dontwarn retrofit2.KotlinExtensions
+-dontwarn retrofit2.KotlinExtensions$*
+
+-dontwarn okhttp3.internal.platform.**
+-dontwarn org.conscrypt.**
+-dontwarn org.bouncycastle.**
+-dontwarn org.openjsse.**
+
+-keepnames class kotlinx.coroutines.internal.MainDispatcherFactory {}
+-keepnames class kotlinx.coroutines.CoroutineExceptionHandler {}
+-keepclassmembers class kotlinx.coroutines.** {
+    volatile <fields>;
+}
+-keepclassmembers class kotlin.coroutines.SafeContinuation {
+    volatile <fields>;
+}
+-dontwarn java.lang.invoke.StringConcatFactory
+-dontwarn androidx.compose.runtime.**
+-dontwarn coil3.**

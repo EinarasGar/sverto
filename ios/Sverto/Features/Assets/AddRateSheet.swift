@@ -99,8 +99,10 @@ struct AddRateSheet: View {
         Task {
             do {
                 try await onSubmit(timestamp, rate)
+                Haptics.success()
                 dismiss()
             } catch {
+                Haptics.error()
                 submitError = error.friendlyMessage
                 isSaving = false
             }

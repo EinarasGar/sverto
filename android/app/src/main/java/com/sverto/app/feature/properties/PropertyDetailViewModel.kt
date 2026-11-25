@@ -51,6 +51,9 @@ class PropertyDetailViewModel(
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val errors = _errors.asSharedFlow()
 
+    private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saved = _saved.asSharedFlow()
+
     private var propertyId: String = ""
     private var assetId: Int = 0
 
@@ -106,6 +109,7 @@ class PropertyDetailViewModel(
     ) = launchCatching(_errors) {
         val summary = _state.value.detail?.summary ?: return@launchCatching
         store.addPropertyValuation(summary.assetId, summary.currencyAssetId, date, value)
+        _saved.emit(Unit)
         reloadDetail()
     }
 
@@ -167,6 +171,7 @@ class PropertyDetailViewModel(
     fun linkLoan(accountId: String) =
         launchCatching(_errors) {
             store.linkPropertyLoan(propertyId, accountId)
+            _saved.emit(Unit)
             reloadDetail()
         }
 

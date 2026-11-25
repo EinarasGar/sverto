@@ -1,4 +1,5 @@
 export { AssetScreen } from "./asset-screen"
+export { ASSET_CHART_SERIES } from "./asset-series"
 export { PortfolioScreen } from "./portfolio-screen"
 
 export type { CompositionLens } from "./composition"

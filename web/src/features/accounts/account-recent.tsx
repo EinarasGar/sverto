@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react"
+import { useMemo, useState, type ReactNode } from "react"
 import { Link } from "@tanstack/react-router"
 
 import { useUserId } from "@/auth"
@@ -91,13 +91,46 @@ export function AccountRecentTransactions({
   accountId: string
   accountName: string
 }) {
-  const userId = useUserId()
   const tokens = useMemo(
     (): LedgerFilterToken[] => [
       { key: "account", accountId, label: accountName },
     ],
     [accountId, accountName]
   )
+
+  return (
+    <RecentTransactions
+      tokens={tokens}
+      scope="in this account"
+      emptyBody="Nothing has been recorded against this account yet. Transactions posted here show up newest first."
+      viewAll={
+        <Link
+          to="/transactions"
+          search={{ account: accountId }}
+          className={cn("min-w-0 outline-none", HIT_TARGET_ROW, focusRing.chip)}
+        >
+          <Truncate text={`View all in ${accountName} →`} className="block" />
+        </Link>
+      }
+      footnote="Amounts are in the asset each entry moved, not converted to your base currency — the ledger carries no conversion. This is the per-account feed, which never groups transactions."
+    />
+  )
+}
+
+export function RecentTransactions({
+  tokens,
+  scope,
+  emptyBody,
+  viewAll,
+  footnote,
+}: {
+  tokens: readonly LedgerFilterToken[]
+  scope: string
+  emptyBody: string
+  viewAll: ReactNode
+  footnote: string
+}) {
+  const userId = useUserId()
   const editor = useTransactionEditor()
   const [openRow, setOpenRow] = useState<LedgerTransactionRow | null>(null)
   const ledger = useLedger({ userId, tokens, limit: RECENT_LIMIT })
@@ -130,7 +163,7 @@ export function AccountRecentTransactions({
                   />
                 </>
               )}
-              in this account
+              {scope}
             </PanelNote>
           )}
         </PanelHeader>
@@ -167,8 +200,7 @@ export function AccountRecentTransactions({
 
         {!ledger.isPending && !ledger.isError && rows.length === 0 ? (
           <PanelBody className="text-[12px] leading-[1.5] text-ink-3">
-            Nothing has been recorded against this account yet. Transactions
-            posted here show up newest first.
+            {emptyBody}
           </PanelBody>
         ) : null}
 
@@ -179,30 +211,11 @@ export function AccountRecentTransactions({
                 <RecentRow key={row.rowId} row={row} onOpen={setOpenRow} />
               ))}
             </ul>
-            <PanelFooter>
-              <Link
-                to="/transactions"
-                search={{ account: accountId }}
-                className={cn(
-                  "min-w-0 outline-none",
-                  HIT_TARGET_ROW,
-                  focusRing.chip
-                )}
-              >
-                <Truncate
-                  text={`View all in ${accountName} →`}
-                  className="block"
-                />
-              </Link>
-            </PanelFooter>
+            <PanelFooter>{viewAll}</PanelFooter>
           </>
         )}
 
-        <PanelFootnote>
-          Amounts are in the asset each entry moved, not converted to your base
-          currency — the ledger carries no conversion. This is the per-account
-          feed, which never groups transactions.
-        </PanelFootnote>
+        <PanelFootnote>{footnote}</PanelFootnote>
       </Panel>
 
       <TransactionPanel

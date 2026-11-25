@@ -29,6 +29,9 @@ class CustomCategoriesViewModel(
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val errors = _errors.asSharedFlow()
 
+    private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saved = _saved.asSharedFlow()
+
     private val observer =
         object : CategoriesObserver {
             override fun onCategoriesChanged(state: CategoriesState) {
@@ -77,6 +80,7 @@ class CustomCategoriesViewModel(
         viewModelScope.launch {
             try {
                 block()
+                _saved.emit(Unit)
             } catch (e: ApiException) {
                 _errors.emit(e.message ?: "Something went wrong")
             }

@@ -45,6 +45,7 @@ impl AssetDetailModule {
                 lots: vec![],
                 base_ticker: String::new(),
                 price_ticker: String::new(),
+                price_currency_id: 0,
                 supports_base_conversion: false,
                 base_chart_data: vec![],
             },
@@ -82,6 +83,7 @@ impl AssetDetailModule {
             lots: vec![],
             base_ticker: String::new(),
             price_ticker: String::new(),
+            price_currency_id: 0,
             supports_base_conversion: false,
             base_chart_data: vec![],
         };
@@ -218,6 +220,7 @@ pub async fn load_asset_detail(
 
     m.state.base_ticker = infra.default_asset_ticker().unwrap_or_default();
     m.state.price_ticker = reference_ticker.unwrap_or_else(|| m.state.ticker.clone());
+    m.state.price_currency_id = reference_id;
     m.state.error = error;
     m.state.is_loading = false;
     m.state.supports_base_conversion = supports_base_conversion;

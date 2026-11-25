@@ -46,7 +46,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.material3.toShape
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -57,7 +56,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -69,6 +70,7 @@ import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.aifeatures.AiFeaturesGate
 import com.sverto.app.core.icons.LucideIcon
 import com.sverto.app.core.ui.RowDivider
+import com.sverto.app.core.ui.rememberHapticPullToRefreshState
 import com.sverto.app.feature.connectors.EmptyState
 import com.sverto.app.feature.connectors.HeroButton
 import com.sverto.app.feature.connectors.relativeTime
@@ -102,18 +104,22 @@ fun ImportsScreen(
         onPauseOrDispose { }
     }
 
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
                 is ImportsEvent.Created -> currentOnSessionCreated(event.sessionId)
                 ImportsEvent.AiBlocked -> aiFeaturesGate.promptToEnable { viewModel.create() }
-                is ImportsEvent.Message -> launch { snackbarHostState.showSnackbar(event.text) }
+                is ImportsEvent.Message -> {
+                    haptics.performHapticFeedback(HapticFeedbackType.Reject)
+                    launch { snackbarHostState.showSnackbar(event.text) }
+                }
             }
         }
     }
 
     val scrollBehavior = TopAppBarDefaults.exitUntilCollapsedScrollBehavior()
-    val pullState = rememberPullToRefreshState()
+    val pullState = rememberHapticPullToRefreshState()
     val sessions = state.sessions
     Scaffold(
         modifier =

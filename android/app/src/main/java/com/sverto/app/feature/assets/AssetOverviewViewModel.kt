@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.sverto.app.core.friendlyMessage
 import com.sverto.app.core.launchCatching
+import com.sverto.app.feature.assets.components.HoldingSeries
 import com.sverto.app.feature.portfolio.ChartPoint
 import com.sverto.app.feature.portfolio.TimePeriod
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +12,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import uniffi.sverto_core.AppStore
@@ -30,7 +32,21 @@ data class AssetOverviewUiState(
     val chartByPeriod: Map<TimePeriod, List<ChartPoint>> = emptyMap(),
     val isUserAsset: Boolean = false,
     val isReloading: Boolean = false,
-)
+    val isHeld: Boolean? = null,
+    val chosenSeries: HoldingSeries = HoldingSeries.VALUE,
+    val valueByPeriod: Map<TimePeriod, List<ChartPoint>> = emptyMap(),
+    val unitsByPeriod: Map<TimePeriod, List<ChartPoint>> = emptyMap(),
+) {
+    val series: HoldingSeries get() = if (isHeld == true) chosenSeries else HoldingSeries.PRICE
+
+    val seriesData: Map<TimePeriod, List<ChartPoint>>
+        get() =
+            when (series) {
+                HoldingSeries.PRICE -> chartByPeriod
+                HoldingSeries.VALUE -> valueByPeriod
+                HoldingSeries.UNITS -> unitsByPeriod
+            }
+}
 
 class AssetOverviewViewModel(
     private val store: AppStore,
@@ -41,6 +57,9 @@ class AssetOverviewViewModel(
 
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val errors = _errors.asSharedFlow()
+
+    private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saved = _saved.asSharedFlow()
 
     private var assetId: Int = 0
 
@@ -57,12 +76,17 @@ class AssetOverviewViewModel(
         if (s.assetId != 0 && s.assetId != assetId) return
         viewModelScope.launch {
             val wasReloading = _state.value.isReloading
-            _state.value =
-                _state.value.copy(
+            // The store resets to an empty loading state on every pair switch; holding is only known once loaded.
+            val settled = s.assetId == assetId && !s.isLoading && s.error == null
+            _state.update {
+                it.copy(
                     overview = s,
                     isLoading = false,
                     isReloading = false,
+                    isHeld = if (settled) s.units != 0.0 else it.isHeld,
                 )
+            }
+            loadSelectedSeries()
             if (s.error != null) {
                 _errors.emit(s.error!!)
             } else if (wasReloading) {
@@ -89,7 +113,11 @@ class AssetOverviewViewModel(
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 val detail = store.getAssetDetail(assetId, userAsset)
-                val defaultPair = detail.basePairId ?: detail.pairs.firstOrNull()?.assetId
+                val baseCurrencyId = store.getDefaultAssetId()
+                val defaultPair =
+                    detail.basePairId
+                        ?: detail.pairs.firstOrNull { it.assetId == baseCurrencyId }?.assetId
+                        ?: detail.pairs.firstOrNull()?.assetId
                 _state.value =
                     _state.value.copy(isLoading = false, detail = detail, selectedPairId = defaultPair)
                 if (defaultPair != null) selectPair(defaultPair)
@@ -103,19 +131,64 @@ class AssetOverviewViewModel(
     }
 
     fun selectPair(referenceId: Int) {
-        _state.value =
-            _state.value.copy(selectedPairId = referenceId, pairInfo = null, chartByPeriod = emptyMap(), isReloading = true)
+        _state.update {
+            it.copy(
+                selectedPairId = referenceId,
+                pairInfo = null,
+                chartByPeriod = emptyMap(),
+                valueByPeriod = emptyMap(),
+                isReloading = true,
+            )
+        }
         loadPairInfo(referenceId)
-        loadRates(_state.value.selectedPeriod)
+        loadSelectedSeries()
         viewModelScope.launch(Dispatchers.IO) {
             store.loadAssetOverview(assetId, referenceId)
         }
     }
 
     fun selectPeriod(period: TimePeriod) {
-        _state.value = _state.value.copy(selectedPeriod = period)
-        if (!_state.value.chartByPeriod.containsKey(period)) loadRates(period)
+        _state.update { it.copy(selectedPeriod = period) }
+        loadSelectedSeries()
     }
+
+    fun selectSeries(series: HoldingSeries) {
+        _state.update { it.copy(chosenSeries = series) }
+        loadSelectedSeries()
+    }
+
+    private fun loadSelectedSeries() {
+        val s = _state.value
+        val period = s.selectedPeriod
+        if (s.seriesData.containsKey(period)) return
+        when (s.series) {
+            HoldingSeries.PRICE -> loadRates(period)
+            HoldingSeries.VALUE -> loadHoldingValue(period)
+            HoldingSeries.UNITS -> loadHoldingUnits(period)
+        }
+    }
+
+    private fun loadHoldingValue(period: TimePeriod) {
+        val currencyId = _state.value.selectedPairId ?: return
+        launchCatching(_errors) {
+            val points =
+                store
+                    .getHoldingValueHistory(assetId, null, currencyId, period.apiRange)
+                    .map { ChartPoint(date = it.timestamp, value = it.value) }
+            _state.update {
+                if (it.selectedPairId != currencyId) it else it.copy(valueByPeriod = it.valueByPeriod + (period to points))
+            }
+        }
+    }
+
+    private fun loadHoldingUnits(period: TimePeriod) =
+        launchCatching(_errors) {
+            val points =
+                store
+                    .getHoldingUnitsHistory(assetId, null, period.apiRange)
+                    .map { ChartPoint(date = it.timestamp, value = it.value) }
+            _state.update { it.copy(unitsByPeriod = it.unitsByPeriod + (period to points)) }
+        }
 
     private fun isConverted(referenceId: Int): Boolean =
         _state.value.detail
@@ -176,8 +249,7 @@ class AssetOverviewViewModel(
                         )
                     }
                 val points = rates.map { ChartPoint(date = it.timestamp, value = it.value) }
-                _state.value =
-                    _state.value.copy(chartByPeriod = _state.value.chartByPeriod + (period to points))
+                _state.update { it.copy(chartByPeriod = it.chartByPeriod + (period to points)) }
             } catch (
                 @Suppress("TooGenericExceptionCaught") e: Exception,
             ) {
@@ -194,6 +266,7 @@ class AssetOverviewViewModel(
     ) = launchCatching(_errors) {
         val referenceId = _state.value.selectedPairId ?: return@launchCatching
         store.addUserAssetRate(assetId, referenceId, date, rate)
+        _saved.emit(Unit)
         _state.value = _state.value.copy(chartByPeriod = emptyMap())
         selectPair(referenceId)
     }

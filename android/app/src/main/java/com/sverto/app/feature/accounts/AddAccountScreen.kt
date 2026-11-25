@@ -63,7 +63,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.text.input.KeyboardType
@@ -112,6 +114,7 @@ fun AddAccountScreen(
     val isValid by viewModel.isValid.collectAsStateWithLifecycle()
 
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = LocalHapticFeedback.current
 
     val isEditing = accountId != null
 
@@ -123,6 +126,7 @@ fun AddAccountScreen(
 
     LaunchedEffect(submitState) {
         if (submitState is SubmitState.Error) {
+            haptics.performHapticFeedback(HapticFeedbackType.Reject)
             snackbarHostState.showSnackbar((submitState as SubmitState.Error).message)
             viewModel.clearError()
         }
@@ -158,7 +162,12 @@ fun AddAccountScreen(
                 label = "Save account",
                 isLoading = isLoading,
                 enabled = isValid && !isLoading,
-                onSave = { viewModel.save(onSuccess) },
+                onSave = {
+                    viewModel.save {
+                        haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                        onSuccess()
+                    }
+                },
             )
         },
         modifier = modifier.fillMaxSize().nestedScroll(scrollBehavior.nestedScrollConnection),
@@ -204,6 +213,7 @@ fun AddAccountScreen(
                     enabled = !isLoading,
                     locked = belongsToProperty,
                     onSelect = { typeId ->
+                        haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
                         viewModel.selectedTypeId.value =
                             if (selectedTypeId == typeId) null else typeId
                     },

@@ -32,10 +32,31 @@ pub fn scoped_transactions_path(user_id: &str, scope: &TransactionListScope) -> 
         TransactionListScope::Asset {
             asset_id,
             account_id: None,
-        } => format!("/api/users/{user_id}/assets/{asset_id}/transactions"),
+        }
+        | TransactionListScope::Currency { asset_id } => {
+            format!("/api/users/{user_id}/assets/{asset_id}/transactions")
+        }
         TransactionListScope::Asset {
             asset_id,
             account_id: Some(account_id),
         } => format!("/api/users/{user_id}/accounts/{account_id}/assets/{asset_id}/transactions"),
     }
+}
+
+pub fn scoped_transactions_page_path(
+    user_id: &str,
+    scope: &TransactionListScope,
+    count: u32,
+    start: u32,
+) -> String {
+    let exclude_liabilities = matches!(scope, TransactionListScope::Currency { .. });
+    format!(
+        "{}?count={count}&start={start}{}",
+        scoped_transactions_path(user_id, scope),
+        if exclude_liabilities {
+            "&exclude_liabilities=true"
+        } else {
+            ""
+        }
+    )
 }

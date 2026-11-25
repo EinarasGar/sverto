@@ -110,7 +110,7 @@ private fun AmountTextField(
         }
         BasicTextField(
             value = value,
-            onValueChange = { new -> onValueChange(filterAmountInput(new, allowNegative = false)) },
+            onValueChange = { new -> onValueChange(filterAmountInput(new)) },
             singleLine = true,
             textStyle = LocalTextStyle.current.merge(textStyle),
             cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),

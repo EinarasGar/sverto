@@ -47,7 +47,6 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.pulltorefresh.PullToRefreshDefaults
-import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -60,12 +59,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
 import com.sverto.app.core.ui.TransactionListSkeleton
+import com.sverto.app.core.ui.rememberHapticPullToRefreshState
 import com.sverto.app.feature.transactions.components.groupByDate
 import com.sverto.app.feature.transactions.components.transactionDayItems
 import com.sverto.app.feature.transactions.held.HeldTransactionsSection
@@ -104,6 +106,12 @@ fun TransactionsScreen(
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val heldState by heldTransactionsViewModel.state.collectAsStateWithLifecycle()
+    val haptics = LocalHapticFeedback.current
+    LaunchedEffect(heldTransactionsViewModel) {
+        heldTransactionsViewModel.decisionSucceeded.collect { succeeded ->
+            haptics.performHapticFeedback(if (succeeded) HapticFeedbackType.Confirm else HapticFeedbackType.Reject)
+        }
+    }
     val isRefreshing by viewModel.isRefreshing.collectAsStateWithLifecycle()
     val selectedIds by viewModel.selectedIds.collectAsStateWithLifecycle()
     val isBulkBusy by viewModel.isBulkBusy.collectAsStateWithLifecycle()
@@ -281,7 +289,7 @@ private fun TransactionList(
     animatedVisibilityScope: AnimatedVisibilityScope,
     modifier: Modifier = Modifier,
 ) {
-    val pullToRefreshState = rememberPullToRefreshState()
+    val pullToRefreshState = rememberHapticPullToRefreshState()
     val listState = rememberLazyListState()
     val currentOnLoadMore by rememberUpdatedState(onLoadMore)
 

@@ -10,7 +10,7 @@ use once_cell::sync::Lazy;
 
 use crate::loader::{Loader, LoaderError};
 
-use super::DynamicEnum;
+use super::{DynamicEnum, DynamicEnumError};
 
 static ACCOUNT_TYPES: Lazy<Mutex<Option<HashMap<DatabaseAccountTypes, i32>>>> =
     Lazy::new(|| Mutex::new(None));
@@ -61,5 +61,18 @@ impl DynamicEnum<DatabaseAccountTypes, i32> for AccountTypes {
     fn set_static_map(map: Option<HashMap<DatabaseAccountTypes, i32>>) {
         let mut static_map = ACCOUNT_TYPES.lock().unwrap();
         *static_map = map;
+    }
+}
+
+impl AccountTypes {
+    pub fn liability_ids() -> Result<Vec<i32>, DynamicEnumError> {
+        [
+            DatabaseAccountTypes::Credit,
+            DatabaseAccountTypes::Mortgage,
+            DatabaseAccountTypes::Loan,
+        ]
+        .into_iter()
+        .map(Self::try_into_dynamic_enum)
+        .collect()
     }
 }

@@ -1,6 +1,7 @@
 package com.sverto.app.feature.transactions.create
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -9,11 +10,19 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Remove
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -46,18 +55,15 @@ fun HeroAmountInput(
 
     LaunchedEffect(Unit) { focusRequester.requestFocus() }
 
-    val prefix =
+    val isNegative =
         when (sign) {
-            AmountSign.POSITIVE -> "+"
-            AmountSign.NEGATIVE -> "−"
-            AmountSign.ANY -> ""
+            AmountSign.POSITIVE -> false
+            AmountSign.NEGATIVE -> true
+            AmountSign.ANY -> value.startsWith("-")
         }
-    val prefixColor =
-        when (sign) {
-            AmountSign.POSITIVE -> MaterialTheme.colorScheme.primary
-            AmountSign.NEGATIVE -> MaterialTheme.colorScheme.error
-            AmountSign.ANY -> MaterialTheme.colorScheme.onSurface
-        }
+    val magnitude = value.removePrefix("-")
+    val prefix = if (isNegative) "−" else "+"
+    val prefixColor = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
 
     val numberStyle =
         MaterialTheme.typography.displayMedium.copy(
@@ -91,15 +97,13 @@ fun HeroAmountInput(
                 horizontalArrangement = Arrangement.Center,
                 modifier = Modifier.animateContentSize(motionScheme.fastSpatialSpec()),
             ) {
-                if (prefix.isNotEmpty()) {
-                    Text(
-                        text = prefix,
-                        style = numberStyle.copy(color = prefixColor),
-                    )
-                    Spacer(Modifier.width(4.dp))
-                }
+                Text(
+                    text = prefix,
+                    style = numberStyle.copy(color = prefixColor),
+                )
+                Spacer(Modifier.width(4.dp))
                 Box(contentAlignment = Alignment.Center) {
-                    if (value.isEmpty()) {
+                    if (magnitude.isEmpty()) {
                         Text(
                             text = "0",
                             style =
@@ -109,9 +113,10 @@ fun HeroAmountInput(
                         )
                     }
                     BasicTextField(
-                        value = value,
+                        value = magnitude,
                         onValueChange = { new ->
-                            onValueChange(filterAmountInput(new, sign == AmountSign.ANY))
+                            val filtered = filterAmountInput(new)
+                            onValueChange(if (sign == AmountSign.ANY && isNegative) "-$filtered" else filtered)
                         },
                         singleLine = true,
                         textStyle = LocalTextStyle.current.merge(numberStyle),
@@ -122,6 +127,43 @@ fun HeroAmountInput(
                     )
                 }
             }
+            if (sign == AmountSign.ANY) {
+                Spacer(Modifier.height(8.dp))
+                SignToggleChip(
+                    isNegative = isNegative,
+                    onToggle = { onValueChange(if (isNegative) magnitude else "-$magnitude") },
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun SignToggleChip(
+    isNegative: Boolean,
+    onToggle: () -> Unit,
+) {
+    val color = if (isNegative) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    AssistChip(
+        onClick = onToggle,
+        label = { Text(if (isNegative) "Expense" else "Income") },
+        leadingIcon = {
+            Icon(
+                imageVector = if (isNegative) Icons.Default.Remove else Icons.Default.Add,
+                contentDescription = null,
+                modifier = Modifier.size(AssistChipDefaults.IconSize),
+            )
+        },
+        shape = CircleShape,
+        colors =
+            AssistChipDefaults.assistChipColors(
+                labelColor = color,
+                leadingIconContentColor = color,
+            ),
+        border = BorderStroke(1.dp, color.copy(alpha = 0.5f)),
+        modifier =
+            Modifier.semantics {
+                contentDescription = if (isNegative) "Expense, tap for income" else "Income, tap for expense"
+            },
+    )
 }

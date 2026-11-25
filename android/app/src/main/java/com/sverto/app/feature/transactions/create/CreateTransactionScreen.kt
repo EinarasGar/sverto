@@ -57,7 +57,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.onClick
 import androidx.compose.ui.semantics.role
@@ -145,12 +147,19 @@ fun CreateTransactionScreen(
             viewModel.initForEdit(typeKey, editTransactionId)
         }
     }
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(submitState) {
         if (submitState == SubmitState.SUCCESS) {
+            haptics.performHapticFeedback(HapticFeedbackType.Confirm)
             currentOnSuccess(submittedTransaction)
         }
     }
-    LaunchedEffect(errorMessage) { errorMessage?.let { snackbarHostState.showSnackbar(it) } }
+    LaunchedEffect(errorMessage) {
+        errorMessage?.let {
+            haptics.performHapticFeedback(HapticFeedbackType.Reject)
+            snackbarHostState.showSnackbar(it)
+        }
+    }
 
     val qUploadId by viewModel.quickUploadId.collectAsStateWithLifecycle()
     val correctionState by viewModel.correctionState.collectAsStateWithLifecycle()

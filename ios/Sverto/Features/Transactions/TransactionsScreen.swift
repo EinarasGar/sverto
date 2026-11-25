@@ -45,7 +45,7 @@ private struct TransactionsTab: View {
             ))
             .modifier(SelectionActions(model: model))
             .onChange(of: model.actionFailure) { _, failure in
-                if let failure { toasts.show(failure.message) }
+                if let failure { toasts.showError(failure.message) }
             }
             .onChange(of: held.notice) { _, notice in
                 if let notice { toasts.show(notice.message) }
@@ -197,7 +197,7 @@ private struct NewTransactionEntryPoints: ViewModifier {
             }
         }
         if let message = PickResult.failureMessage(results + rejected) {
-            toasts.show(message)
+            toasts.showError(message)
         }
     }
 }

@@ -39,7 +39,7 @@ struct AiFeaturesSection: View {
         do {
             try await model.turnOff()
         } catch {
-            toasts.show(error.friendlyMessage)
+            toasts.showError(error.friendlyMessage)
         }
     }
 }

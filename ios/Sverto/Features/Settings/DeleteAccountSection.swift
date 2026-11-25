@@ -40,7 +40,7 @@ struct DeleteAccountSection: View {
         isDeleting = true
         defer { isDeleting = false }
         if let error = await session.deleteUserAndSignOut() {
-            toasts.show(error.friendlyMessage)
+            toasts.showError(error.friendlyMessage)
             return
         }
         shell.dismissSettings()

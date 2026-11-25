@@ -154,6 +154,8 @@ impl EntriesService {
         user_id: Uuid,
         range: Range,
         account_id: Option<Uuid>,
+        asset_id: Option<i32>,
+        excluded_account_types: Vec<i32>,
         apply_ownership_share: bool,
     ) -> anyhow::Result<impl Iterator<Item = EntriesIntervalSumDto>> {
         let start_time_for_binned = (!range.infinite_start()).then(|| range.start_time());
@@ -163,6 +165,8 @@ impl EntriesService {
             user_id,
             start_date: start_time_for_binned,
             account_id,
+            asset_id,
+            excluded_account_types,
             apply_ownership_share,
         };
 
@@ -176,8 +180,10 @@ impl EntriesService {
         &self,
         user_id: Uuid,
         account_id: Option<Uuid>,
+        asset_id: Option<i32>,
+        excluded_account_types: Vec<i32>,
     ) -> anyhow::Result<Option<OffsetDateTime>> {
-        let query = get_oldest_entry_date(user_id, account_id);
+        let query = get_oldest_entry_date(user_id, account_id, asset_id, excluded_account_types);
         Ok(self.db.fetch_one_scalar(query).await?)
     }
 

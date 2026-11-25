@@ -41,6 +41,7 @@ use crate::dtos::assets::asset_search_result_dto::AssetSearchResultDto;
 use crate::dtos::entry_dto::EntryDto;
 use crate::dtos::fee_entry_types_dto::FeeEntryTypesDto;
 use crate::dtos::individual_transaction_filters_dto::IndividualTransactionFiltersDto;
+use crate::dtos::net_worth::portfolio_history_filter_dto::PortfolioHistoryFilterDto;
 use crate::dtos::net_worth::range_dto::RangeDto;
 use crate::dtos::paging_dto::PaginationModeDto;
 use crate::dtos::portfolio::overview::asset_overview_dto::PortfolioAssetOverviewDto;
@@ -313,7 +314,7 @@ impl AiDataService {
 
         let mut holdings = self
             .portfolio_overview_service
-            .get_holdings(user_id, true)
+            .get_holdings(user_id, true, false)
             .await?;
         if let Some(a) = account_id {
             holdings.retain(|h| h.account_id == a);
@@ -605,7 +606,10 @@ impl AiDataService {
                 user_id,
                 AssetIdDto(ref_id),
                 RangeDto::StringBased(range.clone()),
-                account_id,
+                PortfolioHistoryFilterDto {
+                    account_id,
+                    ..Default::default()
+                },
             )
             .await?;
 

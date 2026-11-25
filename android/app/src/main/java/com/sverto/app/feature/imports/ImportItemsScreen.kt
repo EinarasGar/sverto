@@ -46,7 +46,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -81,8 +83,12 @@ fun ImportItemsScreen(
     val verb = ItemsFilter.valueOf(verbName)
 
     LaunchedEffect(sessionId) { viewModel.load(sessionId) }
+    val haptics = LocalHapticFeedback.current
     LaunchedEffect(viewModel) {
-        viewModel.messages.collect { launch { snackbarHostState.showSnackbar(it) } }
+        viewModel.messages.collect {
+            haptics.performHapticFeedback(HapticFeedbackType.Reject)
+            launch { snackbarHostState.showSnackbar(it) }
+        }
     }
 
     val rows = state.items?.rows.orEmpty()

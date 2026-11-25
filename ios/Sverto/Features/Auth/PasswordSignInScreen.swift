@@ -111,7 +111,10 @@ struct PasswordSignInScreen: View {
             }
             .onChange(of: username) { isErrorDismissed = true }
             .onChange(of: password) { isErrorDismissed = true }
-            .onChange(of: errorMessage) { isErrorDismissed = false }
+            .onChange(of: errorMessage) {
+                isErrorDismissed = false
+                if errorMessage != nil { Haptics.error() }
+            }
         }
     }
 

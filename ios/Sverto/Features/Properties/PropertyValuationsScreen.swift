@@ -152,7 +152,7 @@ private struct PropertyValuationsContent: View {
 
     private func delete(_ valuation: ChartPoint) async {
         if let error = await model.delete(valuation) {
-            toasts.show(error)
+            toasts.showError(error)
         }
     }
 }

@@ -80,6 +80,51 @@ pub struct HoldingItem {
     pub value: f64,
     pub asset_type_id: i32,
     pub asset_id: i32,
+    pub property: Option<HoldingProperty>,
+}
+
+/// `value` is the row's equity: `asset_value + loan_balance`, both at the user's share.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct HoldingProperty {
+    pub property_id: String,
+    pub kind: PropertyKind,
+    pub asset_value: f64,
+    pub loan_balance: f64,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct LiabilityItem {
+    pub account_id: String,
+    pub account_name: String,
+    pub account_type_id: i32,
+    pub value: f64,
+}
+
+/// Across the portfolio it covers everything outside credit card, mortgage, loan and property
+/// accounts; scoped to an account it covers that account alone, whatever its type. `units` and
+/// the chart are in the currency itself; `value` and `rate` are in the user's base currency.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct CurrencyDetail {
+    pub asset_id: i32,
+    pub name: String,
+    pub ticker: String,
+    pub units: f64,
+    pub value: Option<f64>,
+    pub rate: Option<f64>,
+    pub is_base_currency: bool,
+    pub base_ticker: String,
+    pub accounts: Vec<CurrencyAccount>,
+    pub chart_data: Vec<ChartPeriodData>,
+    pub recent_transactions: Vec<TransactionListItem>,
+    pub has_more_transactions: bool,
+}
+
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct CurrencyAccount {
+    pub account_id: String,
+    pub account_name: String,
+    pub account_type_id: i32,
+    pub units: f64,
 }
 
 #[derive(Debug, Clone, uniffi::Record)]
@@ -390,6 +435,9 @@ pub struct PortfolioState {
     pub is_loading: bool,
     pub error: Option<String>,
     pub holdings: Vec<HoldingItem>,
+    pub liabilities: Vec<LiabilityItem>,
+    pub holdings_total: f64,
+    pub liabilities_total: f64,
     pub chart_data: Vec<ChartPeriodData>,
     pub base_ticker: String,
 }
@@ -433,6 +481,17 @@ pub struct AccountHoldingItem {
     pub current_price: f64,
 }
 
+/// A currency the account holds or has held, at the whole account's balance. `value` is in the
+/// user's base currency.
+#[derive(Debug, Clone, uniffi::Record)]
+pub struct AccountCurrencyBalance {
+    pub asset_id: i32,
+    pub ticker: String,
+    pub name: String,
+    pub units: f64,
+    pub value: Option<f64>,
+}
+
 #[derive(Debug, Clone, Default, uniffi::Record)]
 pub struct AccountDetailState {
     pub is_loading: bool,
@@ -442,6 +501,7 @@ pub struct AccountDetailState {
     pub account_type_id: i32,
     pub chart_data: Vec<ChartPeriodData>,
     pub holdings: Vec<AccountHoldingItem>,
+    pub balances: Vec<AccountCurrencyBalance>,
     pub cash_balance: f64,
     pub total_value: f64,
     pub total_cost_basis: f64,
@@ -469,6 +529,10 @@ pub enum TransactionListScope {
     Asset {
         asset_id: i32,
         account_id: Option<String>,
+    },
+    /// The currency's transactions outside credit card, mortgage and loan accounts.
+    Currency {
+        asset_id: i32,
     },
 }
 
@@ -505,6 +569,7 @@ pub struct AssetDetailState {
     pub lots: Vec<LotItem>,
     pub base_ticker: String,
     pub price_ticker: String,
+    pub price_currency_id: i32,
     pub supports_base_conversion: bool,
     pub base_chart_data: Vec<ChartPeriodData>,
 }

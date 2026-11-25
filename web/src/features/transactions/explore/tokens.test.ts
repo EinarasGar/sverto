@@ -127,6 +127,7 @@ describe("clearing a token", () => {
       "account",
       "asset",
       "category",
+      "excludeLiabilities",
       "from",
       "q",
       "to",

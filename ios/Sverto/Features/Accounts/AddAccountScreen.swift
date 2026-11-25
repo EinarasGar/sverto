@@ -98,6 +98,7 @@ private struct AddAccountForm: View {
         }
         .onChange(of: model.submitState) { _, state in
             if case let .error(message) = state {
+                Haptics.error()
                 AccessibilityNotification.Announcement(message).post()
             }
         }

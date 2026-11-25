@@ -40,7 +40,7 @@ private struct CustomAssetsList: View {
             .task { await model.load() }
             .onChange(of: model.lastError) { _, event in
                 if let event {
-                    toasts.show(event.message)
+                    toasts.showError(event.message)
                 }
             }
             .sheet(isPresented: $isCreatePresented) {

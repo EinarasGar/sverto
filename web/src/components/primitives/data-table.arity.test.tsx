@@ -51,14 +51,15 @@ import type {
   AssetHolding,
   PortfolioOverviewView,
 } from "@/features/portfolio/api"
+import { foldHoldings } from "@/features/portfolio/api"
 import {
   assetOverviewFixture,
-  holdingsFixture,
+  foldableHoldingsFixture,
   overviewFixture,
+  propertiesFixture,
   VWRP,
 } from "@/features/portfolio/fixtures"
 import {
-  buildHoldingRows,
   buildLotRows,
   buildLotTotals,
   buildPeriodColumn,
@@ -66,7 +67,10 @@ import {
   LOT_ROWS_DRAWN,
   summariseHoldings,
 } from "@/features/portfolio"
-import { HoldingsTable } from "@/features/portfolio/holdings-table"
+import {
+  HoldingsTable,
+  LiabilitiesTable,
+} from "@/features/portfolio/holdings-table"
 import { LotsTable } from "@/features/portfolio/lots-table"
 import {
   renderPortfolio,
@@ -354,20 +358,29 @@ const SWEEPS: readonly Sweep[] = [
     cases: {
       "portfolio holdings": async (width) => {
         stubPortfolioViewport(VIEWPORTS[width])
-        const holdings = holdingsFixture()
-        const overview = overviewFixture()
-        const rows = buildHoldingRows(holdings, overview)
+        const summary = summariseHoldings(
+          foldHoldings(foldableHoldingsFixture(), propertiesFixture()),
+          overviewFixture()
+        )
+        const rows = summary.rows
         await renderPortfolio(
-          <HoldingsTable
-            summary={summariseHoldings(rows, holdings, overview)}
-            period={buildPeriodColumn(rows, "1m", 1318.9)}
-            colors={createSeriesColors(rows.map((row) => row.key))}
-            currency="GBP"
-            expanded={new Set(rows.map((row) => row.key))}
-            onToggle={() => {}}
-            shown={HOLDINGS_ROWS_DRAWN}
-            onShowAll={() => {}}
-          />
+          <>
+            <HoldingsTable
+              summary={summary}
+              period={buildPeriodColumn(rows, "1m", 1318.9)}
+              colors={createSeriesColors(rows.map((row) => row.key))}
+              currency="GBP"
+              expanded={new Set(rows.map((row) => row.key))}
+              onToggle={() => {}}
+              shown={HOLDINGS_ROWS_DRAWN}
+              onShowAll={() => {}}
+            />
+            <LiabilitiesTable
+              rows={summary.liabilities}
+              total={summary.liabilitiesTotal}
+              currency="GBP"
+            />
+          </>
         )
       },
     },

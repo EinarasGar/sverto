@@ -2,7 +2,9 @@ use std::collections::HashSet;
 
 use axum::{extract::Path, Json};
 use business::dtos::{
-    assets::asset_id_dto::AssetIdDto, net_worth::range_dto::RangeDto, paging_dto::PagingDto,
+    assets::asset_id_dto::AssetIdDto,
+    net_worth::{portfolio_history_filter_dto::PortfolioHistoryFilterDto, range_dto::RangeDto},
+    paging_dto::PagingDto,
     portfolio::overview::PortfolioOverviewType,
 };
 use itertools::Itertools;
@@ -26,11 +28,14 @@ use crate::{
     errors::ApiError,
     extractors::ValidatedQuery,
     states::{
-        AccountsServiceState, AssetsServiceState, PortfolioOverviewServiceState,
-        PortfolioServiceState, TransactionManagementServiceState, UsersServiceState,
+        AccountsServiceState, AssetsServiceState, CategoryServiceState,
+        PortfolioOverviewServiceState, PortfolioServiceState, TransactionManagementServiceState,
+        UsersServiceState,
     },
     view_models::{
-        base_models::search::{AccountTransactionsPage, PaginatedSearchQuery},
+        base_models::search::{
+            AccountTransactionsPage, AssetTransactionsQuery, PaginatedSearchQuery,
+        },
         errors::GetResponses,
         portfolio::{
             base_models::metadata_lookup::HoldingsMetadataLookupTables,
@@ -80,7 +85,77 @@ pub async fn get_account_networth_history(
     });
 
     let history = portfolio_service
-        .get_full_portfolio_history(user_id, default_asset, range, Some(account_id))
+        .get_full_portfolio_history(
+            user_id,
+            default_asset,
+            range,
+            PortfolioHistoryFilterDto {
+                account_id: Some(account_id),
+                ..Default::default()
+            },
+        )
+        .await?;
+
+    let response = GetNetWorthHistoryResponseViewModel {
+        sums: history.into_iter().map_into().collect(),
+        range: query_params.range.to_string(),
+    };
+
+    Ok(response.into())
+}
+
+/// Get Account Asset History
+///
+/// Returns the value of one asset held in a specific account at specific points in time, depending on the range provided.
+#[utoipa::path(
+    get,
+    path = "/api/users/{user_id}/accounts/{account_id}/portfolio/assets/{asset_id}/history",
+    tag = "Account Portfolio",
+    responses(
+        (status = 200, description = "Account asset history calculated successfully", body = GetNetWorthHistoryResponseViewModel),
+        GetResponses
+    ),
+    params(
+        ("user_id" = Uuid, Path, description = "User id"),
+        ("account_id" = Uuid, Path, description = "Account id"),
+        ("asset_id" = i32, Path, description = "Asset id"),
+        GetNetWorthHistoryRequestParams
+    ),
+    security(
+        ("auth_token" = [])
+    )
+)]
+#[tracing::instrument(level = "info", skip_all, fields(user_id = %user_id, account_id = %account_id, asset_id = asset_id))]
+pub async fn get_account_asset_history(
+    AuthenticatedUserId(user_id): AuthenticatedUserId,
+    Path(AccountAssetPath {
+        account_id,
+        asset_id,
+    }): Path<AccountAssetPath>,
+    ValidatedQuery(query_params): ValidatedQuery<GetNetWorthHistoryRequestParams>,
+    PortfolioServiceState(portfolio_service): PortfolioServiceState,
+    UsersServiceState(user_service): UsersServiceState,
+) -> Result<Json<GetNetWorthHistoryResponseViewModel>, ApiError> {
+    let range = RangeDto::StringBased(query_params.range.clone());
+    let default_asset = AssetIdDto(match &query_params.default_asset_id {
+        Some(id) => id.0,
+        None => user_service
+            .get_default_asset(user_id)
+            .await?
+            .ok_or_else(|| ApiError::Conflict("User has no base currency set".to_string()))?,
+    });
+
+    let history = portfolio_service
+        .get_full_portfolio_history(
+            user_id,
+            default_asset,
+            range,
+            PortfolioHistoryFilterDto {
+                account_id: Some(account_id),
+                asset_id: Some(asset_id),
+                exclude_liabilities: false,
+            },
+        )
         .await?;
 
     let response = GetNetWorthHistoryResponseViewModel {
@@ -197,6 +272,7 @@ pub async fn get_account_transactions(
     AssetsServiceState(asset_service): AssetsServiceState,
     TransactionManagementServiceState(transaction_service): TransactionManagementServiceState,
     AccountsServiceState(accounts_service): AccountsServiceState,
+    CategoryServiceState(category_service): CategoryServiceState,
 ) -> Result<Json<AccountTransactionsPage>, ApiError> {
     let paging_dto = PagingDto {
         start: query_params.start,
@@ -204,11 +280,11 @@ pub async fn get_account_transactions(
     };
 
     let dtos = transaction_service
-        .search_transactions(user_id, paging_dto, Some(account_id), None)
+        .search_transactions(user_id, paging_dto, Some(account_id), None, false)
         .await?;
 
     Ok(
-        transaction_dtos_to_page(dtos, &asset_service, &accounts_service)
+        transaction_dtos_to_page(dtos, &asset_service, &accounts_service, &category_service)
             .await?
             .into(),
     )
@@ -229,7 +305,7 @@ pub async fn get_account_transactions(
         ("user_id" = Uuid, Path, description = "User id"),
         ("account_id" = Uuid, Path, description = "Account id"),
         ("asset_id" = i32, Path, description = "Asset id"),
-        PaginatedSearchQuery
+        AssetTransactionsQuery
     ),
     security(
         ("auth_token" = [])
@@ -242,10 +318,11 @@ pub async fn get_account_asset_transactions(
         account_id,
         asset_id,
     }): Path<AccountAssetPath>,
-    ValidatedQuery(query_params): ValidatedQuery<PaginatedSearchQuery>,
+    ValidatedQuery(query_params): ValidatedQuery<AssetTransactionsQuery>,
     AssetsServiceState(asset_service): AssetsServiceState,
     TransactionManagementServiceState(transaction_service): TransactionManagementServiceState,
     AccountsServiceState(accounts_service): AccountsServiceState,
+    CategoryServiceState(category_service): CategoryServiceState,
 ) -> Result<Json<AccountTransactionsPage>, ApiError> {
     let paging_dto = PagingDto {
         start: query_params.start,
@@ -253,11 +330,17 @@ pub async fn get_account_asset_transactions(
     };
 
     let dtos = transaction_service
-        .search_transactions(user_id, paging_dto, Some(account_id), Some(asset_id))
+        .search_transactions(
+            user_id,
+            paging_dto,
+            Some(account_id),
+            Some(asset_id),
+            query_params.exclude_liabilities,
+        )
         .await?;
 
     Ok(
-        transaction_dtos_to_page(dtos, &asset_service, &accounts_service)
+        transaction_dtos_to_page(dtos, &asset_service, &accounts_service, &category_service)
             .await?
             .into(),
     )

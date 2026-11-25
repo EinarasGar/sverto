@@ -131,7 +131,7 @@ private struct SettingsList: View {
         do {
             try await model.selectBaseCurrency(asset)
         } catch {
-            toasts.show(error.friendlyMessage)
+            toasts.showError(error.friendlyMessage)
         }
     }
 }

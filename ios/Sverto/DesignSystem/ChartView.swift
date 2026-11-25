@@ -9,8 +9,9 @@ struct ChartView: View {
     private let showsPeriodPicker: Bool
     private let changeSuffix: String?
     private let markers: [ChartPoint]
-    private let headerTrailing: (() -> AnyView)?
     private let plotOutset: CGFloat
+    private let caption: String?
+    private let valueFormat: ChartValueFormat
 
     @State private var selection = ChartSelection()
     @State private var seriesCache = ChartSeriesCache()
@@ -26,7 +27,8 @@ struct ChartView: View {
         changeSuffix: String? = nil,
         markers: [ChartPoint] = [],
         plotOutset: CGFloat = 0,
-        headerTrailing: (() -> AnyView)? = nil
+        caption: String? = nil,
+        valueFormat: ChartValueFormat = .money(showsChangePercent: true)
     ) {
         self.periods = periods
         self.baseTicker = baseTicker
@@ -36,7 +38,8 @@ struct ChartView: View {
         self.changeSuffix = changeSuffix
         self.markers = markers
         self.plotOutset = plotOutset
-        self.headerTrailing = headerTrailing
+        self.caption = caption
+        self.valueFormat = valueFormat
     }
 
     private var series: ChartSeries {
@@ -53,11 +56,28 @@ struct ChartView: View {
     }
 
     private func formatValue(_ value: Double) -> String {
-        Money.format(value, ticker: baseTicker)
+        switch valueFormat {
+        case .money: Money.format(value, ticker: baseTicker)
+        case .units: QuantityText.format(value, locale: DateText.androidParityLocale)
+        }
     }
 
     private func formatChange(_ change: Double) -> String {
-        Money.format(change, ticker: baseTicker, signed: true)
+        switch valueFormat {
+        case .money: Money.format(change, ticker: baseTicker, signed: true)
+        case .units: (change > 0 ? "+" : "") + QuantityText.format(change, locale: DateText.androidParityLocale)
+        }
+    }
+
+    private var changeText: String {
+        var text = formatChange(summary.change)
+        if valueFormat == .money(showsChangePercent: true) {
+            text += " (\(PercentText.format(summary.changeFraction, fractionDigits: 2)))"
+        }
+        if let changeSuffix {
+            text += " \(changeSuffix)"
+        }
+        return text
     }
 
     private var summary: ChartPointSummary {
@@ -83,6 +103,7 @@ struct ChartView: View {
             }
         }
         .sensoryFeedback(.selection, trigger: selection.index) { _, index in index != nil }
+        .sensoryFeedback(.selection, trigger: selectedPeriod)
         .onChange(of: selectedPeriod) {
             selection.clear()
         }
@@ -92,29 +113,29 @@ struct ChartView: View {
     }
 
     private var headline: some View {
-        HStack(alignment: .top) {
-            VStack(alignment: .leading, spacing: 4) {
-                Text(formatValue(summary.currentValue))
-                    .font(.largeTitle.weight(.semibold))
-                    .monospacedDigit()
-                    .contentTransition(reduceMotion ? .identity : .numericText())
-                    .animation(reduceMotion ? nil : .interactiveSpring(response: 0.16, dampingFraction: 0.9), value: summary.currentValue)
-                Text("\(formatChange(summary.change)) (\(PercentText.format(summary.changeFraction, fractionDigits: 2)))\(changeSuffix.map { " \($0)" } ?? "")")
+        VStack(alignment: .leading, spacing: 4) {
+            if let caption {
+                Text(caption)
                     .font(.subheadline)
-                    .monospacedDigit()
-                    .foregroundStyle(summary.isPositive ? Color.gain : Color.loss)
-                Text(scrubDateText ?? " ")
-                    .font(.caption)
                     .foregroundStyle(.secondary)
-                    .lineLimit(1)
-                    .opacity(scrubDateText == nil ? 0 : 1)
             }
-            .accessibilityElement(children: .combine)
-            Spacer(minLength: 8)
-            if let headerTrailing {
-                headerTrailing()
-            }
+            Text(formatValue(summary.currentValue))
+                .font(.largeTitle.weight(.semibold))
+                .monospacedDigit()
+                .contentTransition(reduceMotion ? .identity : .numericText())
+                .animation(reduceMotion ? nil : .interactiveSpring(response: 0.16, dampingFraction: 0.9), value: summary.currentValue)
+            Text(changeText)
+                .font(.subheadline)
+                .monospacedDigit()
+                .foregroundStyle(summary.isPositive ? Color.gain : Color.loss)
+            Text(scrubDateText ?? " ")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .opacity(scrubDateText == nil ? 0 : 1)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .accessibilityElement(children: .combine)
     }
 
     private var scrubDateText: String? {

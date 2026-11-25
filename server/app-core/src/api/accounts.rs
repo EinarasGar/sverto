@@ -8,6 +8,14 @@ use crate::models::{
     AccountEditModel, AccountIdentifier, AccountListItem, AccountTypeItem, AssetItem,
 };
 
+pub const CREDIT: i32 = 4;
+pub const MORTGAGE: i32 = 7;
+pub const LOAN: i32 = 8;
+
+pub fn is_liability_account_type(account_type_id: i32) -> bool {
+    matches!(account_type_id, CREDIT | MORTGAGE | LOAN)
+}
+
 pub fn extract_accounts(body: &str) -> Result<Vec<AccountListItem>, String> {
     let resp: GetAccountsResponseViewModel =
         serde_json::from_str(body).map_err(|e| e.to_string())?;

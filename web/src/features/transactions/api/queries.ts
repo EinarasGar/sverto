@@ -140,6 +140,7 @@ export function assetLedgerInfiniteQueryOptions(input: {
   userId: UserId
   assetId: AssetId
   accountId: AccountId | null
+  excludeLiabilities: boolean
   count?: number
   keepPreviousPage?: boolean
 }) {
@@ -151,6 +152,7 @@ export function assetLedgerInfiniteQueryOptions(input: {
     queryKey: queryKeys.user(input.userId).transactions.byAsset(input.assetId, {
       count,
       accountId: input.accountId,
+      excludeLiabilities: input.excludeLiabilities,
     }),
     fetchPage: async ({ start, signal }): Promise<AccountTransactionsPage> => {
       const transactions = api(TransactionsApiFactory)
@@ -161,7 +163,7 @@ export function assetLedgerInfiniteQueryOptions(input: {
               input.assetId,
               count,
               start,
-              undefined,
+              input.excludeLiabilities,
               { signal }
             )
           : await transactions.getAccountAssetTransactions(
@@ -170,7 +172,7 @@ export function assetLedgerInfiniteQueryOptions(input: {
               input.assetId,
               count,
               start,
-              undefined,
+              input.excludeLiabilities,
               { signal }
             )
       return response.data
@@ -263,6 +265,7 @@ export function useLedger(input: LedgerQueryInput): LedgerResult {
       userId: input.userId,
       assetId: plan.assetId ?? 0,
       accountId: plan.accountId,
+      excludeLiabilities: plan.excludeLiabilities,
       count: input.limit,
       keepPreviousPage: input.keepPreviousPage === true,
     }),

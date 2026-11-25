@@ -4,7 +4,16 @@ import SvertoCore
 
 @Observable
 final class HomeViewModel {
-    private(set) var state = PortfolioState(isLoading: true, error: nil, holdings: [], chartData: [], baseTicker: "")
+    private(set) var state = PortfolioState(
+        isLoading: true,
+        error: nil,
+        holdings: [],
+        liabilities: [],
+        holdingsTotal: 0,
+        liabilitiesTotal: 0,
+        chartData: [],
+        baseTicker: ""
+    )
 
     private let store: AppStore
     private var bridge: PortfolioObserverBridge?

@@ -34,6 +34,7 @@ use crate::{
         transaction_dto::TransactionDto,
         transaction_group_dto::TransactionGroupDto,
     },
+    dynamic_enums::account_types::AccountTypes,
     entities::transactions::{
         metadata::MetadataKinds,
         transaction::Transaction,
@@ -149,12 +150,19 @@ impl TransactionManagementService {
         paging: PagingDto,
         account_id: Option<Uuid>,
         asset_id: Option<i32>,
+        exclude_liabilities: bool,
     ) -> anyhow::Result<PageOfResultsDto<TransactionDto>> {
+        let excluded_account_types = if exclude_liabilities {
+            AccountTypes::liability_ids()?
+        } else {
+            vec![]
+        };
         let query_params = GetTransactionWithEntriesParams::by_user_id_paged_filtered(
             user_id,
             paging.into(),
             account_id,
             asset_id,
+            excluded_account_types,
         );
 
         let query = transaction_queries::get_transaction_with_entries(query_params);

@@ -31,6 +31,9 @@ class PropertyValuationsViewModel(
     private val _errors = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val errors = _errors.asSharedFlow()
 
+    private val _saved = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
+    val saved = _saved.asSharedFlow()
+
     private var assetId: Int = 0
     private var currencyAssetId: Int = 0
 
@@ -57,6 +60,7 @@ class PropertyValuationsViewModel(
         value: Double,
     ) = launchCatching(_errors) {
         store.addPropertyValuation(assetId, currencyAssetId, date, value)
+        _saved.emit(Unit)
         loadValuations()
     }
 
@@ -66,6 +70,7 @@ class PropertyValuationsViewModel(
         value: Double,
     ) = launchCatching(_errors) {
         store.editPropertyValuation(assetId, currencyAssetId, valuation.date, date, value)
+        _saved.emit(Unit)
         loadValuations()
     }
 

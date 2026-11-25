@@ -9,6 +9,7 @@ pub mod assets;
 pub mod categories;
 pub mod connector_local;
 pub mod connectors;
+pub mod currency_detail;
 pub mod exports;
 pub mod files;
 pub mod imports;
@@ -467,6 +468,25 @@ impl AppStore {
         accounts::get_account(&self.infra, &account_id, token.as_deref()).await
     }
 
+    // ── Currency page ────────────────────────────────────────────────
+
+    pub async fn get_currency_detail(
+        &self,
+        asset_id: i32,
+        account_id: Option<String>,
+        refresh: bool,
+    ) -> Result<crate::models::CurrencyDetail, ApiError> {
+        let token = self.get_auth_token().await;
+        currency_detail::get_currency_detail(
+            &self.infra,
+            asset_id,
+            account_id.as_deref(),
+            refresh,
+            token.as_deref(),
+        )
+        .await
+    }
+
     // ── Properties ───────────────────────────────────────────────────
 
     pub async fn create_property(
@@ -543,7 +563,9 @@ impl AppStore {
             &account_id,
             token.as_deref(),
         )
-        .await
+        .await?;
+        self.refresh_portfolio().await;
+        Ok(())
     }
 
     pub async fn unlink_property_loan(
@@ -559,7 +581,9 @@ impl AppStore {
             &account_id,
             token.as_deref(),
         )
-        .await
+        .await?;
+        self.refresh_portfolio().await;
+        Ok(())
     }
 
     pub async fn add_property_valuation(
@@ -1040,6 +1064,42 @@ impl AppStore {
             reference_id,
             &range,
             user_asset,
+            token.as_deref(),
+        )
+        .await
+    }
+    pub async fn get_holding_value_history(
+        &self,
+        asset_id: i32,
+        account_id: Option<String>,
+        currency_id: i32,
+        range: String,
+    ) -> Result<Vec<crate::models::ChartPoint>, crate::error::ApiError> {
+        let token = self.get_auth_token().await;
+        assets::get_holding_history(
+            &self.infra,
+            asset_id,
+            account_id.as_deref(),
+            currency_id,
+            &range,
+            token.as_deref(),
+        )
+        .await
+    }
+
+    pub async fn get_holding_units_history(
+        &self,
+        asset_id: i32,
+        account_id: Option<String>,
+        range: String,
+    ) -> Result<Vec<crate::models::ChartPoint>, crate::error::ApiError> {
+        let token = self.get_auth_token().await;
+        assets::get_holding_history(
+            &self.infra,
+            asset_id,
+            account_id.as_deref(),
+            asset_id,
+            &range,
             token.as_deref(),
         )
         .await

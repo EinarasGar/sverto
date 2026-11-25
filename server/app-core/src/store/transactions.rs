@@ -26,6 +26,7 @@ pub(crate) fn evict_transaction_caches(infra: &SharedInfra, user_id: &str) {
     infra.evict_memory_cache_prefix(&format!("/api/users/{user_id}/transactions"));
     infra.evict_memory_cache_prefix(&format!("/api/users/{user_id}/accounts"));
     infra.evict_memory_cache_prefix(&format!("/api/users/{user_id}/assets"));
+    infra.evict_memory_cache_prefix(&format!("/api/users/{user_id}/portfolio"));
 }
 
 #[uniffi::export(callback_interface)]

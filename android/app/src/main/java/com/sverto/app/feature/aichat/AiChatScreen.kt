@@ -26,7 +26,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.unit.dp
 import com.sverto.app.core.aifeatures.AiFeaturesGate
 import com.sverto.app.core.components.AttachmentSheet
@@ -89,9 +91,11 @@ fun AiChatScreen(
     val contentResolver = context.contentResolver
     val listState = rememberLazyListState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val haptics = LocalHapticFeedback.current
 
     LaunchedEffect(state.error) {
         state.error?.let { error ->
+            haptics.performHapticFeedback(HapticFeedbackType.Reject)
             snackbarHostState.showSnackbar(error)
             viewModel.clearError()
         }

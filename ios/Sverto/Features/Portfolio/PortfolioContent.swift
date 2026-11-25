@@ -4,6 +4,7 @@ import SvertoCore
 struct PortfolioContent: View {
     let model: HomeViewModel
     let onSelectHolding: (HoldingItem) -> Void
+    let onSelectLiability: (LiabilityItem) -> Void
 
     @State private var selectedPeriod = ChartPeriod.defaultSelection
 
@@ -13,12 +14,16 @@ struct PortfolioContent: View {
         case loaded
     }
 
+    private var isEmpty: Bool {
+        model.state.holdings.isEmpty && model.state.liabilities.isEmpty
+    }
+
     private var phase: Phase {
         let state = model.state
-        if state.isLoading, state.holdings.isEmpty {
+        if state.isLoading, isEmpty {
             return .loading
         }
-        if let error = state.error, state.holdings.isEmpty {
+        if let error = state.error, isEmpty {
             return .failed(error)
         }
         return .loaded
@@ -44,7 +49,7 @@ struct PortfolioContent: View {
                     ChartView(periods: chartPeriods, baseTicker: model.state.baseTicker, selectedPeriod: $selectedPeriod, plotOutset: Layout.cardPadding)
                         .plainPortfolioRow()
                 }
-                if model.state.holdings.isEmpty {
+                if isEmpty {
                     ContentUnavailableView(
                         "No holdings yet",
                         systemImage: "chart.pie",
@@ -52,7 +57,7 @@ struct PortfolioContent: View {
                     )
                     .plainPortfolioRow()
                 } else {
-                    HoldingsList(holdings: model.state.holdings, baseTicker: model.state.baseTicker, onSelect: onSelectHolding)
+                    HoldingsList(state: model.state, onSelectHolding: onSelectHolding, onSelectLiability: onSelectLiability)
                 }
             }
         }

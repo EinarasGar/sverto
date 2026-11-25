@@ -39,7 +39,7 @@ use crate::{
     errors::{auth::AuthError, ApiError},
     extractors::{ValidatedJson, ValidatedQuery},
     states::{
-        AccountsServiceState, AssetRatesServiceState, AssetsServiceState,
+        AccountsServiceState, AssetRatesServiceState, AssetsServiceState, CategoryServiceState,
         TransactionManagementServiceState,
     },
     view_models::assets::base_models::exchange_name::ExchangeName,
@@ -62,7 +62,7 @@ use crate::{
         update_asset::{UpdateAssetRequestViewModel, UpdateAssetResponseViewModel},
         update_asset_pair::{UpdateAssetPairRequestViewModel, UpdateAssetPairResponseViewModel},
     },
-    view_models::base_models::search::{AccountTransactionsPage, PaginatedSearchQuery},
+    view_models::base_models::search::{AccountTransactionsPage, AssetTransactionsQuery},
     view_models::errors::{CreateResponses, DeleteResponses, GetResponses, UpdateResponses},
 };
 
@@ -779,7 +779,7 @@ pub async fn get_user_asset_pair_converted_rates(
     params(
         ("user_id" = Uuid, Path, description = "User id"),
         ("asset_id" = i32, Path, description = "Asset id"),
-        PaginatedSearchQuery
+        AssetTransactionsQuery
     ),
     security(
         ("auth_token" = [])
@@ -789,10 +789,11 @@ pub async fn get_user_asset_pair_converted_rates(
 pub async fn get_asset_transactions(
     AuthenticatedUserId(user_id): AuthenticatedUserId,
     Path(AssetIdPath { asset_id }): Path<AssetIdPath>,
-    ValidatedQuery(query_params): ValidatedQuery<PaginatedSearchQuery>,
+    ValidatedQuery(query_params): ValidatedQuery<AssetTransactionsQuery>,
     AssetsServiceState(asset_service): AssetsServiceState,
     TransactionManagementServiceState(transaction_service): TransactionManagementServiceState,
     AccountsServiceState(accounts_service): AccountsServiceState,
+    CategoryServiceState(category_service): CategoryServiceState,
 ) -> Result<Json<AccountTransactionsPage>, ApiError> {
     let paging_dto = PagingDto {
         start: query_params.start,
@@ -800,11 +801,17 @@ pub async fn get_asset_transactions(
     };
 
     let dtos = transaction_service
-        .search_transactions(user_id, paging_dto, None, Some(asset_id))
+        .search_transactions(
+            user_id,
+            paging_dto,
+            None,
+            Some(asset_id),
+            query_params.exclude_liabilities,
+        )
         .await?;
 
     Ok(
-        transaction_dtos_to_page(dtos, &asset_service, &accounts_service)
+        transaction_dtos_to_page(dtos, &asset_service, &accounts_service, &category_service)
             .await?
             .into(),
     )

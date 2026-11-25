@@ -92,8 +92,10 @@ struct LinkLoanSheet: View {
         Task {
             do {
                 try await onLink(accountId)
+                Haptics.success()
                 dismiss()
             } catch {
+                Haptics.error()
                 submitError = error.friendlyMessage
                 linkingAccountId = nil
             }

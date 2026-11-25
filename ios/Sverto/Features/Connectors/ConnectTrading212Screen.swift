@@ -82,6 +82,7 @@ private struct ConnectTrading212Content: View {
             .disabled(!canConnect)
         }
         .sensoryFeedback(.selection, trigger: mode)
+        .sensoryFeedback(.error, trigger: model.error) { _, error in error != nil }
     }
 
     private func connect() async {

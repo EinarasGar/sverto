@@ -58,6 +58,13 @@ export const Route = createFileRoute("/_auth/_shell/accounts/$accountId")({
       queryClient.ensureQueryData(
         holdingsQueryOptions({ userId, defaultAssetId })
       ),
+      queryClient.ensureQueryData(
+        holdingsQueryOptions({
+          userId,
+          defaultAssetId,
+          includeZeroBalances: true,
+        })
+      ),
       queryClient.ensureQueryData(accountConnectorsQueryOptions(userId)),
     ])
   },
