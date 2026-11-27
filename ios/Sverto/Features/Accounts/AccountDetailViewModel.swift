@@ -4,6 +4,10 @@ import SvertoCore
 
 @Observable
 final class AccountDetailViewModel {
+    // The core has one account-detail observer. Swapping the account in the detail column can show the old
+    // screen again after the new one registered, so a screen coming back only takes the observer when it is free.
+    private static weak var observing: AccountDetailViewModel?
+
     private(set) var state: AccountDetailState
     private(set) var isRefreshing = false
     private(set) var syncState = AccountSyncState()
@@ -60,6 +64,8 @@ final class AccountDetailViewModel {
     func stop() {
         guard bridge != nil else { return }
         bridge = nil
+        guard Self.observing === self else { return }
+        Self.observing = nil
         store.unobserveAccountDetail()
     }
 
@@ -154,11 +160,13 @@ final class AccountDetailViewModel {
     }
 
     private func observeIfNeeded() {
-        guard bridge == nil else { return }
-        let bridge = AccountDetailObserverBridge { [weak self] state in
+        guard bridge == nil, !hasLoaded || Self.observing == nil else { return }
+        let bridge = AccountDetailObserverBridge { [weak self, accountId] state in
+            guard state.accountId == accountId else { return }
             Task { @MainActor [weak self] in self?.state = state }
         }
         self.bridge = bridge
+        Self.observing = self
         store.observeAccountDetail(observer: bridge)
     }
 }

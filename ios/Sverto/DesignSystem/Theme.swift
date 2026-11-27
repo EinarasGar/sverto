@@ -25,4 +25,10 @@ enum Layout {
     nonisolated static let rowGlyphSize: CGFloat = 40
     nonisolated static let iconTileOpacity: Double = 0.14
     nonisolated static let readableWidth: CGFloat = 560
+    nonisolated static let contentWidth: CGFloat = 720
+    nonisolated static let minListDetailWidth: CGFloat = 700
+
+    nonisolated static func listColumnWidth(in width: CGFloat) -> CGFloat {
+        min(max((width * 0.4).rounded(), 360), 420)
+    }
 }

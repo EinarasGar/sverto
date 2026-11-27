@@ -7,6 +7,10 @@ struct PortfolioContent: View {
     let onSelectLiability: (LiabilityItem) -> Void
 
     @State private var selectedPeriod = ChartPeriod.defaultSelection
+    @State private var width = CGFloat.infinity
+    @State private var listScroll = RootScrollMemory()
+    @State private var fold: CGRect?
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     private enum Phase {
         case loading
@@ -33,7 +37,39 @@ struct PortfolioContent: View {
         model.state.chartData.filter { ChartPeriod(rawValue: $0.period) != nil }
     }
 
+    private var showsChartColumn: Bool {
+        guard sizeClass == .regular, width >= Layout.minListDetailWidth, case .loaded = phase else { return false }
+        return !chartPeriods.isEmpty
+    }
+
     var body: some View {
+        HStack(alignment: .top, spacing: 0) {
+            if showsChartColumn {
+                VStack {
+                    ChartView(periods: chartPeriods, baseTicker: model.state.baseTicker, selectedPeriod: $selectedPeriod)
+                    Spacer(minLength: 0)
+                }
+                .padding(.horizontal, Layout.cardPadding + 4)
+                .padding(.vertical, 8)
+                .containerRelativeFrame(.horizontal) { length, _ in fold?.minX ?? length / 2 }
+                .frame(maxHeight: .infinity)
+                .background(.screenBackground)
+                if let fold {
+                    Color.screenBackground
+                        .frame(width: fold.width)
+                        .ignoresSafeArea()
+                }
+            }
+            // Recreated when the chart moves in or out; reusing the list there left the large title hidden after launch.
+            list
+                .id(showsChartColumn)
+                .environment(\.rootScroll, listScroll)
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width.rounded() } action: { width = $0 }
+        .onVerticalFoldChange { fold = $0 }
+    }
+
+    private var list: some View {
         List {
             switch phase {
             case .loading:
@@ -45,7 +81,7 @@ struct PortfolioContent: View {
                 }
                 .plainPortfolioRow()
             case .loaded:
-                if !chartPeriods.isEmpty {
+                if !chartPeriods.isEmpty, !showsChartColumn {
                     ChartView(periods: chartPeriods, baseTicker: model.state.baseTicker, selectedPeriod: $selectedPeriod, plotOutset: Layout.cardPadding)
                         .plainPortfolioRow()
                 }
@@ -62,6 +98,7 @@ struct PortfolioContent: View {
             }
         }
         .listStyle(.insetGrouped)
+        .keepsRootScrollOffset()
         .refreshable { await model.refresh() }
     }
 }

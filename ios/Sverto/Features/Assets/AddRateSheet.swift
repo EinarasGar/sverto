@@ -56,6 +56,7 @@ struct AddRateSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: cancel)
+                        .modifier(discardDialog(.trigger))
                         .tint(.primary)
                         .disabled(isSaving)
                 }
@@ -79,12 +80,7 @@ struct AddRateSheet: View {
             .onChange(of: submitError) { _, message in
                 if let message { AccessibilityNotification.Announcement(message).post() }
             }
-            .confirmationDialog("Discard changes?", isPresented: $isDiscardPresented, titleVisibility: .visible) {
-                Button("Discard changes", role: .destructive) { dismiss() }
-                Button("Keep editing", role: .cancel) {}
-            } message: {
-                Text("This rate hasn't been saved.")
-            }
+            .modifier(discardDialog(.screen))
         }
         .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
         .interactiveDismissDisabled(hasChanges || isSaving)
@@ -106,6 +102,15 @@ struct AddRateSheet: View {
                 submitError = error.friendlyMessage
                 isSaving = false
             }
+        }
+    }
+
+    private func discardDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Discard changes?", isPresented: $isDiscardPresented) {
+            Button("Discard changes", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+        } message: {
+            Text("This rate hasn't been saved.")
         }
     }
 

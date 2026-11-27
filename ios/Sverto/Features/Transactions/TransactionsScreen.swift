@@ -15,6 +15,7 @@ private struct TransactionsTab: View {
     @State private var held: HeldTransactionsViewModel
     @State private var searchText = ""
     @State private var isSearchPresented = false
+    @State private var pickers = NewTransactionPickers()
     @Environment(TransactionsViewModel.self) private var model
     @Environment(QuickUploadViewModel.self) private var quickUploads
     @Environment(ShellState.self) private var shell
@@ -25,8 +26,25 @@ private struct TransactionsTab: View {
         _held = State(initialValue: HeldTransactionsViewModel(store: store))
     }
 
+    private var openTransactionId: String? {
+        if case let .transactionDetail(id) = shell.transactionsPath.first { id } else { nil }
+    }
+
     var body: some View {
-        content
+        @Bindable var shell = shell
+        ListDetailStack(
+            path: $shell.transactionsPath,
+            placeholderTitle: "No transaction selected",
+            placeholderSystemImage: AppTab.transactions.systemImage
+        ) { isListColumn in
+            screen(highlightedId: isListColumn ? openTransactionId : nil)
+        }
+        .modifier(NewTransactionPresentations(quickUploads: quickUploads, pickers: $pickers))
+        .aiConsentSheet(quickUploads.aiConsent)
+    }
+
+    private func screen(highlightedId: String?) -> some View {
+        content(highlightedId: highlightedId)
             .navigationTitle("Transactions")
             .navigationBarTitleDisplayMode(model.selectionActive ? .inline : .large)
             .modifier(TransactionSearchToolbar(
@@ -41,7 +59,8 @@ private struct TransactionsTab: View {
             .modifier(NewTransactionEntryPoints(
                 quickUploads: quickUploads,
                 isHidden: model.selectionActive,
-                isSearchPresented: $isSearchPresented
+                isSearchPresented: $isSearchPresented,
+                pickers: $pickers
             ))
             .modifier(SelectionActions(model: model))
             .onChange(of: model.actionFailure) { _, failure in
@@ -51,17 +70,19 @@ private struct TransactionsTab: View {
                 if let notice { toasts.show(notice.message) }
             }
             .sensoryFeedback(.success, trigger: held.decidedCount)
-            .aiConsentSheet(quickUploads.aiConsent)
+            .onChange(of: shell.refreshRequests) {
+                if shell.selectedTab == .transactions { Task { await model.refresh() } }
+            }
             .onAppear { model.start() }
             .onDisappear { model.stop() }
             .task { await held.load() }
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(highlightedId: String?) -> some View {
         if isSearchPresented {
             TransactionSearchResults(model: search) { transaction in
-                shell.showTransactionDetail(transaction, isInGroup: false)
+                shell.showTransactionDetailFromRoot(transaction)
             }
         } else if model.state.isLoading, model.state.items.isEmpty {
             TransactionListSkeleton()
@@ -74,7 +95,8 @@ private struct TransactionsTab: View {
                 model: model,
                 quickUploads: quickUploads,
                 held: held,
-                onTransactionTap: { shell.showTransactionDetail($0, isInGroup: false) },
+                highlightedId: highlightedId,
+                onTransactionTap: { shell.showTransactionDetailFromRoot($0) },
                 onQuickUploadTap: openQuickUpload
             )
         }
@@ -105,19 +127,20 @@ private struct TransactionSearchToolbar: ViewModifier {
     }
 }
 
+private struct NewTransactionPickers {
+    var isTypePickerPresented = false
+    var isPhotoPickerPresented = false
+    var isCameraPresented = false
+    var isFilePickerPresented = false
+}
+
 private struct NewTransactionEntryPoints: ViewModifier {
     let quickUploads: QuickUploadViewModel
     let isHidden: Bool
     @Binding var isSearchPresented: Bool
+    @Binding var pickers: NewTransactionPickers
 
-    @State private var isTypePickerPresented = false
-    @State private var isPhotoPickerPresented = false
-    @State private var isCameraPresented = false
-    @State private var isFilePickerPresented = false
-    @State private var pickedPhotos: [PhotosPickerItem] = []
-    @State private var routeAfterSheetDismiss: AppRoute?
     @Environment(ShellState.self) private var shell
-    @Environment(ToastCenter.self) private var toasts
 
     func body(content: Content) -> some View {
         content
@@ -133,42 +156,57 @@ private struct NewTransactionEntryPoints: ViewModifier {
                             onAddReceipt: { origin in
                                 quickUploads.aiConsent.perform {
                                     switch origin {
-                                    case .photos: isPhotoPickerPresented = true
-                                    case .camera: isCameraPresented = true
-                                    case .files: isFilePickerPresented = true
+                                    case .photos: pickers.isPhotoPickerPresented = true
+                                    case .camera: pickers.isCameraPresented = true
+                                    case .files: pickers.isFilePickerPresented = true
                                     }
                                 }
                             },
-                            onManualEntry: { isTypePickerPresented = true },
+                            onManualEntry: { pickers.isTypePickerPresented = true },
                             onNewGroup: { shell.push(.createTransactionGroup(quickUploadId: nil, fromSelection: false)) },
-                            onImportStatements: { shell.push(.imports) }
+                            onImportStatements: { shell.showFromRoot(.imports) }
                         )
                     }
                     ProfileToolbar()
                 }
             }
-            .sheet(isPresented: $isTypePickerPresented, onDismiss: pushRouteAfterSheetDismiss) {
+    }
+}
+
+// Attached outside the list column so a fold or a window resize, which rebuilds the tab root, keeps these open.
+private struct NewTransactionPresentations: ViewModifier {
+    let quickUploads: QuickUploadViewModel
+    @Binding var pickers: NewTransactionPickers
+
+    @State private var pickedPhotos: [PhotosPickerItem] = []
+    @State private var routeAfterSheetDismiss: AppRoute?
+    @Environment(ShellState.self) private var shell
+    @Environment(ToastCenter.self) private var toasts
+
+    func body(content: Content) -> some View {
+        content
+            .sheet(isPresented: $pickers.isTypePickerPresented, onDismiss: pushRouteAfterSheetDismiss) {
                 TransactionTypePickerSheet(
                     onSelectType: { routeAfterSheetDismiss = .createTransaction(typeKey: $0, quickUploadId: nil) },
                     onSelectGroup: { routeAfterSheetDismiss = .createTransactionGroup(quickUploadId: nil, fromSelection: false) }
                 )
             }
-            .photosPicker(isPresented: $isPhotoPickerPresented, selection: $pickedPhotos, matching: .images)
+            .photosPicker(isPresented: $pickers.isPhotoPickerPresented, selection: $pickedPhotos, matching: .images)
             .onChange(of: pickedPhotos) { _, items in
                 guard !items.isEmpty else { return }
                 pickedPhotos = []
                 Task { await queue(ImportFileReader.read(photoItems: items)) }
             }
-            .fullScreenCover(isPresented: $isCameraPresented) {
+            .fullScreenCover(isPresented: $pickers.isCameraPresented) {
                 CameraPicker(
                     onCapture: { image in
                         Task { await queue([QuickUploadPrep.read(cameraImage: image)]) }
                     },
-                    onDismiss: { isCameraPresented = false }
+                    onDismiss: { pickers.isCameraPresented = false }
                 )
                 .ignoresSafeArea()
             }
-            .fileImporter(isPresented: $isFilePickerPresented, allowedContentTypes: [.image, .pdf, .text], allowsMultipleSelection: true) { result in
+            .fileImporter(isPresented: $pickers.isFilePickerPresented, allowedContentTypes: [.image, .pdf, .text], allowsMultipleSelection: true) { result in
                 guard case let .success(urls) = result else { return }
                 Task { await queue(ImportFileReader.read(fileURLs: urls)) }
             }
@@ -221,18 +259,23 @@ private struct SelectionActions: ViewModifier {
                         onClose: model.clearSelection,
                         onMarkReviewed: { Task { await model.markSelectedReviewed() } },
                         onGroup: groupSelection,
-                        onDelete: { isDeleteConfirmationPresented = true }
+                        onDelete: { isDeleteConfirmationPresented = true },
+                        deleteDialog: deleteDialog(.trigger)
                     )
                 }
             }
             .sensoryFeedback(.selection, trigger: model.selectedIds)
-            .confirmationDialog("Delete selection?", isPresented: $isDeleteConfirmationPresented, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    Task { await model.deleteSelected() }
-                }
-            } message: {
-                Text(model.deleteSelectionMessage)
+            .modifier(deleteDialog(.screen))
+    }
+
+    private func deleteDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Delete selection?", isPresented: $isDeleteConfirmationPresented) {
+            Button("Delete", role: .destructive) {
+                Task { await model.deleteSelected() }
             }
+        } message: {
+            Text(model.deleteSelectionMessage)
+        }
     }
 
     private func groupSelection() {

@@ -27,25 +27,33 @@ struct QuickUploadsSection: View {
                                 showsDismissConfirmation = true
                             }
                         )
+                        .modifier(dismissDialog(.trigger, for: item))
                     }
                 }
                 .padding(Layout.cardPadding)
             }
             .animation(reduceMotion ? nil : .snappy, value: viewModel.items)
-            .confirmationDialog(
-                pendingDismissal?.status == .failed ? "Dismiss receipt?" : "Discard receipt?",
-                isPresented: $showsDismissConfirmation,
-                titleVisibility: .visible,
-                presenting: pendingDismissal
-            ) { item in
-                Button(item.status == .failed ? "Dismiss" : "Discard", role: .destructive) {
-                    pendingDismissal = nil
-                    Task { await viewModel.dismiss(id: item.id) }
-                }
-                Button("Keep Receipt", role: .cancel) { pendingDismissal = nil }
-            } message: { _ in
-                Text("This removes the receipt from Quick Uploads.")
+            .modifier(dismissDialog(.screen))
+        }
+    }
+
+    private func dismissDialog(_ source: DialogSource, for card: QuickUploadUiItem? = nil) -> some ViewModifier {
+        ConfirmationDialog(
+            source: source,
+            title: pendingDismissal?.status == .failed ? "Dismiss receipt?" : "Discard receipt?",
+            isPresented: Binding(
+                get: { showsDismissConfirmation && (card == nil || pendingDismissal?.id == card?.id) },
+                set: { showsDismissConfirmation = $0 }
+            ),
+            item: pendingDismissal
+        ) { item in
+            Button(item.status == .failed ? "Dismiss" : "Discard", role: .destructive) {
+                pendingDismissal = nil
+                Task { await viewModel.dismiss(id: item.id) }
             }
+            Button("Keep Receipt", role: .cancel) { pendingDismissal = nil }
+        } message: { _ in
+            Text("This removes the receipt from Quick Uploads.")
         }
     }
 

@@ -71,13 +71,7 @@ private struct AssetOverviewContent: View {
                     Task { await model.addPair(asset.id) }
                 }
             }
-            .confirmationDialog("Delete this asset?", isPresented: $isDeleteConfirmationPresented, titleVisibility: .visible) {
-                Button("Delete asset", role: .destructive) {
-                    Task { await deleteAsset() }
-                }
-            } message: {
-                Text("Its pairs and rates are removed as well. This can't be undone.")
-            }
+            .modifier(deleteDialog(.screen))
     }
 
     @ViewBuilder
@@ -149,9 +143,20 @@ private struct AssetOverviewContent: View {
             Divider()
             Button("Delete asset", systemImage: "trash", role: .destructive) { isDeleteConfirmationPresented = true }
         } label: {
-            Image(systemName: "ellipsis.circle")
+            ToolbarSymbol("Actions", systemImage: "ellipsis.circle")
         }
         .accessibilityLabel("Actions")
+        .modifier(deleteDialog(.trigger))
+    }
+
+    private func deleteDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Delete this asset?", isPresented: $isDeleteConfirmationPresented) {
+            Button("Delete asset", role: .destructive) {
+                Task { await deleteAsset() }
+            }
+        } message: {
+            Text("Its pairs and rates are removed as well. This can't be undone.")
+        }
     }
 
     private func deleteAsset() async {

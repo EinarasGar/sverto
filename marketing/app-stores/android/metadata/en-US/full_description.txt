@@ -1,0 +1,62 @@
+Sverto is a net worth tracker that keeps your spending and your investments in one ledger. It is an expense tracker and a portfolio tracker in one app, in every currency you use.
+
+Most budgeting apps stop at your bank balance. Most portfolio trackers stop at your broker. Sverto records a food shop, a transfer to savings and an ETF purchase in the same place, so your net worth finally includes everything.
+
+Salary in pounds. Spending in euros. Investments in dollars. One total.
+
+Expense tracker and investment tracker, one ledger
+
+• Record spending, income, transfers, investment trades, dividends and fees in one transaction history.
+• Buy an ETF and Sverto tracks the cash that left and the units that arrived, together.
+• Account balances, holdings and net worth are worked out from your transactions, so they always agree.
+• Search your transactions and sort your spending into categories.
+
+Net worth tracker that includes everything
+
+• Bank accounts, savings, investments, pensions, crypto, property, mortgages and loans in one net worth total.
+• A property counts at its value minus the loans linked to it. Credit cards and other debts are listed as liabilities.
+• Follow your net worth over time, from a single day to your whole history.
+
+Multi-currency from the start
+
+• Amounts stay in the currency they happened in: pounds, euros, dollars or any other.
+• Totals convert into the reference currency you choose.
+• Open a currency to see its balance over time, the accounts holding it and its transactions.
+• A multi-currency net worth tracker for people who live abroad, travel often or invest in overseas markets.
+
+Portfolio tracker with cost basis
+
+• Track stocks, ETFs, funds and crypto beside your everyday accounts.
+• Open a holding to see its purchase lots, units, cost basis and current value.
+• Realised and unrealised gains are shown separately, with sales matched to the oldest lots first (FIFO).
+• Dividends and fees are part of the same history.
+
+Statement import and receipts
+
+• Link a supported investment account to bring in orders, dividends and cash movements.
+• Import bank statements as CSV, PDF or screenshots, and review the changes before anything is saved.
+• Photograph a receipt and get one transaction per item, each with its own category.
+• Or add a transaction by hand in a few taps.
+
+Myra drafts. You decide.
+
+Ask Myra, the built-in assistant, about your own records: "How much did I spend on groceries last month?" or "Find my train tickets." Describe a purchase or a trade and Myra drafts the entry. Nothing is written to your ledger until you approve it, and you can switch Myra off in Settings.
+
+Phones, tablets and foldables
+
+On a tablet or an unfolded foldable, your list stays on one side and the item you open sits beside it. Move through transactions, accounts and holdings without losing your place.
+
+Yours to keep
+
+• Open source, so anyone can check how the numbers are worked out.
+• Export your data whenever you like.
+• No adverts.
+• Prefer to run it yourself? Point the app at your own self-hosted server.
+
+Who Sverto is for
+
+People who invest as well as spend: someone paid in one currency and living in another, an investor with ETFs at one broker and shares at another, a household with a mortgage, savings and a pension. If you keep a spreadsheet to join up a budgeting app and a portfolio tracker, Sverto is built to replace it.
+
+Sverto is a record-keeping tool. It does not give financial, investment or tax advice.
+
+Groceries. ETFs. One ledger.

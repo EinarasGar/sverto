@@ -81,11 +81,11 @@ private struct GroupFormView: View {
             .scrollDismissesKeyboard(.interactively)
             .navigationTitle(isEditMode ? "Edit Group" : "New Group")
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden()
             .toolbar(.hidden, for: .tabBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: requestCancel)
+                        .modifier(discardDialog(.trigger))
                         .tint(.primary)
                         .disabled(model.isBusy)
                 }
@@ -142,15 +142,7 @@ private struct GroupFormView: View {
             .onChange(of: model.loadError) { _, message in
                 if let message { AccessibilityNotification.Announcement(message).post() }
             }
-            .confirmationDialog("Discard changes?", isPresented: $showsDiscardConfirmation, titleVisibility: .visible) {
-                Button("Discard Changes", role: .destructive) {
-                    guard !model.isBusy else { return }
-                    shell.pop()
-                }
-                Button("Keep Editing", role: .cancel) { }
-            } message: {
-                Text("Your changes to this group will be lost.")
-            }
+            .modifier(discardDialog(.screen))
             .onChange(of: model.submitState) { _, state in
                 if state == .success { handleSuccess() }
             }
@@ -162,6 +154,18 @@ private struct GroupFormView: View {
             }
             .sensoryFeedback(.success, trigger: model.submitState == .success)
             .aiConsentSheet(model.correction.aiConsent)
+        }
+    }
+
+    private func discardDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Discard changes?", isPresented: $showsDiscardConfirmation) {
+            Button("Discard Changes", role: .destructive) {
+                guard !model.isBusy else { return }
+                shell.pop()
+            }
+            Button("Keep Editing", role: .cancel) { }
+        } message: {
+            Text("Your changes to this group will be lost.")
         }
     }
 

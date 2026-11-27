@@ -5,65 +5,87 @@ struct ConversationsSheet: View {
     let model: AiChatViewModel
 
     @Environment(\.dismiss) private var dismiss
-    @State private var pendingDelete: ConversationItem?
 
     var body: some View {
         NavigationStack {
-            List {
-                Section {
-                    Button {
-                        model.startNewConversation()
-                        dismiss()
-                    } label: {
-                        Label("New chat", systemImage: "square.and.pencil")
+            ConversationsList(model: model) { dismiss() }
+                .navigationTitle("Conversations")
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
                     }
                 }
-                if model.conversations.isEmpty {
-                    ContentUnavailableView(
-                        "No conversations yet",
-                        systemImage: "bubble.left.and.text.bubble.right",
-                        description: Text("Start a new chat to ask Myra about your finances.")
-                    )
-                    .listRowBackground(Color.clear)
-                } else {
-                    Section("Recent") {
-                        ForEach(model.conversations, id: \.id) { conversation in
-                            ConversationRow(conversation: conversation, isSelected: conversation.id == model.activeConversationId) {
-                                model.selectConversation(id: conversation.id)
-                                dismiss()
-                            }
-                            .swipeActions(edge: .trailing) {
-                                Button(role: .destructive) {
-                                    pendingDelete = conversation
-                                } label: {
-                                    Label("Delete", systemImage: "trash")
-                                }
+        }
+        .presentationDetents([.medium, .large])
+    }
+}
+
+struct ConversationsList: View {
+    let model: AiChatViewModel
+    let onPick: () -> Void
+
+    @State private var pendingDelete: ConversationItem?
+    @Environment(\.horizontalSizeClass) private var sizeClass
+
+    var body: some View {
+        List {
+            Section {
+                Button {
+                    model.startNewConversation()
+                    onPick()
+                } label: {
+                    Label("New chat", systemImage: "square.and.pencil")
+                }
+            }
+            if model.conversations.isEmpty {
+                ContentUnavailableView(
+                    "No conversations yet",
+                    systemImage: "bubble.left.and.text.bubble.right",
+                    description: Text("Start a new chat to ask Myra about your finances.")
+                )
+                .listRowBackground(Color.clear)
+                .listRowInsets(sizeClass == .regular ? EdgeInsets() : nil)
+            } else {
+                Section("Recent") {
+                    ForEach(model.conversations, id: \.id) { conversation in
+                        ConversationRow(conversation: conversation, isSelected: conversation.id == model.activeConversationId) {
+                            model.selectConversation(id: conversation.id)
+                            onPick()
+                        }
+                        .swipeActions(edge: .trailing) {
+                            Button(role: .destructive) {
+                                pendingDelete = conversation
+                            } label: {
+                                Label("Delete", systemImage: "trash")
                             }
                         }
+                        .modifier(deleteDialog(.trigger, for: conversation))
                     }
-                }
-            }
-            .listStyle(.insetGrouped)
-            .navigationTitle("Conversations")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
-            .refreshable { await model.loadConversations() }
-            .confirmationDialog(
-                "Delete this conversation?",
-                isPresented: Binding(get: { pendingDelete != nil }, set: { if !$0 { pendingDelete = nil } }),
-                titleVisibility: .visible,
-                presenting: pendingDelete
-            ) { conversation in
-                Button("Delete conversation", role: .destructive) {
-                    model.deleteConversation(id: conversation.id)
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .listStyle(.insetGrouped)
+        .refreshable { await model.loadConversations() }
+        .modifier(deleteDialog(.screen))
+    }
+
+    private func deleteDialog(_ source: DialogSource, for row: ConversationItem? = nil) -> some ViewModifier {
+        ConfirmationDialog(
+            source: source,
+            title: "Delete this conversation?",
+            isPresented: Binding(
+                get: { pendingDelete != nil && (row == nil || pendingDelete?.id == row?.id) },
+                set: { if !$0 { pendingDelete = nil } }
+            ),
+            item: pendingDelete
+        ) { conversation in
+            Button("Delete conversation", role: .destructive) {
+                model.deleteConversation(id: conversation.id)
+            }
+        } message: { _ in
+            EmptyView()
+        }
     }
 }
 

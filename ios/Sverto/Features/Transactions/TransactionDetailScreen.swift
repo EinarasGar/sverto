@@ -53,11 +53,7 @@ private struct TransactionDetailContent: View {
         .background(.screenBackground)
         .navigationTitle(transaction.typeLabel)
         .navigationBarTitleDisplayMode(.inline)
-        .confirmationDialog("Delete transaction?", isPresented: $isDeleteConfirmationPresented, titleVisibility: .visible) {
-            Button("Delete", role: .destructive, action: deleteAndPop)
-        } message: {
-            Text("This action can't be undone.")
-        }
+        .modifier(deleteDialog(.screen))
         .sensoryFeedback(.success, trigger: visibility)
     }
 
@@ -73,8 +69,17 @@ private struct TransactionDetailContent: View {
             TransactionQuickAction(systemImage: "trash", label: "Delete", isDestructive: true) {
                 isDeleteConfirmationPresented = true
             }
+            .modifier(deleteDialog(.trigger))
         }
         .frame(maxWidth: .infinity)
+    }
+
+    private func deleteDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Delete transaction?", isPresented: $isDeleteConfirmationPresented) {
+            Button("Delete", role: .destructive, action: deleteAndPop)
+        } message: {
+            Text("This action can't be undone.")
+        }
     }
 
     private var detailsCard: some View {

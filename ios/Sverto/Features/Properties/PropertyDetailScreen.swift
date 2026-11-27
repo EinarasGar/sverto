@@ -72,7 +72,7 @@ private struct PropertyDetailContent: View {
             Button("Edit", systemImage: "pencil") { sheet = .edit }
             Button("Link loan", systemImage: "link") { sheet = .linkLoan }
         } label: {
-            Image(systemName: "ellipsis")
+            ToolbarSymbol("More options", systemImage: "ellipsis")
         }
         .accessibilityLabel("More options")
     }

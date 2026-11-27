@@ -4,6 +4,8 @@ import SwiftUI
 struct AccountCard: View {
     let account: AccountListItem
     let baseTicker: String
+    var isHighlighted = false
+    var showsChevron = true
     let action: () -> Void
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
@@ -16,7 +18,9 @@ struct AccountCard: View {
                             AccountTypeBadge(typeId: account.accountTypeId)
                             identity
                                 .frame(maxWidth: .infinity, alignment: .leading)
-                            chevron
+                            if showsChevron {
+                                chevron
+                            }
                         }
                         trailing
                             .frame(maxWidth: .infinity, alignment: .leading)
@@ -27,13 +31,17 @@ struct AccountCard: View {
                         identity
                         Spacer(minLength: 8)
                         trailing
-                        chevron
+                        if showsChevron {
+                            chevron
+                        }
                     }
                 }
             }
             .padding(.vertical, 4)
         }
+        .listRowBackground(isHighlighted ? Color(.systemFill) : nil)
         .accessibilityElement(children: .combine)
+        .accessibilityAddTraits(isHighlighted ? .isSelected : [])
     }
 
     private var identity: some View {

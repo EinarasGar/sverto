@@ -84,6 +84,7 @@ import kotlin.math.roundToInt
 fun PropertyDetailScreen(
     propertyId: String,
     assetId: Int,
+    showBack: Boolean,
     onBack: () -> Unit,
     onViewLoan: (AccountListItem) -> Unit,
     onOpenValuations: (assetId: Int, currencyAssetId: Int) -> Unit,
@@ -126,8 +127,10 @@ fun PropertyDetailScreen(
             MediumFlexibleTopAppBar(
                 title = { Text(detail?.account?.name.orEmpty()) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    if (showBack) {
+                        IconButton(onClick = onBack) {
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        }
                     }
                 },
                 actions = {

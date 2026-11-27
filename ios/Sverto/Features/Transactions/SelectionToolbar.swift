@@ -1,6 +1,6 @@
 import SwiftUI
 
-struct SelectionToolbar: ToolbarContent {
+struct SelectionToolbar<DeleteDialog: ViewModifier>: ToolbarContent {
     let count: Int
     let isBusy: Bool
     let showMarkReviewed: Bool
@@ -9,6 +9,7 @@ struct SelectionToolbar: ToolbarContent {
     let onMarkReviewed: () -> Void
     let onGroup: () -> Void
     let onDelete: () -> Void
+    let deleteDialog: DeleteDialog
 
     var body: some ToolbarContent {
         ToolbarItem(placement: .cancellationAction) {
@@ -53,6 +54,7 @@ struct SelectionToolbar: ToolbarContent {
             }
             .tint(.red)
             .disabled(isBusy)
+            .modifier(deleteDialog)
         }
     }
 }

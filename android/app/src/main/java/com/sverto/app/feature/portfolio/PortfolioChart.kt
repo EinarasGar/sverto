@@ -51,6 +51,7 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.sverto.app.core.Money
+import com.sverto.app.core.layout.chartHeight
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -199,7 +200,7 @@ fun PortfolioChart(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .height(180.dp),
+                        .height(chartHeight()),
             )
         }
 

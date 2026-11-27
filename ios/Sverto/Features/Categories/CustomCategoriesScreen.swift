@@ -79,32 +79,8 @@ private struct CustomCategoriesContent: View {
                 try await submitType(id: target.typeId, name: name)
             }
         }
-        .confirmationDialog(
-            "Delete category",
-            isPresented: isPresented($categoryToDelete),
-            titleVisibility: .visible,
-            presenting: categoryToDelete
-        ) { category in
-            Button("Delete", role: .destructive) {
-                Task { await perform { try await model.deleteCategory(id: category.id) } }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { category in
-            Text("Delete \"\(category.name)\"? This can't be undone.")
-        }
-        .confirmationDialog(
-            "Delete type",
-            isPresented: isPresented($typeToDelete),
-            titleVisibility: .visible,
-            presenting: typeToDelete
-        ) { type in
-            Button("Delete", role: .destructive) {
-                Task { await perform { try await model.deleteType(id: type.id) } }
-            }
-            Button("Cancel", role: .cancel) {}
-        } message: { type in
-            Text("Delete \"\(type.name)\"? Categories using it must be removed first.")
-        }
+        .modifier(deleteCategoryDialog(.screen))
+        .modifier(deleteTypeDialog(.screen))
         .sensoryFeedback(.success, trigger: completedActions)
     }
 
@@ -117,6 +93,7 @@ private struct CustomCategoriesContent: View {
                         onEdit: { categoryForm = CategoryFormTarget(category: $0) },
                         onDelete: { categoryToDelete = $0 }
                     )
+                    .modifier(deleteCategoryDialog(.trigger, for: category))
                 }
             }
             .listStyle(.insetGrouped)
@@ -146,6 +123,7 @@ private struct CustomCategoriesContent: View {
                         onEdit: { typeName = TypeNameTarget(typeId: $0.id, name: $0.name) },
                         onDelete: { typeToDelete = $0 }
                     )
+                    .modifier(deleteTypeDialog(.trigger, for: type))
                 }
             }
             .listStyle(.insetGrouped)
@@ -215,10 +193,41 @@ private struct CustomCategoriesContent: View {
         }
     }
 
-    private func isPresented<Value>(_ value: Binding<Value?>) -> Binding<Bool> {
-        Binding(
-            get: { value.wrappedValue != nil },
-            set: { if !$0 { value.wrappedValue = nil } }
-        )
+    private func deleteCategoryDialog(_ source: DialogSource, for row: ManagedCategory? = nil) -> some ViewModifier {
+        ConfirmationDialog(
+            source: source,
+            title: "Delete category",
+            isPresented: Binding(
+                get: { categoryToDelete != nil && (row == nil || categoryToDelete?.id == row?.id) },
+                set: { if !$0 { categoryToDelete = nil } }
+            ),
+            item: categoryToDelete
+        ) { category in
+            Button("Delete", role: .destructive) {
+                Task { await perform { try await model.deleteCategory(id: category.id) } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { category in
+            Text("Delete \"\(category.name)\"? This can't be undone.")
+        }
+    }
+
+    private func deleteTypeDialog(_ source: DialogSource, for row: ManagedCategoryType? = nil) -> some ViewModifier {
+        ConfirmationDialog(
+            source: source,
+            title: "Delete type",
+            isPresented: Binding(
+                get: { typeToDelete != nil && (row == nil || typeToDelete?.id == row?.id) },
+                set: { if !$0 { typeToDelete = nil } }
+            ),
+            item: typeToDelete
+        ) { type in
+            Button("Delete", role: .destructive) {
+                Task { await perform { try await model.deleteType(id: type.id) } }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: { type in
+            Text("Delete \"\(type.name)\"? Categories using it must be removed first.")
+        }
     }
 }

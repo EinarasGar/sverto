@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -88,6 +89,7 @@ import uniffi.sverto_core.TransactionVisibility
 @Composable
 fun TransactionsScreen(
     onTransactionClick: (TransactionListItem) -> Unit,
+    openTransactionId: String?,
     onCreateTransaction: (String) -> Unit,
     onCreateGroup: () -> Unit,
     onGroupSelected: (List<String>) -> Unit,
@@ -97,9 +99,10 @@ fun TransactionsScreen(
     onQuickUploadItemClick: (QuickUploadUiItem) -> Unit,
     onQuickUploadRetry: (String) -> Unit,
     onQuickUploadDismiss: (String) -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
     modifier: Modifier = Modifier,
+    listState: LazyListState = rememberLazyListState(),
     onRefreshQuickUploads: (() -> Unit)? = null,
     viewModel: TransactionsViewModel = viewModel(),
     heldTransactionsViewModel: HeldTransactionsViewModel = viewModel(factory = SvertoViewModelFactory),
@@ -166,6 +169,7 @@ fun TransactionsScreen(
                     },
                     onLoadMore = viewModel::loadMore,
                     onTransactionClick = onTransactionClick,
+                    openTransactionId = openTransactionId.takeUnless { selectionActive },
                     selectedIds = selectedIds,
                     selectionActive = selectionActive,
                     onToggleSelect = viewModel::toggleSelection,
@@ -175,6 +179,7 @@ fun TransactionsScreen(
                     onDecideHeld = heldTransactionsViewModel::decide,
                     sharedTransitionScope = sharedTransitionScope,
                     animatedVisibilityScope = animatedVisibilityScope,
+                    listState = listState,
                 )
             }
         }
@@ -278,6 +283,7 @@ private fun TransactionList(
     onRefresh: () -> Unit,
     onLoadMore: () -> Unit,
     onTransactionClick: (TransactionListItem) -> Unit,
+    openTransactionId: String?,
     selectedIds: Set<String>,
     selectionActive: Boolean,
     onToggleSelect: (String) -> Unit,
@@ -285,12 +291,12 @@ private fun TransactionList(
     onQuickUploadRetry: (String) -> Unit,
     onQuickUploadDismiss: (String) -> Unit,
     onDecideHeld: (String, HeldTransactionDecision) -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
+    listState: LazyListState,
     modifier: Modifier = Modifier,
 ) {
     val pullToRefreshState = rememberHapticPullToRefreshState()
-    val listState = rememberLazyListState()
     val currentOnLoadMore by rememberUpdatedState(onLoadMore)
 
     LaunchedEffect(listState) {
@@ -364,6 +370,7 @@ private fun TransactionList(
 
                 transactionDayItems(
                     groupedTransactions = grouped,
+                    openTransactionId = openTransactionId,
                     selectedIds = selectedIds,
                     selectionActive = selectionActive,
                     onTransactionClick = onTransactionClick,

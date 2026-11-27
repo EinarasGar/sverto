@@ -17,6 +17,7 @@ final class TransactionsViewModel {
     private let store: AppStore
     private var bridge: TransactionsObserverBridge?
     private var hasLoaded = false
+    private var visibleScreens = 0
 
     init(store: AppStore) {
         self.store = store
@@ -46,7 +47,10 @@ final class TransactionsViewModel {
         Self.deleteConfirmationMessage(transactionCount: selectedIds.count - selectedGroupCount, groupCount: selectedGroupCount)
     }
 
+    // The tab root is briefly on screen twice while it moves between the stack and the list column,
+    // so the observer stops only when the last copy disappears.
     func start() {
+        visibleScreens += 1
         guard bridge == nil else { return }
         let bridge = TransactionsObserverBridge { [weak self] state in
             Task { @MainActor [weak self] in self?.apply(state) }
@@ -60,7 +64,8 @@ final class TransactionsViewModel {
     }
 
     func stop() {
-        guard bridge != nil else { return }
+        visibleScreens = max(0, visibleScreens - 1)
+        guard visibleScreens == 0, bridge != nil else { return }
         bridge = nil
         store.unobserveTransactions()
     }

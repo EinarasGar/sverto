@@ -29,6 +29,7 @@ struct QuickUploadCard: View {
                 }
             }
             .contentShape(.rect)
+            .hoverEffect(.highlight)
             .onTapGesture {
                 if isReady { onTap() }
             }

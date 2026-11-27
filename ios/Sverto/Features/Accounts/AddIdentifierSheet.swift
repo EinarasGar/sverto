@@ -52,6 +52,7 @@ struct AddIdentifierSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: cancel)
+                        .modifier(discardDialog(.trigger))
                         .tint(.primary)
                 }
                 ToolbarItem(placement: .confirmationAction) {
@@ -67,13 +68,17 @@ struct AddIdentifierSheet: View {
                 error = nil
             }
             .onAppear { isValueFocused = true }
-            .confirmationDialog("Discard changes?", isPresented: $isConfirmingDiscard, titleVisibility: .visible) {
-                Button("Discard changes", role: .destructive) { dismiss() }
-                Button("Keep editing", role: .cancel) {}
-            }
+            .modifier(discardDialog(.screen))
         }
         .interactiveDismissDisabled(!isValueBlank)
         .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
+    }
+
+    private func discardDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Discard changes?", isPresented: $isConfirmingDiscard) {
+            Button("Discard changes", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+        }
     }
 
     private func cancel() {

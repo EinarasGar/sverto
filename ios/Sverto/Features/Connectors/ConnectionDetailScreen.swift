@@ -27,10 +27,6 @@ private struct ConnectionDetailContent: View {
         model.connection?.kind?.info
     }
 
-    private var isRemovingBinding: Binding<Bool> {
-        Binding(get: { bindingToRemove != nil }, set: { if !$0 { bindingToRemove = nil } })
-    }
-
     private func isExpanded(_ binding: ConnectorBinding) -> Binding<Bool> {
         Binding(
             get: { expandedBindingId == binding.id },
@@ -55,6 +51,7 @@ private struct ConnectionDetailContent: View {
                         isConfirmingRevoke = true
                     }
                     .frame(maxWidth: .infinity)
+                    .modifier(revokeDialog(.trigger))
                 }
             }
         }
@@ -64,11 +61,19 @@ private struct ConnectionDetailContent: View {
         .onAppear { Task { await model.load() } }
         .refreshable { await model.load() }
         .toastOnError(model.error)
-        .confirmationDialog(
-            "Remove linked account",
-            isPresented: isRemovingBinding,
-            titleVisibility: .visible,
-            presenting: bindingToRemove
+        .modifier(removeDialog(.screen))
+        .modifier(revokeDialog(.screen))
+    }
+
+    private func removeDialog(_ source: DialogSource, for row: ConnectorBinding? = nil) -> some ViewModifier {
+        ConfirmationDialog(
+            source: source,
+            title: "Remove linked account",
+            isPresented: Binding(
+                get: { bindingToRemove != nil && (row == nil || bindingToRemove?.id == row?.id) },
+                set: { if !$0 { bindingToRemove = nil } }
+            ),
+            item: bindingToRemove
         ) { binding in
             Button("Remove", role: .destructive) {
                 Task { await model.deleteBinding(id: binding.id) }
@@ -77,7 +82,10 @@ private struct ConnectionDetailContent: View {
         } message: { _ in
             Text("Are you sure you want to remove this linked account? This cannot be undone.")
         }
-        .confirmationDialog("Revoke connection", isPresented: $isConfirmingRevoke, titleVisibility: .visible) {
+    }
+
+    private func revokeDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Revoke connection", isPresented: $isConfirmingRevoke) {
             Button("Revoke", role: .destructive) {
                 let owner = shell.navigationOwner
                 Task {
@@ -112,7 +120,8 @@ private struct ConnectionDetailContent: View {
                         onUpdate: { writeMode, status in
                             Task { await model.updateBinding(binding, writeMode: writeMode, status: status) }
                         },
-                        onRemove: { bindingToRemove = binding }
+                        onRemove: { bindingToRemove = binding },
+                        removeDialog: removeDialog(.trigger, for: binding)
                     )
                 }
             } else if model.loading {

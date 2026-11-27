@@ -4,11 +4,13 @@ import SvertoCore
 struct TransactionRow: View {
     let transaction: TransactionListItem
     var isSelected = false
+    var isHighlighted = false
     let onTap: () -> Void
     var onLongPress: (() -> Void)? = nil
 
     @State private var isPressed = false
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     private var subtitle: String {
         transaction.categoryName.isEmpty ? transaction.typeLabel : transaction.categoryName
@@ -42,17 +44,19 @@ struct TransactionRow: View {
             }
             TransactionAmount(transaction: transaction, lineLimit: dynamicTypeSize.isAccessibilitySize ? nil : 1)
                 .fixedSize(horizontal: false, vertical: true)
+                .layoutPriority(sizeClass == .regular ? 1 : 0)
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 4)
         .opacity(isDimmed ? 0.55 : 1)
         .contentShape(.rect)
+        .hoverEffect(.highlight)
         .onTapGesture(perform: onTap)
         .onLongPressGesture(perform: { onLongPress?() }, onPressingChanged: { isPressed = $0 })
         .listRowBackground(rowBackground)
         .accessibilityElement(children: .combine)
         .accessibilityAddTraits(.isButton)
-        .accessibilityAddTraits(isSelected ? .isSelected : [])
+        .accessibilityAddTraits(isSelected || isHighlighted ? .isSelected : [])
         .accessibilityHint(onLongPress == nil ? "" : "Long press to select")
         .accessibilityActions {
             if let onLongPress {
@@ -79,6 +83,6 @@ struct TransactionRow: View {
         if isSelected {
             return Color.accentColor.opacity(0.14)
         }
-        return isPressed ? Color(.systemFill) : .cardFill
+        return isPressed || isHighlighted ? Color(.systemFill) : .cardFill
     }
 }

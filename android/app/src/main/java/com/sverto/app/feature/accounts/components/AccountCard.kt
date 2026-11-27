@@ -24,6 +24,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.sverto.app.core.Money
@@ -38,109 +40,118 @@ fun AccountCard(
     account: AccountListItem,
     baseTicker: String,
     onClick: () -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
+    open: Boolean,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
     modifier: Modifier = Modifier,
 ) {
-    with(sharedTransitionScope) {
-        Card(
-            onClick = onClick,
-            shape = RoundedCornerShape(28.dp),
-            colors =
-                CardDefaults.cardColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceBright,
-                ),
-            modifier =
-                modifier
-                    .fillMaxWidth()
-                    .sharedBounds(
-                        sharedContentState = rememberSharedContentState(key = "account_${account.id}"),
-                        animatedVisibilityScope = animatedVisibilityScope,
-                    ),
+    val sharedBounds =
+        if (sharedTransitionScope != null && animatedVisibilityScope != null) {
+            with(sharedTransitionScope) {
+                Modifier.sharedBounds(
+                    sharedContentState = rememberSharedContentState(key = "account_${account.id}"),
+                    animatedVisibilityScope = animatedVisibilityScope,
+                )
+            }
+        } else {
+            Modifier
+        }
+    Card(
+        onClick = onClick,
+        shape = RoundedCornerShape(28.dp),
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    if (open) MaterialTheme.colorScheme.secondaryContainer else MaterialTheme.colorScheme.surfaceBright,
+            ),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .then(sharedBounds)
+                .then(if (open) Modifier.semantics { selected = true } else Modifier),
+    ) {
+        Row(
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Row(
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
+            Box(
+                modifier =
+                    Modifier
+                        .size(52.dp)
+                        .background(
+                            color = accountTypeContainerColor(account.accountTypeId),
+                            shape = CircleShape,
+                        ),
+                contentAlignment = Alignment.Center,
             ) {
-                Box(
-                    modifier =
-                        Modifier
-                            .size(52.dp)
-                            .background(
-                                color = accountTypeContainerColor(account.accountTypeId),
-                                shape = CircleShape,
-                            ),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Icon(
-                        imageVector = accountTypeIcon(account.accountTypeId),
-                        contentDescription = null,
-                        tint = accountTypeOnContainerColor(account.accountTypeId),
-                        modifier = Modifier.size(26.dp),
-                    )
-                }
+                Icon(
+                    imageVector = accountTypeIcon(account.accountTypeId),
+                    contentDescription = null,
+                    tint = accountTypeOnContainerColor(account.accountTypeId),
+                    modifier = Modifier.size(26.dp),
+                )
+            }
 
-                Spacer(modifier = Modifier.width(16.dp))
+            Spacer(modifier = Modifier.width(16.dp))
 
-                Column(modifier = Modifier.weight(1f)) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = account.name,
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = accountTypeLabel(account.accountTypeId),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(horizontalAlignment = Alignment.End) {
+                val property = account.property
+                val balance = if (property != null) property.equityShare else account.balance
+                if (balance != null) {
                     Text(
-                        text = account.name,
+                        text = Money.format(balance, baseTicker),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Medium,
+                        fontWeight = FontWeight.SemiBold,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = accountTypeLabel(account.accountTypeId),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Column(horizontalAlignment = Alignment.End) {
-                    val property = account.property
-                    val balance = if (property != null) property.equityShare else account.balance
-                    if (balance != null) {
+                    val gain = account.unrealizedGain
+                    if (isInvestmentAccountType(account.accountTypeId) && gain != null) {
+                        Spacer(modifier = Modifier.height(2.dp))
+                        val gainColor =
+                            if (gain >= 0) {
+                                MaterialTheme.colorScheme.primary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                        val pct =
+                            if (balance > 0) {
+                                (gain / balance) * 100.0
+                            } else {
+                                0.0
+                            }
                         Text(
-                            text = Money.format(balance, baseTicker),
-                            style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.SemiBold,
-                            color = MaterialTheme.colorScheme.onSurface,
-                        )
-                        val gain = account.unrealizedGain
-                        if (isInvestmentAccountType(account.accountTypeId) && gain != null) {
-                            Spacer(modifier = Modifier.height(2.dp))
-                            val gainColor =
-                                if (gain >= 0) {
-                                    MaterialTheme.colorScheme.primary
-                                } else {
-                                    MaterialTheme.colorScheme.error
-                                }
-                            val pct =
-                                if (balance > 0) {
-                                    (gain / balance) * 100.0
-                                } else {
-                                    0.0
-                                }
-                            Text(
-                                text = "${Money.format(gain, baseTicker, signed = true)} (${formatPercent(pct)}%)",
-                                style = MaterialTheme.typography.labelMedium,
-                                color = gainColor,
-                            )
-                        }
-                    } else {
-                        // Skeleton loading for balance
-                        Box(
-                            modifier =
-                                Modifier
-                                    .width(80.dp)
-                                    .height(20.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                            text = "${Money.format(gain, baseTicker, signed = true)} (${formatPercent(pct)}%)",
+                            style = MaterialTheme.typography.labelMedium,
+                            color = gainColor,
                         )
                     }
+                } else {
+                    // Skeleton loading for balance
+                    Box(
+                        modifier =
+                            Modifier
+                                .width(80.dp)
+                                .height(20.dp)
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(MaterialTheme.colorScheme.surfaceVariant),
+                    )
                 }
             }
         }

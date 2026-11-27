@@ -18,34 +18,33 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
-import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsTopHeight
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.input.rememberTextFieldState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Menu
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.ShortNavigationBar
-import androidx.compose.material3.ShortNavigationBarItem
-import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.material3.rememberSearchBarState
 import androidx.compose.runtime.Composable
@@ -59,12 +58,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NamedNavArgument
@@ -85,12 +81,13 @@ import com.sverto.app.core.aifeatures.AiFeaturesConsentDialog
 import com.sverto.app.core.aifeatures.AiFeaturesGate
 import com.sverto.app.core.aifeatures.rememberAiFeaturesGate
 import com.sverto.app.core.components.AttachmentSheet
-import com.sverto.app.core.components.ProfileAvatarButton
 import com.sverto.app.core.components.createCameraImageUri
+import com.sverto.app.core.layout.CappedPane
+import com.sverto.app.core.layout.LocalShellLayout
+import com.sverto.app.core.layout.ShellLayout
 import com.sverto.app.core.navigation.TopLevelRoute
 import com.sverto.app.core.ui.OfflineBanner
 import com.sverto.app.feature.accounts.AccountDetailScreen
-import com.sverto.app.feature.accounts.AccountsScreen
 import com.sverto.app.feature.accounts.AddAccountScreen
 import com.sverto.app.feature.accounts.AssetDetailScreen
 import com.sverto.app.feature.aichat.AiChatScreen
@@ -98,7 +95,6 @@ import com.sverto.app.feature.aichat.AiChatViewModel
 import com.sverto.app.feature.aichat.ConversationDrawer
 import com.sverto.app.feature.assets.AssetOverviewScreen
 import com.sverto.app.feature.assets.AssetOverviewViewModel
-import com.sverto.app.feature.assets.AssetSearchAppBar
 import com.sverto.app.feature.assets.CustomAssetsScreen
 import com.sverto.app.feature.categories.CustomCategoriesScreen
 import com.sverto.app.feature.connectors.BindingSetupScreen
@@ -123,8 +119,6 @@ import com.sverto.app.feature.server.AppSessionViewModel
 import com.sverto.app.feature.settings.SettingsScreen
 import com.sverto.app.feature.transactions.ScopedTransactionsScreen
 import com.sverto.app.feature.transactions.TransactionDetailScreen
-import com.sverto.app.feature.transactions.TransactionSearchAppBar
-import com.sverto.app.feature.transactions.TransactionsScreen
 import com.sverto.app.feature.transactions.TransactionsViewModel
 import com.sverto.app.feature.transactions.create.CreateTransactionScreen
 import com.sverto.app.feature.transactions.create.CreateTransactionViewModel
@@ -207,7 +201,26 @@ fun MainScreen(
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     val activity = context as ComponentActivity
-    val modules = mainStartupModules(currentRoute, sharedFileUris.isNotEmpty())
+    val shellLayout = LocalShellLayout.current
+    val currentTab = remember(navBackStackEntry) { navController.currentTab() }
+    val listPaneTab =
+        currentTab.takeIf {
+            shellLayout == ShellLayout.Expanded && it != TopLevelRoute.Portfolio && !isFocusRoute(currentRoute)
+        }
+    val backStack by navController.currentBackStack.collectAsStateWithLifecycle()
+    val listPaneOpenId =
+        listPaneTab?.let { tab ->
+            val root = backStack.indexOfLast { it.destination.route == tab.route }
+            val entry = if (root >= 0) backStack.getOrNull(root + 1) else null
+            val args = entry?.arguments
+            when (entry?.destination?.route) {
+                TRANSACTION_DETAIL_ROUTE -> args?.getString("txId")
+                ACCOUNT_DETAIL_ROUTE -> args?.getString("accountId")
+                PROPERTY_DETAIL_ROUTE -> args?.getString("propertyId")
+                else -> null
+            }
+        }
+    val modules = mainStartupModules(currentRoute, listPaneTab?.route, sharedFileUris.isNotEmpty())
     val transactionsViewModel =
         if (modules.transactions) {
             viewModel<TransactionsViewModel>(viewModelStoreOwner = activity, factory = SvertoViewModelFactory)
@@ -232,6 +245,8 @@ fun MainScreen(
     val transactionSearchBarState = rememberSearchBarState()
     val transactionSearchTextState = rememberTextFieldState()
     val transactionSearchListState = rememberLazyListState()
+    val transactionsListState = rememberLazyListState()
+    val accountsScrollState = rememberScrollState()
 
     val transactionCache = remember { mutableMapOf<String, TransactionDetailState>() }
     val pendingGroupTransaction = remember { mutableStateOf<GroupTransactionItem?>(null) }
@@ -369,6 +384,36 @@ fun MainScreen(
         navController.navigate("transactionDetail/${transaction.id}")
     }
 
+    fun selectTab(tab: TopLevelRoute) {
+        if (tab == currentTab) {
+            navController.popBackStack(tab.route, inclusive = false)
+        } else {
+            navController.navigate(tab.route) {
+                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                launchSingleTop = true
+                restoreState = true
+            }
+        }
+    }
+
+    fun replaceDetail(route: String) {
+        navController.navigate(route) { popUpTo(currentTab.route) }
+    }
+
+    fun openFromListPane(transaction: TransactionListItem) {
+        transactionCache[transaction.id] = TransactionDetailState(transaction = transaction, isInGroup = false)
+        replaceDetail("transactionDetail/${transaction.id}")
+    }
+
+    val onQuickUpload: () -> Unit = { aiFeaturesGate.runWhenEnabled { showQuickUploadSheet = true } }
+    val onQuickUploadRetry: (String) -> Unit = { id -> aiFeaturesGate.runWhenEnabled { quickUploadViewModel?.retry(id) } }
+    val onQuickUploadDismiss: (String) -> Unit = { id -> quickUploadViewModel?.dismiss(id) }
+    val onRefreshQuickUploads: () -> Unit = { quickUploadViewModel?.refresh() }
+
+    LaunchedEffect(listPaneTab) {
+        if (listPaneTab == TopLevelRoute.AiChat) drawerState.snapTo(DrawerValue.Closed)
+    }
+
     val connectionStatus = remember { mutableStateOf(ConnectionStatus.ONLINE) }
 
     DisposableEffect(Unit) {
@@ -384,6 +429,9 @@ fun MainScreen(
         }
     }
 
+    val bannerAbovePanes = shellLayout != ShellLayout.Compact && connectionStatus.value != ConnectionStatus.ONLINE
+    val bannerTopInsets = WindowInsets.safeDrawing.only(WindowInsetsSides.Top)
+
     SharedTransitionLayout {
         val sharedScope = this
 
@@ -391,7 +439,7 @@ fun MainScreen(
             drawerState = drawerState,
             // Only interactive on the AI Chat tab: enables scrim tap-to-close and edge-swipe
             // there, while keeping the drawer inert (and unreachable) on the other tabs.
-            gesturesEnabled = isAiChatTab,
+            gesturesEnabled = isAiChatTab && listPaneTab == null,
             drawerContent = {
                 // Always compose the drawer so its width stays constant (304.dp). If the
                 // content collapsed to zero width on non-chat tabs, ModalNavigationDrawer
@@ -418,100 +466,120 @@ fun MainScreen(
                 }
             },
         ) {
-            Scaffold(
-                modifier = Modifier.fillMaxSize(),
-                containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                topBar = {
-                    Column {
-                        AnimatedVisibility(
-                            visible = isTopLevel,
-                            enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
-                            exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
-                        ) {
-                            CenterAlignedTopAppBar(
-                                navigationIcon = {
-                                    if (isAiChatTab) {
-                                        IconButton(onClick = { scope.launch { drawerState.open() } }) {
-                                            Icon(Icons.Default.Menu, contentDescription = "Menu")
-                                        }
-                                    } else if (currentRoute == TopLevelRoute.Portfolio.route ||
-                                        currentRoute == TopLevelRoute.Transactions.route
-                                    ) {
-                                        // Decorative logo sized like an IconButton so the
-                                        // app-bar layout matches the other tabs, without a
-                                        // ripple-emitting dead button.
-                                        Box(
-                                            modifier = Modifier.size(48.dp),
-                                            contentAlignment = Alignment.Center,
-                                        ) {
-                                            Icon(
-                                                painter = painterResource(id = R.drawable.ic_sverto_logo),
-                                                contentDescription = "Sverto",
-                                                tint = MaterialTheme.colorScheme.primary,
-                                                modifier = Modifier.height(24.dp),
-                                            )
-                                        }
-                                    }
+            Column(Modifier.fillMaxSize()) {
+                if (shellLayout != ShellLayout.Compact) {
+                    if (bannerAbovePanes) {
+                        Spacer(
+                            Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .windowInsetsTopHeight(bannerTopInsets),
+                        )
+                    }
+                    OfflineBanner(status = connectionStatus.value)
+                }
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        .then(if (bannerAbovePanes) Modifier.consumeWindowInsets(bannerTopInsets) else Modifier),
+                ) {
+                    if (shellLayout != ShellLayout.Compact) {
+                        ShellRail(selected = currentTab, onSelect = ::selectTab)
+                    }
+                    if (listPaneTab != null) {
+                        ListPane(
+                            rootEntry = remember(navBackStackEntry) { navController.getBackStackEntry(listPaneTab.route) },
+                            width = listPaneWidth(),
+                            topBar = {
+                                ShellTopBar(
+                                    route = listPaneTab.route,
+                                    showMenu = false,
+                                    onMenu = {},
+                                    onAssetClick = {},
+                                    transactionSearchBarState = transactionSearchBarState,
+                                    transactionSearchTextState = transactionSearchTextState,
+                                    transactionSearchListState = transactionSearchListState,
+                                    onTransactionClick = ::openFromListPane,
+                                    onProfile = { replaceDetail("settings") },
+                                    showUpdateBadge = showUpdateBadge,
+                                )
+                            },
+                        ) { padding ->
+                            ListPaneContent(
+                                tab = listPaneTab,
+                                rightPaneEntryId = navBackStackEntry?.id,
+                                openId = listPaneOpenId,
+                                transactionsViewModel = transactionsViewModel,
+                                transactionsListState = transactionsListState,
+                                accountsScrollState = accountsScrollState,
+                                quickUploadItems = quickUploadItems,
+                                onQuickUpload = onQuickUpload,
+                                onQuickUploadRetry = onQuickUploadRetry,
+                                onQuickUploadDismiss = onQuickUploadDismiss,
+                                onRefreshQuickUploads = onRefreshQuickUploads,
+                                pendingGroupSelection = pendingGroupSelection,
+                                aiChatViewModel = aiChatViewModel,
+                                replace = ::replaceDetail,
+                                onTransactionClick = ::openFromListPane,
+                                onConversationOpened = {
+                                    navController.popBackStack(TopLevelRoute.AiChat.route, inclusive = false)
                                 },
-                                title = {
-                                    when (currentRoute) {
-                                        TopLevelRoute.Portfolio.route ->
-                                            AssetSearchAppBar(
-                                                onAssetClick = { id ->
-                                                    navController.navigate("assetOverview/$id?userAsset=false")
-                                                },
-                                            )
-
-                                        TopLevelRoute.Transactions.route ->
-                                            TransactionSearchAppBar(
-                                                searchBarState = transactionSearchBarState,
-                                                textFieldState = transactionSearchTextState,
-                                                listState = transactionSearchListState,
-                                                onTransactionClick = { transaction ->
-                                                    navigateToDetail(transaction, false)
-                                                },
-                                            )
-
-                                        else ->
-                                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                                Icon(
-                                                    painter = painterResource(id = R.drawable.ic_sverto_logo),
-                                                    contentDescription = null,
-                                                    tint = MaterialTheme.colorScheme.primary,
-                                                    modifier = Modifier.height(24.dp),
-                                                )
-                                                Spacer(Modifier.width(8.dp))
-                                                Text("Sverto")
-                                            }
-                                    }
-                                },
-                                actions = {
-                                    ProfileAvatarButton(
-                                        onClick = { navController.navigate("settings") },
-                                        showUpdateBadge = showUpdateBadge,
-                                    )
-                                },
-                                colors =
-                                    TopAppBarDefaults.topAppBarColors(
-                                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
-                                    ),
+                                modifier =
+                                    Modifier
+                                        .fillMaxSize()
+                                        .padding(padding)
+                                        .consumeWindowInsets(padding),
                             )
                         }
-                        OfflineBanner(status = connectionStatus.value)
                     }
-                },
-                bottomBar = {
-                    AnimatedVisibility(
-                        visible = isTopLevel && !transactionSelectionActive,
-                        enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
-                        exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
-                    ) {
-                        ShortNavigationBar {
-                            TopLevelRoute.entries.forEach { route ->
-                                val selected = currentRoute == route.route
-                                ShortNavigationBarItem(
-                                    selected = selected,
-                                    onClick = {
+                    Scaffold(
+                        modifier =
+                            Modifier
+                                .weight(1f)
+                                .fillMaxHeight()
+                                .then(
+                                    if (shellLayout == ShellLayout.Compact) {
+                                        Modifier
+                                    } else {
+                                        Modifier.consumeWindowInsets(railInsets().only(WindowInsetsSides.Start))
+                                    },
+                                ),
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        topBar = {
+                            Column {
+                                AnimatedVisibility(
+                                    visible = isTopLevel && listPaneTab == null,
+                                    enter = slideInVertically(initialOffsetY = { -it }) + fadeIn(),
+                                    exit = slideOutVertically(targetOffsetY = { -it }) + fadeOut(),
+                                ) {
+                                    ShellTopBar(
+                                        route = currentRoute,
+                                        showMenu = isAiChatTab,
+                                        onMenu = { scope.launch { drawerState.open() } },
+                                        onAssetClick = { id -> navController.navigate("assetOverview/$id?userAsset=false") },
+                                        transactionSearchBarState = transactionSearchBarState,
+                                        transactionSearchTextState = transactionSearchTextState,
+                                        transactionSearchListState = transactionSearchListState,
+                                        onTransactionClick = { transaction -> navigateToDetail(transaction, false) },
+                                        onProfile = { navController.navigate("settings") },
+                                        showUpdateBadge = showUpdateBadge,
+                                    )
+                                }
+                                if (shellLayout == ShellLayout.Compact) {
+                                    OfflineBanner(status = connectionStatus.value)
+                                }
+                            }
+                        },
+                        bottomBar = {
+                            AnimatedVisibility(
+                                visible = isTopLevel && !transactionSelectionActive && shellLayout == ShellLayout.Compact,
+                                enter = slideInVertically(initialOffsetY = { it }) + fadeIn(),
+                                exit = slideOutVertically(targetOffsetY = { it }) + fadeOut(),
+                            ) {
+                                ShellBottomBar(
+                                    currentRoute = currentRoute,
+                                    onSelect = { route ->
                                         navController.navigate(route.route) {
                                             popUpTo(navController.graph.findStartDestination().id) {
                                                 saveState = true
@@ -520,54 +588,41 @@ fun MainScreen(
                                             restoreState = true
                                         }
                                     },
-                                    icon = {
-                                        Icon(
-                                            imageVector =
-                                                if (selected) {
-                                                    route.selectedIcon
-                                                } else {
-                                                    route.unselectedIcon
-                                                },
-                                            contentDescription = route.label,
-                                        )
-                                    },
-                                    label = { Text(route.label) },
                                 )
                             }
+                        },
+                    ) { innerPadding ->
+                        CappedPane(
+                            maxWidth = paneMaxWidth(currentRoute),
+                            backdrop = MaterialTheme.colorScheme.surfaceContainer,
+                        ) {
+                            MainNavGraph(
+                                navController = navController,
+                                innerPadding = innerPadding,
+                                sharedScope = sharedScope,
+                                listPaneTab = listPaneTab,
+                                transactionsViewModel = transactionsViewModel,
+                                transactionsListState = transactionsListState,
+                                accountsScrollState = accountsScrollState,
+                                quickUploadItems = quickUploadItems,
+                                onQuickUpload = onQuickUpload,
+                                onQuickUploadRetry = onQuickUploadRetry,
+                                onQuickUploadDismiss = onQuickUploadDismiss,
+                                onRefreshQuickUploads = onRefreshQuickUploads,
+                                onProposalCompleted = { quickUploadViewModel?.onProposalCompleted(it) },
+                                transactionCache = transactionCache,
+                                pendingGroupTransaction = pendingGroupTransaction,
+                                editingGroupIndex = editingGroupIndex,
+                                pendingGroupSelection = pendingGroupSelection,
+                                onNavigateToDetail = ::navigateToDetail,
+                                aiChatViewModel = aiChatViewModel,
+                                aiFeaturesGate = aiFeaturesGate,
+                                onEdit = { id -> navController.navigate("editAccount/$id") },
+                                sessionViewModel = sessionViewModel,
+                            )
                         }
                     }
-                },
-            ) { innerPadding ->
-                MainNavGraph(
-                    navController = navController,
-                    innerPadding = innerPadding,
-                    sharedScope = sharedScope,
-                    transactionsViewModel = transactionsViewModel,
-                    quickUploadItems = quickUploadItems,
-                    onQuickUpload = { aiFeaturesGate.runWhenEnabled { showQuickUploadSheet = true } },
-                    onQuickUploadItemClick = { item ->
-                        val route =
-                            if (item.proposalType == "transaction_group") {
-                                "createTransactionGroup?quickUploadId=${item.id}"
-                            } else {
-                                "createTransaction/regular_transaction?quickUploadId=${item.id}"
-                            }
-                        navController.navigate(route)
-                    },
-                    onQuickUploadRetry = { id -> aiFeaturesGate.runWhenEnabled { quickUploadViewModel?.retry(id) } },
-                    onQuickUploadDismiss = { quickUploadViewModel?.dismiss(it) },
-                    onRefreshQuickUploads = { quickUploadViewModel?.refresh() },
-                    onProposalCompleted = { quickUploadViewModel?.onProposalCompleted(it) },
-                    transactionCache = transactionCache,
-                    pendingGroupTransaction = pendingGroupTransaction,
-                    editingGroupIndex = editingGroupIndex,
-                    pendingGroupSelection = pendingGroupSelection,
-                    onNavigateToDetail = ::navigateToDetail,
-                    aiChatViewModel = aiChatViewModel,
-                    aiFeaturesGate = aiFeaturesGate,
-                    onEdit = { id -> navController.navigate("editAccount/$id") },
-                    sessionViewModel = sessionViewModel,
-                )
+                }
             }
         }
     } // ModalNavigationDrawer
@@ -589,10 +644,12 @@ private fun MainNavGraph(
     navController: NavHostController,
     innerPadding: PaddingValues,
     sharedScope: SharedTransitionScope,
+    listPaneTab: TopLevelRoute?,
     transactionsViewModel: TransactionsViewModel?,
+    transactionsListState: LazyListState,
+    accountsScrollState: ScrollState,
     quickUploadItems: List<QuickUploadUiItem>,
     onQuickUpload: () -> Unit,
-    onQuickUploadItemClick: (QuickUploadUiItem) -> Unit,
     onQuickUploadRetry: (String) -> Unit,
     onQuickUploadDismiss: (String) -> Unit,
     onRefreshQuickUploads: () -> Unit,
@@ -640,56 +697,48 @@ private fun MainNavGraph(
         }
         composable(TopLevelRoute.Transactions.route) {
             val viewModel = transactionsViewModel ?: return@composable
-            @Suppress("ViewModelForwarding")
-            TransactionsScreen(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .consumeWindowInsets(innerPadding),
-                onTransactionClick = { onNavigateToDetail(it, false) },
-                onCreateTransaction = { typeKey ->
-                    navController.navigate("createTransaction/$typeKey")
-                },
-                onCreateGroup = {
-                    navController.navigate("createTransactionGroup")
-                },
-                onGroupSelected = { ids ->
-                    pendingGroupSelection.value = ids
-                    navController.navigate("createTransactionGroup?fromSelection=true")
-                },
-                onQuickUpload = onQuickUpload,
-                onImportStatements = { navController.navigate(IMPORTS_ROUTE) },
-                quickUploadItems = quickUploadItems,
-                onQuickUploadItemClick = onQuickUploadItemClick,
-                onQuickUploadRetry = onQuickUploadRetry,
-                onQuickUploadDismiss = onQuickUploadDismiss,
-                onRefreshQuickUploads = onRefreshQuickUploads,
-                sharedTransitionScope = sharedScope,
-                animatedVisibilityScope = this@composable,
-                viewModel = viewModel,
-            )
+            if (listPaneTab == TopLevelRoute.Transactions) {
+                PanePlaceholder("Select a transaction")
+            } else {
+                TransactionsTabRoot(
+                    viewModel = viewModel,
+                    listState = transactionsListState,
+                    quickUploadItems = quickUploadItems,
+                    onQuickUpload = onQuickUpload,
+                    onQuickUploadRetry = onQuickUploadRetry,
+                    onQuickUploadDismiss = onQuickUploadDismiss,
+                    onRefreshQuickUploads = onRefreshQuickUploads,
+                    pendingGroupSelection = pendingGroupSelection,
+                    navigate = { route -> navController.navigate(route) },
+                    onTransactionClick = { onNavigateToDetail(it, false) },
+                    openTransactionId = null,
+                    sharedTransitionScope = sharedScope,
+                    animatedVisibilityScope = this@composable,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .consumeWindowInsets(innerPadding),
+                )
+            }
         }
         composable(TopLevelRoute.Accounts.route) {
-            AccountsScreen(
-                onAccountClick = { account ->
-                    val property = account.property
-                    if (property != null) {
-                        navController.navigate("property/${property.propertyId}/${property.assetId}")
-                    } else {
-                        navController.navigate("accountDetail/${account.id}/${account.name}/${account.accountTypeId}")
-                    }
-                },
-                onAddAccount = { navController.navigate(ADD_ACCOUNT_ROUTE) },
-                onAddProperty = { navController.navigate(ADD_PROPERTY_ROUTE) },
-                sharedTransitionScope = sharedScope,
-                animatedVisibilityScope = this@composable,
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .padding(innerPadding)
-                        .consumeWindowInsets(innerPadding),
-            )
+            if (listPaneTab == TopLevelRoute.Accounts) {
+                PanePlaceholder("Select an account")
+            } else {
+                AccountsTabRoot(
+                    scrollState = accountsScrollState,
+                    navigate = { route -> navController.navigate(route) },
+                    openId = null,
+                    sharedTransitionScope = sharedScope,
+                    animatedVisibilityScope = this@composable,
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(innerPadding)
+                            .consumeWindowInsets(innerPadding),
+                )
+            }
         }
         composable(TopLevelRoute.AiChat.route) {
             val viewModel = aiChatViewModel ?: return@composable
@@ -740,6 +789,7 @@ private fun MainNavGraph(
             PropertyDetailScreen(
                 propertyId = propertyId,
                 assetId = assetId,
+                showBack = showsBack(navController, backStackEntry, listPaneTab),
                 onBack = { navController.popBackStack() },
                 onViewLoan = { loan ->
                     navController.navigate(
@@ -839,6 +889,7 @@ private fun MainNavGraph(
                 TransactionDetailScreen(
                     transaction = detailState.transaction,
                     isInGroup = detailState.isInGroup,
+                    showBack = showsBack(navController, backStackEntry, listPaneTab),
                     onBack = { navController.popBackStack() },
                     onEdit = {
                         if (detailState.transaction.isGroup) {
@@ -1148,6 +1199,7 @@ private fun MainNavGraph(
                 accountId = accountId,
                 accountName = accountName,
                 accountTypeId = accountTypeId,
+                showBack = showsBack(navController, backStackEntry, listPaneTab),
                 onBack = { navController.popBackStack() },
                 onHoldingClick = { _, assetId ->
                     navController.navigate("assetDetail/$accountId/$assetId?accountName=${Uri.encode(accountName)}")
@@ -1626,6 +1678,22 @@ private fun MainNavGraph(
             )
         }
     }
+}
+
+// An entry's predecessor never changes while it is on the back stack. Reading it once keeps it right
+// while predictive back composes this entry underneath the one being popped.
+@Composable
+private fun showsBack(
+    navController: NavHostController,
+    entry: NavBackStackEntry,
+    listPaneTab: TopLevelRoute?,
+): Boolean {
+    val parentRoute =
+        remember(entry) {
+            val stack = navController.currentBackStack.value
+            stack.getOrNull(stack.indexOf(entry) - 1)?.destination?.route
+        }
+    return listPaneTab == null || parentRoute != listPaneTab.route
 }
 
 private fun assetTransactionsRoute(

@@ -27,6 +27,8 @@ jobs:
     outputs:
       android: ${{ steps.diff.outputs.android }}
       ios: ${{ steps.diff.outputs.ios }}
+      ios_screenshots: ${{ steps.diff.outputs.ios_screenshots }}
+      ios_duo_screenshots: ${{ steps.diff.outputs.ios_duo_screenshots }}
       version: ${{ steps.version.outputs.version }}
       update_priority: ${{ steps.priority.outputs.update_priority }}
     steps:
@@ -90,14 +92,18 @@ jobs:
             BASE=$BEFORE
           fi
           if [ -z "$BASE" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
-            echo "android=true" >> "$GITHUB_OUTPUT"
-            echo "ios=true" >> "$GITHUB_OUTPUT"
+            printf '%s\n' android=true ios=true ios_screenshots=true ios_duo_screenshots=true >> "$GITHUB_OUTPUT"
             exit 0
           fi
           CHANGED=$(git diff --name-only "$BASE" HEAD)
           CORE='^(server/(app-core|shared|vendor)/|server/Cargo\.lock$|rust-toolchain\.toml$)'
-          echo "android=$(grep -qE "$CORE|^android/" <<< "$CHANGED" && echo true || echo false)" >> "$GITHUB_OUTPUT"
-          echo "ios=$(grep -qE "$CORE|^ios/" <<< "$CHANGED" && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          changed() { grep -qE "$1" <<< "$CHANGED" && echo true || echo false; }
+          {
+            echo "android=$(changed "$CORE|^android/")"
+            echo "ios=$(changed "$CORE|^ios/")"
+            echo "ios_screenshots=$(changed '^marketing/app-stores/ios/screenshots/')"
+            echo "ios_duo_screenshots=$(changed '^marketing/app-stores/ios/screenshots-duo/')"
+          } >> "$GITHUB_OUTPUT"
 
   core:
     needs: changes
@@ -183,14 +189,20 @@ jobs:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
       - if: github.ref_type == 'tag'
-        uses: r0adkll/upload-google-play@v1
+        uses: ruby/setup-ruby@v1
         with:
-          serviceAccountJson: ${{ steps.gcp.outputs.credentials_file_path }}
-          packageName: com.sverto.app
-          releaseFiles: android/app/build/outputs/bundle/prodRelease/app-prod-release.aab
-          mappingFile: android/app/build/outputs/mapping/prodRelease/mapping.txt
-          tracks: internal
-          inAppUpdatePriority: ${{ needs.changes.outputs.update_priority }}
+          ruby-version: "4.0"
+          bundler-cache: true
+          working-directory: marketing/app-stores
+      - name: Release to Google Play
+        if: github.ref_type == 'tag'
+        working-directory: marketing/app-stores
+        env:
+          PLAY_JSON_KEY: ${{ steps.gcp.outputs.credentials_file_path }}
+          PLAY_AAB: ${{ github.workspace }}/android/app/build/outputs/bundle/prodRelease/app-prod-release.aab
+          PLAY_MAPPING: ${{ github.workspace }}/android/app/build/outputs/mapping/prodRelease/mapping.txt
+          PLAY_UPDATE_PRIORITY: ${{ needs.changes.outputs.update_priority }}
+        run: bundle exec fastlane android release
 
   ios:
     needs: [changes, core]
@@ -240,3 +252,28 @@ jobs:
             -authenticationKeyPath "$RUNNER_TEMP/AuthKey.p8" \
             -authenticationKeyID "$APP_STORE_CONNECT_KEY_ID" \
             -authenticationKeyIssuerID "$APP_STORE_CONNECT_ISSUER_ID"
+
+  ios-listing:
+    needs: [changes, ios]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "4.0"
+          bundler-cache: true
+          working-directory: marketing/app-stores
+      - name: Upload App Store listing
+        working-directory: marketing/app-stores
+        env:
+          APP_STORE_CONNECT_KEY: ${{ secrets.APP_STORE_CONNECT_KEY }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_REVIEW_DEMO_USER: ${{ secrets.APP_REVIEW_DEMO_USER }}
+          APP_REVIEW_DEMO_PASSWORD: ${{ secrets.APP_REVIEW_DEMO_PASSWORD }}
+          IOS_APP_VERSION: ${{ needs.changes.outputs.version }}
+          IOS_UPLOAD_SCREENSHOTS: ${{ needs.changes.outputs.ios_screenshots == 'true' || (vars.IOS_INCLUDE_DUO == 'true' && needs.changes.outputs.ios_duo_screenshots == 'true') }}
+          IOS_INCLUDE_DUO: ${{ vars.IOS_INCLUDE_DUO }}
+        run: bundle exec fastlane ios listing

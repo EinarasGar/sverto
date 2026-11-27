@@ -80,6 +80,7 @@ fun AccountDetailScreen(
     accountId: String,
     accountName: String,
     accountTypeId: Int,
+    showBack: Boolean,
     onBack: () -> Unit,
     onHoldingClick: (String, Int) -> Unit,
     onBalanceClick: (Int) -> Unit,
@@ -138,11 +139,13 @@ fun AccountDetailScreen(
             MediumFlexibleTopAppBar(
                 title = { Text(accountName) },
                 navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back",
-                        )
+                    if (showBack) {
+                        IconButton(onClick = onBack) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                contentDescription = "Back",
+                            )
+                        }
                     }
                 },
                 actions = {

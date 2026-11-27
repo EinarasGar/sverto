@@ -12,7 +12,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.derivedStateOf
@@ -23,8 +25,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.unit.Dp
 import androidx.core.content.IntentCompat
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.sverto.app.core.layout.CappedPane
+import com.sverto.app.core.layout.LocalShellLayout
+import com.sverto.app.core.layout.NarrowPane
+import com.sverto.app.core.layout.NarrowPaneWidth
+import com.sverto.app.core.layout.currentShellLayout
 import com.sverto.app.core.theme.SvertoTheme
 import com.sverto.app.feature.onboarding.CURRENT_ONBOARDING_VERSION
 import com.sverto.app.feature.onboarding.OnboardingScreen
@@ -72,60 +80,77 @@ class MainActivity : ComponentActivity() {
                     )
                 }
 
-                if (updateBlocking) {
-                    UpdateRequiredScreen(onUpdate = appUpdates::startRequiredUpdate)
-                } else {
-                    when (currentSession) {
-                        SessionState.Loading -> LoadingScreen()
-                        SessionState.Welcome ->
-                            WelcomeScreen(
-                                onContinueWithHost = { sessionViewModel.continueWithHosted() },
-                                onConnectSelfHosted = { sessionViewModel.showServerUrlInput() },
-                            )
-                        is SessionState.ServerUrl ->
-                            ServerUrlScreen(
-                                lastUrl = currentSession.lastUrl,
-                                connectionStatus = currentSession.connectionStatus,
-                                onCheckServer = { url -> sessionViewModel.checkSelfHostedServer(url) },
-                                onContinue = { sessionViewModel.continueWithSelfHosted() },
-                                onBack = { sessionViewModel.showWelcome() },
-                            )
-                        SessionState.Connecting -> LoadingScreen()
-                        is SessionState.ConnectError ->
-                            ConnectErrorScreen(
-                                message = currentSession.message,
-                                onRetry = { sessionViewModel.retryHostedConnect() },
-                                onBack = { sessionViewModel.showWelcome() },
-                            )
-                        is SessionState.SignIn ->
-                            PasswordSignInScreen(
-                                onSignIn = { u, p -> sessionViewModel.signIn(u, p) },
-                                onCreateAccount = { sessionViewModel.showSignUp() },
-                                onBack = { sessionViewModel.showWelcome() },
-                                isSubmitting = currentSession.isSubmitting,
-                                errorMessage = currentSession.errorMessage,
-                            )
-                        SessionState.SignUp ->
-                            PasswordSignUpScreen(
-                                onCreateAccount = { u, p -> sessionViewModel.signUp(u, p) },
-                                onBack = { sessionViewModel.showSignIn() },
-                            )
-                        SessionState.ClerkLogin ->
-                            ClerkLoginScreen(
-                                onSignedIn = { sessionViewModel.onClerkSignedIn() },
-                                onBack = { sessionViewModel.showWelcome() },
-                            )
-                        SessionState.SignedIn ->
-                            SignedInGate(
-                                appStore = appStore,
-                                signInKey = Unit,
-                                sharedFileUris = sharedFiles,
-                                onSharedFilesHandled = onSharedFilesHandled,
-                                sessionViewModel = sessionViewModel,
-                            )
+                CompositionLocalProvider(LocalShellLayout provides currentShellLayout()) {
+                    if (updateBlocking) {
+                        UpdateRequiredScreen(onUpdate = appUpdates::startRequiredUpdate)
+                    } else {
+                        CappedPane(
+                            maxWidth = if (currentSession == SessionState.SignedIn) Dp.Unspecified else NarrowPaneWidth,
+                            backdrop = MaterialTheme.colorScheme.background,
+                        ) {
+                            SessionContent(currentSession, sharedFiles, onSharedFilesHandled, appStore)
+                        }
                     }
                 }
             }
+        }
+    }
+
+    @Composable
+    private fun SessionContent(
+        currentSession: SessionState,
+        sharedFiles: List<Uri>,
+        onSharedFilesHandled: () -> Unit,
+        appStore: AppStore,
+    ) {
+        when (currentSession) {
+            SessionState.Loading -> LoadingScreen()
+            SessionState.Welcome ->
+                WelcomeScreen(
+                    onContinueWithHost = { sessionViewModel.continueWithHosted() },
+                    onConnectSelfHosted = { sessionViewModel.showServerUrlInput() },
+                )
+            is SessionState.ServerUrl ->
+                ServerUrlScreen(
+                    lastUrl = currentSession.lastUrl,
+                    connectionStatus = currentSession.connectionStatus,
+                    onCheckServer = { url -> sessionViewModel.checkSelfHostedServer(url) },
+                    onContinue = { sessionViewModel.continueWithSelfHosted() },
+                    onBack = { sessionViewModel.showWelcome() },
+                )
+            SessionState.Connecting -> LoadingScreen()
+            is SessionState.ConnectError ->
+                ConnectErrorScreen(
+                    message = currentSession.message,
+                    onRetry = { sessionViewModel.retryHostedConnect() },
+                    onBack = { sessionViewModel.showWelcome() },
+                )
+            is SessionState.SignIn ->
+                PasswordSignInScreen(
+                    onSignIn = { u, p -> sessionViewModel.signIn(u, p) },
+                    onCreateAccount = { sessionViewModel.showSignUp() },
+                    onBack = { sessionViewModel.showWelcome() },
+                    isSubmitting = currentSession.isSubmitting,
+                    errorMessage = currentSession.errorMessage,
+                )
+            SessionState.SignUp ->
+                PasswordSignUpScreen(
+                    onCreateAccount = { u, p -> sessionViewModel.signUp(u, p) },
+                    onBack = { sessionViewModel.showSignIn() },
+                )
+            SessionState.ClerkLogin ->
+                ClerkLoginScreen(
+                    onSignedIn = { sessionViewModel.onClerkSignedIn() },
+                    onBack = { sessionViewModel.showWelcome() },
+                )
+            SessionState.SignedIn ->
+                SignedInGate(
+                    appStore = appStore,
+                    signInKey = Unit,
+                    sharedFileUris = sharedFiles,
+                    onSharedFilesHandled = onSharedFilesHandled,
+                    sessionViewModel = sessionViewModel,
+                )
         }
     }
 
@@ -246,10 +271,12 @@ private fun SignedInGate(
                 sessionViewModel = sessionViewModel,
             )
         false ->
-            OnboardingScreen(
-                onComplete = { onboarded = true },
-                viewModelKey = onboardingViewModelKey,
-            )
+            NarrowPane {
+                OnboardingScreen(
+                    onComplete = { onboarded = true },
+                    viewModelKey = onboardingViewModelKey,
+                )
+            }
     }
 }
 

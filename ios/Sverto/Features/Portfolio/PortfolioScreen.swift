@@ -14,6 +14,7 @@ private struct PortfolioRoot: View {
     @State private var markets: MarketsListViewModel
     @State private var query = ""
     @State private var isSearchPresented = false
+    @Environment(ShellState.self) private var shell
 
     init(store: AppStore) {
         _portfolio = State(initialValue: HomeViewModel(store: store))
@@ -48,6 +49,9 @@ private struct PortfolioRoot: View {
             }
             .onChange(of: query) { _, newValue in
                 markets.onQueryChange(newValue)
+            }
+            .onChange(of: shell.refreshRequests) {
+                if shell.selectedTab == .portfolio { Task { await portfolio.refresh() } }
             }
             .task { await portfolio.start() }
             .onDisappear { portfolio.stop() }

@@ -44,6 +44,8 @@ final class ShellState {
     var pendingOAuthReturn: AppRoute?
     var pendingBindingChoice: PendingBindingChoice?
 
+    var refreshRequests = 0
+
     func path(for tab: AppTab) -> [AppRoute] {
         switch tab {
         case .portfolio: portfolioPath
@@ -85,6 +87,17 @@ final class ShellState {
     func showTransactionDetail(_ transaction: TransactionListItem, isInGroup: Bool) {
         transactionCache[transaction.id] = TransactionDetailState(transaction: transaction, isInGroup: isInGroup)
         push(.transactionDetail(id: transaction.id))
+    }
+
+    // At compact width the path is empty whenever a tab root is visible, so this equals push there;
+    // beside a list column it swaps the detail instead of stacking a second one.
+    func showFromRoot(_ route: AppRoute) {
+        setPath([route], for: selectedTab)
+    }
+
+    func showTransactionDetailFromRoot(_ transaction: TransactionListItem) {
+        transactionCache[transaction.id] = TransactionDetailState(transaction: transaction, isInGroup: false)
+        showFromRoot(.transactionDetail(id: transaction.id))
     }
 
     func presentSettings(_ path: [AppRoute] = []) {

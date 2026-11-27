@@ -1,0 +1,7 @@
+Sverto now fits tablets and foldables, and adds a lot since testing began.
+
+• Tablets and unfolded foldables: your list stays on screen with the item you open beside it
+• Fold, unfold or rotate and Sverto keeps your place
+• Quick upload takes photos, PDFs and other files, and splits a receipt into one transaction per item
+• Import bank statements as CSV, PDF or screenshots
+• Properties with linked loans, a Liabilities list and a page for each currency

@@ -17,27 +17,57 @@ NC = \033[0m # No Color
 # contains the patterns — does not self-match pgrep (the classic `ps | grep [p]attern` trick).
 WORKER_PIDS = $$({ pgrep -f "[t]arget/debug/worker"; pgrep -f "[c]argo run -p worker"; } 2>/dev/null | sort -u | while read -r pid; do cwd=$$(lsof -a -d cwd -p $$pid -Fn 2>/dev/null | sed -n 's/^n//p'); case "$$cwd" in ("$(CURDIR)"|"$(CURDIR)"/*) echo $$pid ;; esac; done)
 
+# Device the emulator/simulator targets use: phone, fold or tablet, named after the .env name plus -fold / -tablet.
+# Plain `=` so only the command line can change it, not a DEVICE variable left in the environment.
+DEVICE = phone
+DEVICE_SUFFIX = $(if $(filter phone,$(DEVICE)),,-$(DEVICE))
+CHECK_DEVICE = case "$(DEVICE)" in phone|fold|tablet) ;; *) echo "$(RED)Error: DEVICE must be phone, fold or tablet (got '$(DEVICE)')$(NC)"; exit 1 ;; esac
+
 ANDROID_SDK = $(HOME)/Library/Android/sdk
 ADB = $(ANDROID_SDK)/platform-tools/adb
 EMULATOR = $(ANDROID_SDK)/emulator/emulator
 AVDMANAGER = $(ANDROID_SDK)/cmdline-tools/latest/bin/avdmanager
 SDKMANAGER = $(ANDROID_SDK)/cmdline-tools/latest/bin/sdkmanager
 ANDROID_SYSTEM_IMAGE ?= system-images;android-37.0;google_apis_playstore_ps16k;arm64-v8a
-AVD_DIR = $(HOME)/.android/avd/$(ANDROID_AVD_NAME).avd
-# Serial of the running emulator that booted THIS worktree's AVD (empty if none). Resolved by AVD
+AVD_NAME = $(ANDROID_AVD_NAME)$(DEVICE_SUFFIX)
+AVD_PROFILE_phone = pixel_9
+AVD_PROFILE_fold = pixel_9_pro_fold
+AVD_PROFILE_tablet = pixel_tablet
+AVD_PROFILE = $(AVD_PROFILE_$(DEVICE))
+avd_dir = $(HOME)/.android/avd/$(1).avd
+AVD_DIR = $(call avd_dir,$(AVD_NAME))
+# Serial of the running emulator that booted the AVD named $(1) (empty if none). Resolved by AVD
 # name through the emulator console, not by port, so it also finds the AVD when Android Studio
 # launched it on whatever port was free.
-AVD_SERIAL = $$(for s in $$($(ADB) devices 2>/dev/null | awk '/^emulator-/ {print $$1}'); do if [ "$$($(ADB) -s $$s emu avd name 2>/dev/null | head -n1 | tr -d '\r')" = "$(ANDROID_AVD_NAME)" ]; then echo $$s; break; fi; done)
+avd_serial = $$(for s in $$($(ADB) devices 2>/dev/null | awk '/^emulator-/ {print $$1}'); do if [ "$$($(ADB) -s $$s emu avd name 2>/dev/null | head -n1 | tr -d '\r')" = "$(1)" ]; then echo $$s; break; fi; done)
+AVD_SERIAL = $(call avd_serial,$(AVD_NAME))
 PHYSICAL_SERIALS = $$($(ADB) devices 2>/dev/null | awk '$$2 == "device" && $$1 !~ /^emulator-/ {print $$1}')
 
 IOS_SIMULATOR_DEVICE_TYPE ?= iPhone 17 Pro
-IOS_SIMULATOR_RUNTIME ?= $$(xcrun simctl list runtimes -j | python3 -c 'import sys,json; rs=[r for r in json.load(sys.stdin)["runtimes"] if r["platform"]=="iOS" and r["isAvailable"]]; rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")]); print(rs[-1]["identifier"] if rs else "")')
-# UDID of THIS worktree's simulator (empty if it does not exist yet); resolved by name like AVD_SERIAL.
-SIM_UDID = $$(xcrun simctl list devices -j | python3 -c 'import sys,json; ds=[d for v in json.load(sys.stdin)["devices"].values() for d in v if d["name"]=="$(IOS_SIMULATOR_NAME)" and d.get("isAvailable",True)]; print(ds[0]["udid"] if ds else "")')
-SIM_STATE = $$(xcrun simctl list devices -j | python3 -c 'import sys,json; ds=[d for v in json.load(sys.stdin)["devices"].values() for d in v if d["name"]=="$(IOS_SIMULATOR_NAME)"]; print(ds[0]["state"] if ds else "")')
+IOS_SIM_NAME = $(IOS_SIMULATOR_NAME)$(DEVICE_SUFFIX)
+IOS_DEVICE_TYPE_phone = $(IOS_SIMULATOR_DEVICE_TYPE)
+IOS_DEVICE_TYPE_fold = iPhone Duo
+IOS_DEVICE_TYPE_tablet = iPad Pro 11-inch (M5)
+IOS_DEVICE_TYPE = $(IOS_DEVICE_TYPE_$(DEVICE))
+# Newest installed runtime that can run the device type: the iPhone Duo has a runtime of its own that runs nothing else.
+IOS_SIMULATOR_RUNTIME ?= $$(xcrun simctl list runtimes -j | python3 -c 'import sys,json; rs=[r for r in json.load(sys.stdin)["runtimes"] if r["platform"]=="iOS" and r["isAvailable"] and any(t["name"]==sys.argv[1] for t in r["supportedDeviceTypes"])]; rs.sort(key=lambda r: [int(x) for x in r["version"].split(".")]); print(rs[-1]["identifier"] if rs else "")' "$(IOS_DEVICE_TYPE)")
+# Xcode for DEVICE=fold: an app adapts to the iPhone Duo only when built with the iOS 27.1 SDK or later. The selected
+# Xcode if it has one, else the first /Applications/Xcode*.app that does; phone and tablet always use the selected Xcode.
+# Override with IOS_FOLD_XCODE=/Applications/Xcode-27.2.0.app (an Xcode.app or its Contents/Developer).
+IOS_FOLD_XCODE ?= $$(for d in "$$(xcode-select -p)" /Applications/Xcode*.app; do v=$$(DEVELOPER_DIR="$$d" xcrun --sdk iphonesimulator --show-sdk-version 2>/dev/null) && [ "$$(printf '%s\n' 27.1 "$$v" | sort -V | head -n1)" = 27.1 ] && { echo "$$d"; break; }; done)
+IOS_XCODE_fold = XC="$(IOS_FOLD_XCODE)"; test -n "$$XC" || { echo "$(RED)Error: DEVICE=fold needs Xcode 27.1 or later for the iPhone Duo simulator. Install it beside the selected Xcode (no need to select it) with the iPhone Duo runtime, or set IOS_FOLD_XCODE=/path/to/Xcode.app$(NC)"; exit 1; }; export DEVELOPER_DIR="$$(DEVELOPER_DIR="$$XC" xcode-select -p)";
+IOS_XCODE = $(IOS_XCODE_$(DEVICE))
+# UDID / state of the simulator named $(1) (empty if it does not exist yet); resolved by name like avd_serial.
+sim_udid = $$(xcrun simctl list devices -j | python3 -c 'import sys,json; ds=[d for v in json.load(sys.stdin)["devices"].values() for d in v if d["name"]==sys.argv[1] and d.get("isAvailable",True)]; print(ds[0]["udid"] if ds else "")' "$(1)")
+sim_state = $$(xcrun simctl list devices -j | python3 -c 'import sys,json; ds=[d for v in json.load(sys.stdin)["devices"].values() for d in v if d["name"]==sys.argv[1]]; print(ds[0]["state"] if ds else "")' "$(1)")
+SIM_UDID = $(call sim_udid,$(IOS_SIM_NAME))
+SIM_STATE = $(call sim_state,$(IOS_SIM_NAME))
 IOS_DIR = ios
 IOS_PROJECT = $(IOS_DIR)/Sverto.xcodeproj
 IOS_DERIVED = $(IOS_DIR)/build
+# The fold Xcode builds into its own DerivedData, so switching between DEVICE=fold and the others does not make
+# either Xcode rebuild everything (or trip over modules the other compiler wrote).
+IOS_DEVICE_DERIVED = $(if $(filter fold,$(DEVICE)),$(IOS_DERIVED)/fold,$(IOS_DERIVED))
 IOS_DEV_BUNDLE_ID = com.sverto.app.dev
 IOS_PROD_BUNDLE_ID = com.sverto.app
 
@@ -225,7 +255,7 @@ setup-env: ## Create .env file (worktree-aware). Use auth=noauth|database|clerk 
 	@echo "$(GREEN)Installing UI dependencies...$(NC)"
 	cd web && bun install
 	@echo "$(GREEN)Installing landing dependencies...$(NC)"
-	cd landing && bun install
+	cd marketing/landing && bun install
 	@echo "$(GREEN)Building Rust workspace...$(NC)"
 	cd server && cargo build
 	@echo "$(GREEN)Setup complete!$(NC)"
@@ -283,21 +313,21 @@ status: ## Show service ports, status, and useful links
 		fi; \
 	}; \
 	check_emulator() { \
-		SERIAL="$(AVD_SERIAL)"; \
+		SERIAL="$(call avd_serial,$$1)"; \
 		if [ -n "$$SERIAL" ]; then \
-			echo "$(YELLOW)Emulator      $(NC)  $(ANDROID_AVD_NAME) ($$SERIAL) - $(GREEN)Running$(NC)"; \
+			echo "$(YELLOW)Emulator      $(NC)  $$1 ($$SERIAL) - $(GREEN)Running$(NC)"; \
 		else \
-			echo "$(YELLOW)Emulator      $(NC)  $(ANDROID_AVD_NAME) - $(RED)Not Running$(NC)"; \
+			echo "$(YELLOW)Emulator      $(NC)  $$1 - $(RED)Not Running$(NC)"; \
 		fi; \
 	}; \
 	check_simulator() { \
-		UDID="$(SIM_UDID)"; STATE="$(SIM_STATE)"; \
+		UDID="$(call sim_udid,$$1)"; STATE="$(call sim_state,$$1)"; \
 		if [ "$$STATE" = "Booted" ]; then \
-			echo "$(YELLOW)Simulator     $(NC)  $(IOS_SIMULATOR_NAME) ($$UDID) - $(GREEN)Running$(NC)"; \
+			echo "$(YELLOW)Simulator     $(NC)  $$1 ($$UDID) - $(GREEN)Running$(NC)"; \
 		elif [ -n "$$UDID" ]; then \
-			echo "$(YELLOW)Simulator     $(NC)  $(IOS_SIMULATOR_NAME) ($$UDID) - $(RED)Not Running$(NC)"; \
+			echo "$(YELLOW)Simulator     $(NC)  $$1 ($$UDID) - $(RED)Not Running$(NC)"; \
 		else \
-			echo "$(YELLOW)Simulator     $(NC)  $(IOS_SIMULATOR_NAME) - $(RED)Not Created$(NC)"; \
+			echo "$(YELLOW)Simulator     $(NC)  $$1 - $(RED)Not Created$(NC)"; \
 		fi; \
 	}; \
 	check_infra "Postgres      " $(POSTGRES_PORT) database; \
@@ -313,8 +343,10 @@ status: ## Show service ports, status, and useful links
 	check_infra "RustFS Console" $(S3_CONSOLE_PORT) rustfs; \
 	check_infra "Redis         " $(REDIS_PORT) redis; \
 	check_infra "Vault         " $(VAULT_PORT) vault; \
-	check_emulator; \
-	check_simulator
+	check_emulator "$(ANDROID_AVD_NAME)"; \
+	for d in fold tablet; do if [ -d "$(call avd_dir,$(ANDROID_AVD_NAME)-$$d)" ]; then check_emulator "$(ANDROID_AVD_NAME)-$$d"; fi; done; \
+	check_simulator "$(IOS_SIMULATOR_NAME)"; \
+	for d in fold tablet; do if [ -n "$(call sim_udid,$(IOS_SIMULATOR_NAME)-$$d)" ]; then check_simulator "$(IOS_SIMULATOR_NAME)-$$d"; fi; done
 
 # Run
 .PHONY: backend-run
@@ -338,16 +370,16 @@ web-run: ## Start Vite dev server (kills existing process on VITE_PORT first)
 	cd web && bun run dev
 
 .PHONY: landing-run
-landing-run: ## Start Astro dev server for the marketing site (kills LANDING_PORT first; astro dev daemonises, stop it with "cd landing && bunx astro dev stop")
+landing-run: ## Start Astro dev server for the marketing site (kills LANDING_PORT first; astro dev daemonises, stop it with "cd marketing/landing && bunx astro dev stop")
 	-@lsof -ti :$(LANDING_PORT) | xargs kill -9 2>/dev/null || true
-	cd landing && \
+	cd marketing/landing && \
 		PUBLIC_SITE_URL=http://localhost:$(LANDING_PORT) \
 		PUBLIC_APP_URL=http://localhost:$(VITE_PORT) \
 		bun run dev --port $(LANDING_PORT)
 
 .PHONY: landing-build
-landing-build: ## Build the static marketing site into landing/dist
-	cd landing && \
+landing-build: ## Build the static marketing site into marketing/landing/dist
+	cd marketing/landing && \
 		PUBLIC_SITE_URL=$(LANDING_SITE_URL) \
 		PUBLIC_APP_URL=$(LANDING_APP_URL) \
 		bun run build
@@ -357,11 +389,12 @@ ide: ## Open VS Code and auto-start infra, backend, worker, market-data, web in 
 	@code .vscode/myra.code-workspace
 
 .PHONY: android-emulator
-android-emulator: ## Boot this worktree's Pixel 9 AVD, creating it on first use. reset=true recreates it from scratch (wipes its data)
+android-emulator: ## Boot this worktree's AVD, creating it on first use. DEVICE=phone (default, Pixel 9), fold (Pixel 9 Pro Fold) or tablet (Pixel Tablet); reset=true recreates it from scratch (wipes its data)
 	@test -n "$(ANDROID_AVD_NAME)" || { echo "$(RED)Error: ANDROID_AVD_NAME is not set. Run make setup-env first.$(NC)"; exit 1; }
+	@$(CHECK_DEVICE)
 	@SERIAL="$(AVD_SERIAL)"; \
 	if [ "$(reset)" = "true" ] && [ -n "$$SERIAL" ]; then \
-		echo "$(YELLOW)Stopping $(ANDROID_AVD_NAME) ($$SERIAL) for reset...$(NC)"; \
+		echo "$(YELLOW)Stopping $(AVD_NAME) ($$SERIAL) for reset...$(NC)"; \
 		$(ADB) -s "$$SERIAL" emu kill >/dev/null; \
 		while $(ADB) devices | grep -qw "$$SERIAL"; do sleep 1; done; \
 		SERIAL=""; \
@@ -372,7 +405,7 @@ android-emulator: ## Boot this worktree's Pixel 9 AVD, creating it on first use.
 				echo "$(GREEN)Installing $(ANDROID_SYSTEM_IMAGE)...$(NC)"; \
 				yes | $(SDKMANAGER) --install "$(ANDROID_SYSTEM_IMAGE)"; \
 			fi; \
-			{ echo no | $(AVDMANAGER) create avd --force -n "$(ANDROID_AVD_NAME)" -k "$(ANDROID_SYSTEM_IMAGE)" -d pixel_9 --skin pixel_9 && \
+			{ echo no | $(AVDMANAGER) create avd --force -n "$(AVD_NAME)" -k "$(ANDROID_SYSTEM_IMAGE)" -d $(AVD_PROFILE) --skin $(AVD_PROFILE) && \
 			sed -i '' \
 				-e 's/^PlayStore.enabled=.*/PlayStore.enabled=true/' \
 				-e 's/^hw.keyboard=.*/hw.keyboard=yes/' \
@@ -382,15 +415,15 @@ android-emulator: ## Boot this worktree's Pixel 9 AVD, creating it on first use.
 				-e 's/^disk.dataPartition.size=.*/disk.dataPartition.size=20G/' \
 				-e 's/^sdcard.size=.*/sdcard.size=6G/' \
 				"$(AVD_DIR)/config.ini" && \
-			printf '%s\n%s\n' "avd.ini.displayname=$(ANDROID_AVD_NAME)" "AvdId=$(ANDROID_AVD_NAME)" >> "$(AVD_DIR)/config.ini"; } || exit 1; \
-			echo "$(GREEN)AVD $(ANDROID_AVD_NAME) created$(NC)"; \
+			printf '%s\n%s\n' "avd.ini.displayname=$(AVD_NAME)" "AvdId=$(AVD_NAME)" >> "$(AVD_DIR)/config.ini"; } || exit 1; \
+			echo "$(GREEN)AVD $(AVD_NAME) created$(NC)"; \
 		fi; \
-		echo "$(GREEN)Booting $(ANDROID_AVD_NAME)...$(NC)"; \
-		nohup $(EMULATOR) -avd "$(ANDROID_AVD_NAME)" </dev/null >"$(AVD_DIR)/emulator.log" 2>&1 & \
+		echo "$(GREEN)Booting $(AVD_NAME)...$(NC)"; \
+		nohup $(EMULATOR) -avd "$(AVD_NAME)" </dev/null >"$(AVD_DIR)/emulator.log" 2>&1 & \
 		i=0; \
 		until SERIAL="$(AVD_SERIAL)"; [ -n "$$SERIAL" ]; do \
 			i=$$((i + 1)); \
-			if [ $$i -gt 60 ]; then echo "$(RED)Error: $(ANDROID_AVD_NAME) did not show up in adb within 60s, see $(AVD_DIR)/emulator.log$(NC)"; exit 1; fi; \
+			if [ $$i -gt 60 ]; then echo "$(RED)Error: $(AVD_NAME) did not show up in adb within 60s, see $(AVD_DIR)/emulator.log$(NC)"; exit 1; fi; \
 			sleep 1; \
 		done; \
 	fi; \
@@ -400,10 +433,10 @@ android-emulator: ## Boot this worktree's Pixel 9 AVD, creating it on first use.
 		if [ $$i -gt 150 ]; then echo "$(RED)Error: $$SERIAL did not finish booting within 300s$(NC)"; exit 1; fi; \
 		sleep 2; \
 	done; \
-	echo "$(GREEN)$(ANDROID_AVD_NAME) ready on $$SERIAL$(NC)"
+	echo "$(GREEN)$(AVD_NAME) ready on $$SERIAL$(NC)"
 
 .PHONY: android-run
-android-run: android-emulator ## Build, install, and launch the dev Android app on this worktree's emulator (boots it if needed)
+android-run: android-emulator ## Build, install, and launch the dev Android app on this worktree's emulator (boots it if needed; DEVICE=phone|fold|tablet)
 	@SERIAL="$(AVD_SERIAL)"; \
 	cd android && ANDROID_SERIAL="$$SERIAL" ./gradlew installDevDebug && \
 	$(ADB) -s "$$SERIAL" reverse tcp:$(SERVER_PORT) tcp:$(SERVER_PORT) >/dev/null && \
@@ -412,7 +445,7 @@ android-run: android-emulator ## Build, install, and launch the dev Android app 
 	$(ADB) -s "$$SERIAL" shell am start -n com.sverto.app.dev/com.sverto.app.MainActivity
 
 .PHONY: android-install-prod
-android-install-prod: android-emulator ## Build and install the prod Android app on this worktree's emulator and any connected physical devices (points at api.sverto.com)
+android-install-prod: android-emulator ## Build and install the prod Android app on this worktree's emulator (DEVICE=phone|fold|tablet) and any connected physical devices (points at api.sverto.com)
 	@if [ ! -f ".secrets.prod" ]; then \
 		echo "$(RED)Error: .secrets.prod not found.$(NC)"; \
 		exit 1; \
@@ -462,45 +495,47 @@ ios-project: ## Regenerate ios/Sverto.xcodeproj from ios/project.yml with xcodeg
 	@cd $(IOS_DIR) && xcodegen generate --quiet
 
 .PHONY: ios-simulator
-ios-simulator: ## Boot this worktree's iPhone simulator, creating it on first use. reset=true recreates it from scratch (wipes its data)
+ios-simulator: ## Boot this worktree's simulator, creating it on first use. DEVICE=phone (default, iPhone 17 Pro), fold (iPhone Duo, with Xcode 27.1+, see IOS_FOLD_XCODE) or tablet (iPad Pro 11-inch); reset=true recreates it from scratch (wipes its data)
 	@test -n "$(IOS_SIMULATOR_NAME)" || { echo "$(RED)Error: IOS_SIMULATOR_NAME is not set. Run make setup-env first.$(NC)"; exit 1; }
-	@UDID="$(SIM_UDID)"; \
+	@$(CHECK_DEVICE)
+	@$(IOS_XCODE) UDID="$(SIM_UDID)"; \
 	if [ "$(reset)" = "true" ] && [ -n "$$UDID" ]; then \
-		echo "$(YELLOW)Deleting $(IOS_SIMULATOR_NAME) ($$UDID) for reset...$(NC)"; \
+		echo "$(YELLOW)Deleting $(IOS_SIM_NAME) ($$UDID) for reset...$(NC)"; \
 		xcrun simctl shutdown "$$UDID" >/dev/null 2>&1 || true; \
 		xcrun simctl delete "$$UDID"; \
 		UDID=""; \
 	fi; \
 	if [ -z "$$UDID" ]; then \
 		RUNTIME="$(IOS_SIMULATOR_RUNTIME)"; \
-		test -n "$$RUNTIME" || { echo "$(RED)Error: no iOS simulator runtime installed (Xcode > Settings > Components)$(NC)"; exit 1; }; \
-		echo "$(GREEN)Creating $(IOS_SIMULATOR_NAME) ($(IOS_SIMULATOR_DEVICE_TYPE), $$RUNTIME)...$(NC)"; \
-		UDID=$$(xcrun simctl create "$(IOS_SIMULATOR_NAME)" "$(IOS_SIMULATOR_DEVICE_TYPE)" "$$RUNTIME"); \
+		test -n "$$RUNTIME" || { echo "$(RED)Error: no iOS simulator runtime for $(IOS_DEVICE_TYPE) installed (Xcode > Settings > Components)$(NC)"; exit 1; }; \
+		echo "$(GREEN)Creating $(IOS_SIM_NAME) ($(IOS_DEVICE_TYPE), $$RUNTIME)...$(NC)"; \
+		UDID=$$(xcrun simctl create "$(IOS_SIM_NAME)" "$(IOS_DEVICE_TYPE)" "$$RUNTIME"); \
 	fi; \
 	if [ "$(SIM_STATE)" != "Booted" ]; then \
-		echo "$(GREEN)Booting $(IOS_SIMULATOR_NAME)...$(NC)"; \
+		echo "$(GREEN)Booting $(IOS_SIM_NAME)...$(NC)"; \
 		xcrun simctl boot "$$UDID"; \
 	fi; \
 	xcrun simctl bootstatus "$$UDID" -b >/dev/null; \
-	open -g -a Simulator --args -CurrentDeviceUDID "$$UDID"; \
-	echo "$(GREEN)$(IOS_SIMULATOR_NAME) ready ($$UDID)$(NC)"
+	DEVICE_HUB="$$(xcode-select -p)/../Applications/DeviceHub.app"; \
+	if [ -d "$$DEVICE_HUB" ]; then open -g -a "$$DEVICE_HUB"; else open -g -a Simulator --args -CurrentDeviceUDID "$$UDID"; fi; \
+	echo "$(GREEN)$(IOS_SIM_NAME) ready ($$UDID)$(NC)"
 
 .PHONY: ios-run
-ios-run: ios-simulator ios-core ios-lucide ## Build, install, and launch the dev iOS app on this worktree's simulator (boots it if needed)
+ios-run: ios-simulator ios-core ios-lucide ## Build, install, and launch the dev iOS app on this worktree's simulator (boots it if needed; DEVICE=phone|fold|tablet)
 	@$(IOS_DIR)/scripts/write-generated-xcconfig.sh
 	@if [ ! -d "$(IOS_PROJECT)" ] || [ "$(IOS_DIR)/project.yml" -nt "$(IOS_PROJECT)/project.pbxproj" ]; then $(MAKE) ios-project; fi
-	@UDID="$(SIM_UDID)"; \
+	@$(IOS_XCODE) UDID="$(SIM_UDID)"; \
 	set -o pipefail; \
 	xcodebuild -project $(IOS_PROJECT) -scheme Sverto -configuration Debug \
-		-destination "platform=iOS Simulator,id=$$UDID" -derivedDataPath $(IOS_DERIVED) \
+		-destination "platform=iOS Simulator,id=$$UDID" -derivedDataPath $(IOS_DEVICE_DERIVED) \
 		-quiet build && \
-	APP=$$(find $(IOS_DERIVED)/Build/Products/Debug-iphonesimulator -maxdepth 1 -name 'Sverto.app' | head -n1) && \
+	APP=$$(find $(IOS_DEVICE_DERIVED)/Build/Products/Debug-iphonesimulator -maxdepth 1 -name 'Sverto.app' | head -n1) && \
 	xcrun simctl install "$$UDID" "$$APP" && \
-	echo "$(GREEN)Launching $(IOS_DEV_BUNDLE_ID) on $(IOS_SIMULATOR_NAME)$(NC)" && \
+	echo "$(GREEN)Launching $(IOS_DEV_BUNDLE_ID) on $(IOS_SIM_NAME)$(NC)" && \
 	xcrun simctl launch "$$UDID" $(IOS_DEV_BUNDLE_ID) >/dev/null
 
 .PHONY: ios-install-prod
-ios-install-prod: ios-simulator ios-lucide ## Build and install the prod iOS app (points at api.sverto.com) on this worktree's simulator and any connected iPhone. Needs .secrets.prod with CLERK_PUBLISHABLE_KEY and IOS_TEAM_ID
+ios-install-prod: ios-simulator ios-lucide ## Build and install the prod iOS app (points at api.sverto.com) on this worktree's simulator (DEVICE=phone|fold|tablet) and any connected iPhone. Needs .secrets.prod with CLERK_PUBLISHABLE_KEY and IOS_TEAM_ID
 	@if [ ! -f ".secrets.prod" ]; then echo "$(RED)Error: .secrets.prod not found.$(NC)"; exit 1; fi
 	@. ./.secrets.prod; \
 	test -n "$$IOS_TEAM_ID" || { echo "$(RED)Error: IOS_TEAM_ID missing from .secrets.prod$(NC)"; exit 1; }; \
@@ -509,10 +544,10 @@ ios-install-prod: ios-simulator ios-lucide ## Build and install the prod iOS app
 	$(MAKE) ios-project && \
 	UDID="$(SIM_UDID)"; \
 	set -o pipefail; \
-	xcodebuild -project $(IOS_PROJECT) -scheme Sverto -configuration Release \
-		-destination "platform=iOS Simulator,id=$$UDID" -derivedDataPath $(IOS_DERIVED) -quiet build && \
-	APP=$$(find $(IOS_DERIVED)/Build/Products/Release-iphonesimulator -maxdepth 1 -name 'Sverto.app' | head -n1) && \
-	xcrun simctl install "$$UDID" "$$APP" && xcrun simctl launch "$$UDID" $(IOS_PROD_BUNDLE_ID) >/dev/null && \
+	( $(IOS_XCODE) xcodebuild -project $(IOS_PROJECT) -scheme Sverto -configuration Release \
+		-destination "platform=iOS Simulator,id=$$UDID" -derivedDataPath $(IOS_DEVICE_DERIVED) -quiet build && \
+	APP=$$(find $(IOS_DEVICE_DERIVED)/Build/Products/Release-iphonesimulator -maxdepth 1 -name 'Sverto.app' | head -n1) && \
+	xcrun simctl install "$$UDID" "$$APP" && xcrun simctl launch "$$UDID" $(IOS_PROD_BUNDLE_ID) >/dev/null ) && \
 	DEVICE_JSON=$$(mktemp); \
 	xcrun devicectl list devices -j "$$DEVICE_JSON" >/dev/null || { rm -f "$$DEVICE_JSON"; exit 1; }; \
 	DEVICES=$$(python3 -c 'import sys,json; print(" ".join(d["hardwareProperties"]["udid"] for d in json.load(open(sys.argv[1]))["result"]["devices"] if d.get("connectionProperties",{}).get("tunnelState")=="connected" or (d.get("connectionProperties",{}).get("transportType")=="wired" and d.get("connectionProperties",{}).get("pairingState")=="paired")))' "$$DEVICE_JSON") || { rm -f "$$DEVICE_JSON"; exit 1; }; \
@@ -592,6 +627,72 @@ import-db: ## Import database data from db_dump.sql (truncates existing data fir
 	@echo "$(GREEN)Importing database data...$(NC)"
 	@PGPASSWORD=$(POSTGRES_PASSWORD) psql -h localhost -p $(POSTGRES_PORT) -U $(POSTGRES_USER) -d $(POSTGRES_DB) < db_dump.sql
 	@echo "$(GREEN)Database data imported from db_dump.sql$(NC)"
+
+# Store screenshots
+.PHONY: store-shots
+store-shots: ## Capture every device from a fresh demo database (myra_shots; the backend is pointed back at the dev database afterwards) and render the store screenshots into marketing/app-stores/. only="android-phone ios-duo-open ..." captures just those configurations
+	@SERVER_PORT=$(SERVER_PORT) POSTGRES_PORT=$(POSTGRES_PORT) POSTGRES_USER=$(POSTGRES_USER) POSTGRES_PASSWORD=$(POSTGRES_PASSWORD) POSTGRES_DB=$(POSTGRES_DB) \
+		marketing/app-stores/shots/run.sh $(only)
+
+.PHONY: store-shots-compose
+store-shots-compose: ## Re-render the store screenshots from the raw captures already on disk (no devices; edit marketing/app-stores/shots/shots.json for copy and shot changes)
+	@cd marketing/app-stores/shots && bun install --frozen-lockfile && bunx playwright install chromium && bun compose.ts
+
+# Store listings
+STORES_DIR = $(CURDIR)/marketing/app-stores
+# SDKROOT: gems with native extensions fail to link against the Command Line Tools SDK when it is newer than the selected Xcode.
+STORES_FASTLANE = cd $(STORES_DIR) && export SDKROOT="$$(xcrun --sdk macosx --show-sdk-path)" BUNDLE_PATH="$(STORES_DIR)/vendor/bundle" LC_ALL=en_US.UTF-8 LANG=en_US.UTF-8 && bundle install --quiet && bundle exec fastlane
+
+# Language folders directly under $(1), one per line (review_information is deliver's, not a language).
+store_languages = for d in "$(1)"/*/; do [ -d "$$d" ] && n=$$(basename "$$d") && [ "$$n" != review_information ] && echo "$$n"; done
+STORES_LIVE = $(STORES_DIR)/.live
+
+.PHONY: store-pull-ios
+store-pull-ios: ## Read the current App Store listing text into marketing/app-stores/.live/ios, replacing it (read-only; key=<App Store Connect API key JSON with key_id, issuer_id, key>). Review contact details and the demo login are deleted afterwards
+	@test -n "$(key)" || { echo "$(RED)Error: pass key=/path/to/asc-key.json$(NC)"; exit 1; }
+	@rm -rf "$(STORES_LIVE)/ios"; mkdir -p "$(STORES_LIVE)/ios"; \
+	$(STORES_FASTLANE) deliver download_metadata --api_key_path "$(abspath $(key))" --app_identifier $(IOS_PROD_BUNDLE_ID) \
+		--metadata_path "$(STORES_LIVE)/ios" --screenshots_path "$$(mktemp -d)" --force; \
+	STATUS=$$?; rm -rf "$(STORES_LIVE)/ios/review_information"; \
+	echo "App Store languages: $$($(call store_languages,$(STORES_LIVE)/ios) | tr '\n' ' ')"; exit $$STATUS
+
+.PHONY: store-pull-play
+store-pull-play: ## Read the current Google Play listing text and images into marketing/app-stores/.live/android, replacing it (read-only; needs gcloud application-default credentials for the Play service account)
+	@rm -rf "$(STORES_LIVE)/android"; mkdir -p "$(STORES_LIVE)"; \
+	$(STORES_FASTLANE) supply init --package_name com.sverto.app --metadata_path "$(STORES_LIVE)/android"; \
+	STATUS=$$?; \
+	echo "Google Play languages: $$($(call store_languages,$(STORES_LIVE)/android) | tr '\n' ' ')"; exit $$STATUS
+
+.PHONY: store-push-play
+store-push-play: ## Send the Google Play listing text and images (no bundle) through the release lane. Validate-only: Google checks the edit and nothing is published unless publish=1. Needs gcloud application-default credentials for the Play service account
+	@unset PLAY_AAB PLAY_JSON_KEY; export PLAY_VALIDATE_ONLY=$(if $(filter 1,$(publish)),false,true); \
+	$(STORES_FASTLANE) android release
+
+.PHONY: store-push-ios
+store-push-ios: ## Upload the App Store listing text and screenshots to the current editable version (key=<App Store Connect API key JSON with key_id, issuer_id, key>; duo=1 adds the Duo screenshots; needs APP_REVIEW_DEMO_USER and APP_REVIEW_DEMO_PASSWORD in the environment). No dry run: it changes App Store Connect straight away, and submits nothing
+	@test -n "$(key)" || { echo "$(RED)Error: pass key=/path/to/asc-key.json$(NC)"; exit 1; }
+	@unset IOS_APP_VERSION; export APP_STORE_CONNECT_KEY_JSON="$(abspath $(key))" IOS_UPLOAD_SCREENSHOTS=true IOS_INCLUDE_DUO=$(if $(filter 1,$(duo)),true,false); \
+	$(STORES_FASTLANE) ios listing
+
+STORE_LOCALE_ROOTS_ios = ios/metadata ios/screenshots ios/screenshots-duo
+STORE_LOCALE_ROOTS_play = android/metadata android/foldable
+# Plain `=` so only the command line sets these, not variables left in the environment.
+STORE =
+LOCALE =
+
+.PHONY: store-locale
+store-locale: ## Rename a store's language folder in its listing, screenshot and foldable folders: STORE=ios|play LOCALE=en-GB (plain mv; fails if that folder already exists)
+	@case "$(STORE)" in ios|play) ;; *) echo "$(RED)Error: pass STORE=ios or STORE=play$(NC)"; exit 1 ;; esac; \
+	test -n "$(LOCALE)" || { echo "$(RED)Error: pass LOCALE=<store language code, e.g. en-GB>$(NC)"; exit 1; }; \
+	cd "$(STORES_DIR)" || exit 1; \
+	METADATA=$(firstword $(STORE_LOCALE_ROOTS_$(STORE))); CURRENT=$$($(call store_languages,$$METADATA)); \
+	[ -n "$$CURRENT" ] && [ "$$(echo "$$CURRENT" | wc -l)" -eq 1 ] || { echo "$(RED)Error: $$METADATA must hold exactly one language folder, found: $$(echo $$CURRENT)$(NC)"; exit 1; }; \
+	for root in $(STORE_LOCALE_ROOTS_$(STORE)); do \
+		[ ! -e "$$root/$(LOCALE)" ] || { echo "$(RED)Error: $$root/$(LOCALE) already exists$(NC)"; exit 1; }; \
+	done; \
+	for root in $(STORE_LOCALE_ROOTS_$(STORE)); do \
+		if [ -d "$$root/$$CURRENT" ]; then mv "$$root/$$CURRENT" "$$root/$(LOCALE)" && echo "$$root/$$CURRENT -> $$root/$(LOCALE)" || exit 1; fi; \
+	done
 
 # API Generation
 .PHONY: generate-api

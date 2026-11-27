@@ -1,0 +1,13 @@
+Sverto now uses the whole screen on iPad and iPhone Duo.
+
+- On iPad, and on iPhone Duo unfolded and held sideways, your list stays on screen and the item you open appears beside it
+- This works for transactions, accounts, holdings, properties and currencies
+- Forms such as adding or editing a transaction take the full width, then return you to where you were
+- Fold, unfold or rotate and Sverto keeps your place
+- iPhone looks and works as before
+
+Recently added, in case you missed it:
+
+- Quick upload takes photos, PDFs and other files, and turns a receipt into one transaction per item
+- Properties show their value minus linked loans, and other debts are listed under Liabilities
+- Tap a currency to see its own page: balance over time, accounts and transactions

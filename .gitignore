@@ -51,3 +51,9 @@ ios/Sverto/Generated/
 xcuserdata/
 *.mobileprovision
 *.p12
+
+marketing/app-stores/shots/raw/
+marketing/app-stores/ios/metadata/review_information/
+marketing/app-stores/fastlane/report.xml
+marketing/app-stores/.live/
+marketing/app-stores/vendor/

@@ -7,7 +7,7 @@ struct ProfileAvatarButton: View {
         Button {
             shell.presentSettings()
         } label: {
-            Image(systemName: "person.crop.circle")
+            ToolbarSymbol("Settings", systemImage: "person.crop.circle")
         }
         .accessibilityLabel("Settings")
     }

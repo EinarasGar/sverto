@@ -94,11 +94,11 @@ private struct CreateTransactionForm: View {
             .disabled(model.isBusy)
             .scrollDismissesKeyboard(.interactively)
             .navigationBarTitleDisplayMode(.inline)
-            .navigationBarBackButtonHidden()
             .toolbar(.hidden, for: .tabBar)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: requestCancel)
+                        .modifier(discardDialog(.trigger))
                         .tint(.primary)
                         .disabled(model.isBusy)
                 }
@@ -145,12 +145,7 @@ private struct CreateTransactionForm: View {
             .onChange(of: model.loadError) { _, message in
                 if let message { AccessibilityNotification.Announcement(message).post() }
             }
-            .confirmationDialog("Discard changes?", isPresented: $showsDiscardConfirmation, titleVisibility: .visible) {
-                Button("Discard Changes", role: .destructive, action: discardAndClose)
-                Button("Keep Editing", role: .cancel) { }
-            } message: {
-                Text("Your changes to this transaction will be lost.")
-            }
+            .modifier(discardDialog(.screen))
             .onChange(of: model.submitState) { _, state in
                 if state == .success { finish() }
             }
@@ -197,6 +192,15 @@ private struct CreateTransactionForm: View {
                 )
             }
             .aiConsentSheet(model.correction.aiConsent)
+        }
+    }
+
+    private func discardDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Discard changes?", isPresented: $showsDiscardConfirmation) {
+            Button("Discard Changes", role: .destructive, action: discardAndClose)
+            Button("Keep Editing", role: .cancel) { }
+        } message: {
+            Text("Your changes to this transaction will be lost.")
         }
     }
 

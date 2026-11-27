@@ -5,6 +5,7 @@ struct TransactionListView: View {
     let model: TransactionsViewModel
     let quickUploads: QuickUploadViewModel
     let held: HeldTransactionsViewModel
+    let highlightedId: String?
     let onTransactionTap: (TransactionListItem) -> Void
     let onQuickUploadTap: (QuickUploadUiItem) -> Void
 
@@ -31,6 +32,7 @@ struct TransactionListView: View {
                     TransactionDaySections(
                         groups: TransactionDayGrouping.group(model.state.items),
                         selectedIds: model.selectedIds,
+                        highlightedId: highlightedId,
                         onTap: onTransactionTap,
                         onToggleSelect: model.toggleSelection,
                         onRowAppear: loadMoreIfNearEnd
@@ -41,6 +43,7 @@ struct TransactionListView: View {
                 }
             }
             .listStyle(.insetGrouped)
+            .keepsRootScrollOffset()
             .refreshable {
                 async let transactions: Void = model.refresh()
                 async let uploads: Void = quickUploads.refresh()

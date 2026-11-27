@@ -99,6 +99,7 @@ struct CreateAssetSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: cancel)
+                        .modifier(discardDialog(.trigger))
                         .tint(.primary)
                         .disabled(isSaving)
                 }
@@ -119,12 +120,7 @@ struct CreateAssetSheet: View {
                     baseAsset = asset
                 }
             }
-            .confirmationDialog("Discard changes?", isPresented: $isDiscardPresented, titleVisibility: .visible) {
-                Button("Discard changes", role: .destructive) { dismiss() }
-                Button("Keep editing", role: .cancel) {}
-            } message: {
-                Text("This asset hasn't been saved.")
-            }
+            .modifier(discardDialog(.screen))
         }
         .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large])
         .interactiveDismissDisabled(hasChanges || isSaving)
@@ -148,6 +144,15 @@ struct CreateAssetSheet: View {
                 submitError = error.friendlyMessage
                 isSaving = false
             }
+        }
+    }
+
+    private func discardDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Discard changes?", isPresented: $isDiscardPresented) {
+            Button("Discard changes", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+        } message: {
+            Text("This asset hasn't been saved.")
         }
     }
 

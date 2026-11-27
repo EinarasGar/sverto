@@ -1,10 +1,13 @@
 package com.sverto.app.feature.assets
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -15,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.Cancel
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExpandedDockedSearchBar
 import androidx.compose.material3.ExpandedFullScreenSearchBar
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -34,10 +38,15 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.sverto.app.core.SvertoViewModelFactory
+import com.sverto.app.core.layout.LocalShellLayout
+import com.sverto.app.core.layout.SearchPillMaxWidth
+import com.sverto.app.core.layout.ShellLayout
 import com.sverto.app.feature.assets.components.AssetListRow
 import kotlinx.coroutines.launch
 import uniffi.sverto_core.AssetSummary
@@ -58,6 +67,7 @@ fun AssetSearchAppBar(
     val searchBarState = rememberSearchBarState()
     val textFieldState = rememberTextFieldState()
     val scope = rememberCoroutineScope()
+    val compact = LocalShellLayout.current == ShellLayout.Compact
 
     LaunchedEffect(Unit) {
         snapshotFlow { textFieldState.text.toString() }
@@ -71,7 +81,18 @@ fun AssetSearchAppBar(
         },
         shape = RoundedCornerShape(percent = 50),
         color = MaterialTheme.colorScheme.surfaceBright,
-        modifier = modifier.fillMaxWidth().height(48.dp),
+        modifier =
+            modifier
+                .then(
+                    if (compact) {
+                        Modifier
+                    } else {
+                        Modifier
+                            .widthIn(max = SearchPillMaxWidth)
+                            .onGloballyPositioned { searchBarState.collapsedCoords = it }
+                    },
+                ).fillMaxWidth()
+                .height(48.dp),
     ) {
         Box(contentAlignment = Alignment.Center) {
             Text(
@@ -87,6 +108,7 @@ fun AssetSearchAppBar(
         SearchBarDefaults.InputField(
             textFieldState = textFieldState,
             searchBarState = searchBarState,
+            modifier = if (compact) Modifier else Modifier.fillMaxWidth(),
             onSearch = {},
             placeholder = { Text("Search assets") },
             leadingIcon = {
@@ -104,7 +126,7 @@ fun AssetSearchAppBar(
         )
     }
 
-    ExpandedFullScreenSearchBar(state = searchBarState, inputField = inputField) {
+    val results: @Composable ColumnScope.() -> Unit = {
         SearchResults(
             state = state,
             onLoadMore = viewModel::loadMore,
@@ -112,6 +134,17 @@ fun AssetSearchAppBar(
                 scope.launch { searchBarState.animateToCollapsed() }
                 onAssetClick(id)
             },
+        )
+    }
+    if (compact) {
+        ExpandedFullScreenSearchBar(state = searchBarState, inputField = inputField, content = results)
+    } else {
+        val pillWidth = with(LocalDensity.current) { (searchBarState.collapsedCoords?.size?.width ?: 0).toDp() }
+        ExpandedDockedSearchBar(
+            state = searchBarState,
+            inputField = inputField,
+            modifier = Modifier.width(pillWidth.coerceAtLeast(360.dp)),
+            content = results,
         )
     }
 }

@@ -21,7 +21,7 @@ struct NewTransactionMenu: View {
                 Button("Import statements", systemImage: "arrow.up.doc", action: onImportStatements)
             }
         } label: {
-            Image(systemName: "plus")
+            ToolbarSymbol("Add transaction", systemImage: "plus")
         }
         .tint(.primary)
         .accessibilityLabel("Add transaction")

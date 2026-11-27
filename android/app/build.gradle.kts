@@ -244,6 +244,7 @@ dependencies {
 
     // Pin material3 to alpha for M3 Expressive (MaterialExpressiveTheme, MotionScheme, new shapes)
     implementation(libs.composeMaterial3)
+    implementation(libs.composeMaterial3Adaptive)
 
     // Clerk authentication
     implementation(libs.clerk.api)

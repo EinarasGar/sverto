@@ -33,6 +33,17 @@ enum AppRoute: Hashable {
     case imports
     case importSession(id: String, pickFiles: Bool = false)
     case importItems(sessionId: String)
+
+    var takesFocus: Bool {
+        switch self {
+        case .createTransaction, .editTransaction, .createTransactionGroup, .editTransactionGroup,
+             .groupAddTransaction, .groupEditTransaction, .addAccount, .editAccount, .addProperty,
+             .connectTrueLayer, .connectEnableBanking, .connectTrading212:
+            true
+        default:
+            false
+        }
+    }
 }
 
 enum GroupChildMode: Hashable {

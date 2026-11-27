@@ -14,10 +14,10 @@ struct TabRoot: View {
                     tabStack(path: $shell.portfolioPath) { PortfolioScreen() }
                 }
                 Tab(AppTab.transactions.title, systemImage: AppTab.transactions.systemImage, value: AppTab.transactions) {
-                    tabStack(path: $shell.transactionsPath) { TransactionsScreen() }
+                    TransactionsScreen()
                 }
                 Tab(AppTab.accounts.title, systemImage: AppTab.accounts.systemImage, value: AppTab.accounts) {
-                    tabStack(path: $shell.accountsPath) { AccountsScreen() }
+                    AccountsScreen()
                 }
                 Tab(AppTab.chat.title, systemImage: AppTab.chat.systemImage, value: AppTab.chat) {
                     tabStack(path: $shell.chatPath) { AiChatScreen() }
@@ -28,6 +28,7 @@ struct TabRoot: View {
         .settingsSheet()
         .handlesSvertoDeepLinks()
         .environment(toasts)
+        .focusedSceneValue(\.shell, shell)
         .task { services.connection.start() }
         .onDisappear { services.connection.stop() }
         .onChange(of: scenePhase, initial: true) { _, phase in

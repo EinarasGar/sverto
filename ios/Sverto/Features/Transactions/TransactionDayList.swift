@@ -4,6 +4,7 @@ import SvertoCore
 struct TransactionDaySections: View {
     let groups: [TransactionDayGroup]
     var selectedIds: Set<String> = []
+    var highlightedId: String? = nil
     let onTap: (TransactionListItem) -> Void
     var onToggleSelect: ((String) -> Void)? = nil
     var onRowAppear: ((TransactionListItem) -> Void)? = nil
@@ -17,6 +18,7 @@ struct TransactionDaySections: View {
                     TransactionRow(
                         transaction: transaction,
                         isSelected: selectedIds.contains(transaction.id),
+                        isHighlighted: transaction.id == highlightedId,
                         onTap: { handleTap(transaction) },
                         onLongPress: onToggleSelect.map { toggle in { toggle(transaction.id) } }
                     )

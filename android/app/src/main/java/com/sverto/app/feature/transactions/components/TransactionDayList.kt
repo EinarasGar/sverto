@@ -28,6 +28,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.sverto.app.core.ui.RowDivider
@@ -69,6 +71,7 @@ internal fun groupByDate(
 @OptIn(ExperimentalFoundationApi::class, ExperimentalSharedTransitionApi::class)
 internal fun LazyListScope.transactionDayItems(
     groupedTransactions: List<Pair<String, List<TransactionListItem>>>,
+    openTransactionId: String?,
     selectedIds: Set<String>,
     selectionActive: Boolean,
     onTransactionClick: (TransactionListItem) -> Unit,
@@ -98,6 +101,7 @@ internal fun LazyListScope.transactionDayItems(
                         TransactionRow(
                             transaction = transaction,
                             selected = transaction.id in selectedIds,
+                            open = transaction.id == openTransactionId,
                             onClick = {
                                 if (selectionActive && onToggleSelect != null) {
                                     onToggleSelect(transaction.id)
@@ -146,6 +150,7 @@ internal fun DateHeader(
 internal fun TransactionRow(
     transaction: TransactionListItem,
     selected: Boolean,
+    open: Boolean,
     onClick: () -> Unit,
     onLongClick: (() -> Unit)?,
     sharedTransitionScope: SharedTransitionScope?,
@@ -154,7 +159,7 @@ internal fun TransactionRow(
     val containerColor by
         animateColorAsState(
             targetValue =
-                if (selected) {
+                if (selected || open) {
                     MaterialTheme.colorScheme.secondaryContainer
                 } else {
                     MaterialTheme.colorScheme.surfaceBright
@@ -179,6 +184,7 @@ internal fun TransactionRow(
     ListItem(
         modifier =
             sharedModifier
+                .then(if (open) Modifier.semantics { this.selected = true } else Modifier)
                 .combinedClickable(
                     onClick = onClick,
                     onLongClick = onLongClick,

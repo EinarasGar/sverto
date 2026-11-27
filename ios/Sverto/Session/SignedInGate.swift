@@ -14,6 +14,7 @@ struct SignedInGate: View {
                 TabRoot()
             } else {
                 OnboardingFlow { onboarded = true }
+                    .maxContentWidth(Layout.readableWidth)
             }
         }
         .task { await resolve() }

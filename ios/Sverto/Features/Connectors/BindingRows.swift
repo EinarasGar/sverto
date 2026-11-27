@@ -1,7 +1,7 @@
 import SvertoCore
 import SwiftUI
 
-struct BindingRows: View {
+struct BindingRows<RemoveDialog: ViewModifier>: View {
     let binding: ConnectorBinding
     let rawName: String
     @Binding var isExpanded: Bool
@@ -9,6 +9,7 @@ struct BindingRows: View {
     let onOpenImport: (String) -> Void
     let onUpdate: (BindingWriteMode, BindingStatus) -> Void
     let onRemove: () -> Void
+    let removeDialog: RemoveDialog
 
     private var isPaused: Bool { binding.isPaused }
 
@@ -98,6 +99,7 @@ struct BindingRows: View {
                             .foregroundStyle(Color.loss)
                     }
                 }
+                .modifier(removeDialog)
             }
         } label: {
             VStack(alignment: .leading, spacing: 2) {

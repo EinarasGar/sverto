@@ -1,0 +1,348 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <style>
+      @font-face {
+        font-family: "Inter";
+        src: url("node_modules/@fontsource-variable/inter/files/inter-latin-wght-normal.woff2") format("woff2");
+        font-weight: 100 900;
+      }
+      @font-face {
+        font-family: "Plex Mono";
+        src: url("node_modules/@fontsource/ibm-plex-mono/files/ibm-plex-mono-latin-500-normal.woff2") format("woff2");
+        font-weight: 500;
+      }
+      :root {
+        --ink: #10261b;
+        --accent: #0d8a5b;
+        --sub: #43554b;
+        --eyebrow: #2b6a4d;
+        --ring: rgba(148, 201, 171, 0.34);
+        --ring-line: rgba(112, 176, 142, 0.42);
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      html,
+      body {
+        background: #eef0ea;
+        overflow: hidden;
+      }
+      #canvas {
+        position: relative;
+        overflow: hidden;
+        background: linear-gradient(165deg, #f0f1eb 0%, #e8eee6 45%, #d9e8dd 100%);
+        font-family: "Inter", sans-serif;
+        color: var(--ink);
+      }
+      .ring {
+        position: absolute;
+        border-radius: 50%;
+      }
+      .logo {
+        position: absolute;
+        display: flex;
+        align-items: center;
+      }
+      .logo svg {
+        color: var(--accent);
+      }
+      .logo span {
+        font-weight: 600;
+        letter-spacing: -0.035em;
+        color: var(--ink);
+      }
+      .copy {
+        position: absolute;
+      }
+      .eyebrow {
+        font-family: "Plex Mono", monospace;
+        font-weight: 500;
+        text-transform: uppercase;
+        letter-spacing: 0.16em;
+        color: var(--eyebrow);
+      }
+      .headline div {
+        width: max-content;
+        font-weight: 700;
+        letter-spacing: -0.045em;
+        line-height: 1.02;
+        white-space: nowrap;
+      }
+      .headline div:last-child {
+        color: var(--accent);
+      }
+      .subhead {
+        color: var(--sub);
+        letter-spacing: -0.012em;
+        line-height: 1.25;
+      }
+      .tagline {
+        position: absolute;
+        font-family: "Plex Mono", monospace;
+        font-weight: 500;
+        letter-spacing: 0.42em;
+        color: #5f7368;
+        transform-origin: left top;
+        transform: rotate(-90deg);
+        white-space: nowrap;
+      }
+      .device {
+        position: absolute;
+        filter: drop-shadow(0 40px 60px rgba(30, 60, 40, 0.22)) drop-shadow(0 8px 16px rgba(30, 60, 40, 0.12));
+      }
+      .rim {
+        position: absolute;
+        inset: 0;
+      }
+      .bezel {
+        position: absolute;
+        background: #0b0d0c;
+      }
+      .screen {
+        position: absolute;
+        overflow: hidden;
+        background: #101412;
+      }
+      .screen img {
+        display: block;
+        width: 100%;
+        height: 100%;
+      }
+      .cutout {
+        position: absolute;
+        background: #000;
+      }
+      .hinge {
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, rgba(0, 0, 0, 0.35), rgba(255, 255, 255, 0.07) 45%, rgba(255, 255, 255, 0.07) 55%, rgba(0, 0, 0, 0.35));
+      }
+      .browser {
+        position: absolute;
+        overflow: hidden;
+        border-radius: 28px;
+        background: #121614;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.07), 0 30px 60px rgba(0, 0, 0, 0.25);
+      }
+      .bar {
+        position: relative;
+        height: 70px;
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding-left: 30px;
+        background: #1a1f1c;
+        border-bottom: 2px solid rgba(255, 255, 255, 0.06);
+      }
+      .bar i {
+        width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        background: #3c423f;
+      }
+      .bar span {
+        position: absolute;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 8px 40px;
+        border-radius: 10px;
+        background: #262c29;
+        color: #c3ccc7;
+        font-family: "Plex Mono", monospace;
+        font-size: 24px;
+      }
+      .page img {
+        display: block;
+        width: 100%;
+      }
+      .label {
+        position: absolute;
+        text-align: center;
+        font-size: 30px;
+        color: #858f8a;
+      }
+      .card {
+        position: absolute;
+        overflow: hidden;
+        background-repeat: no-repeat;
+        box-shadow: 0 24px 50px rgba(30, 60, 40, 0.22), 0 4px 12px rgba(30, 60, 40, 0.14);
+      }
+    </style>
+  </head>
+  <body>
+    <div id="canvas"></div>
+    <script>
+      const MARK = `<svg viewBox="80 80 352 352"><circle cx="256" cy="256" r="146" fill="none" stroke="currentColor" stroke-width="28"/><line x1="104" y1="334" x2="408" y2="178" stroke="currentColor" stroke-width="28" stroke-linecap="round"/><circle cx="256" cy="256" r="28" fill="currentColor"/></svg>`
+      const TAGLINE = "A financial life, connected."
+
+      function el(parent, cls, style = {}, html = "") {
+        const e = document.createElement("div")
+        e.className = cls
+        Object.assign(e.style, style)
+        e.innerHTML = html
+        parent.appendChild(e)
+        return e
+      }
+
+      const px = (n) => `${Math.round(n)}px`
+
+      function fit(line, maxSize, maxWidth) {
+        let size = maxSize
+        line.style.fontSize = px(size)
+        while (line.offsetWidth > maxWidth && size > 10) {
+          size -= 1
+          line.style.fontSize = px(size)
+        }
+        return size
+      }
+
+      function copy(canvas, shot, x, y, width, u, sizes) {
+        const box = el(canvas, "copy", { left: px(x), top: px(y), width: px(width) })
+        if (shot.eyebrow) el(box, "eyebrow", { fontSize: px(sizes.eyebrow * u), marginBottom: px(sizes.eyebrow * 1.2 * u) }, shot.eyebrow)
+        const head = el(box, "headline")
+        const lines = shot.headline.map((t) => el(head, "", {}, t))
+        const size = Math.min(...lines.map((l) => fit(l, sizes.headline * u, width)))
+        lines.forEach((l) => (l.style.fontSize = px(size)))
+        el(box, "subhead", { fontSize: px(Math.min(sizes.subhead * u, size * 0.5)), marginTop: px(size * 0.32) }, shot.subhead)
+        return box
+      }
+
+      function logo(canvas, x, y, u) {
+        el(canvas, "logo", { left: px(x), top: px(y), gap: px(14 * u) }, MARK + `<span>sverto</span>`)
+        const svg = canvas.querySelector(".logo svg")
+        svg.style.width = svg.style.height = px(50 * u)
+        canvas.querySelector(".logo span").style.fontSize = px(44 * u)
+      }
+
+      function rings(canvas, W, H, u) {
+        const s = Math.max(W, H)
+        el(canvas, "ring", { left: px(-0.55 * s), top: px(H - 0.25 * s), width: px(1.3 * s), height: px(1.3 * s), border: `${px(0.11 * s)} solid var(--ring)` })
+        el(canvas, "ring", { left: px(W - 0.42 * s), top: px(H * 0.35), width: px(0.95 * s), height: px(0.95 * s), border: `${px(3 * u)} solid var(--ring-line)` })
+      }
+
+      const FRAMES = {
+        pixel: { rim: 0.012, bezel: 0.032, radius: 0.13, rimColor: "linear-gradient(145deg, #9db394, #4f6b48 40%, #7c9a72 70%, #3f5a3a)", cutout: "punch" },
+        iphone: { rim: 0.01, bezel: 0.022, radius: 0.16, rimColor: "linear-gradient(145deg, #c9ccc8, #7d817d 35%, #b5b9b4 65%, #6e726e)", cutout: "island" },
+        duo: { rim: 0.01, bezel: 0.022, radius: 0.12, rimColor: "linear-gradient(145deg, #c9ccc8, #7d817d 35%, #b5b9b4 65%, #6e726e)" },
+        tablet: { rim: 0.006, bezel: 0.03, radius: 0.045, rimColor: "linear-gradient(145deg, #5b605d, #2a2d2b 40%, #4a4e4b 70%, #222423)" },
+        fold: { rim: 0.007, bezel: 0.022, radius: 0.05, rimColor: "linear-gradient(145deg, #5b605d, #2a2d2b 40%, #4a4e4b 70%, #222423)", hinge: true },
+      }
+
+      function device(canvas, kind, src, imgW, imgH, x, y, width, rotate = 0) {
+        const f = FRAMES[kind]
+        const shortSide = (width * Math.min(imgW, imgH)) / imgW
+        const rimPx = shortSide * f.rim
+        const bezelPx = shortSide * f.bezel
+        const screenW = width - 2 * (rimPx + bezelPx)
+        const screenH = (screenW * imgH) / imgW
+        const height = screenH + 2 * (rimPx + bezelPx)
+        const radius = shortSide * f.radius
+        const d = el(canvas, "device", { left: px(x), top: px(y), width: px(width), height: px(height), transform: rotate ? `rotate(${rotate}deg)` : "", transformOrigin: "left top" })
+        el(d, "rim", { background: f.rimColor, borderRadius: px(radius) })
+        el(d, "bezel", { inset: px(rimPx), borderRadius: px(radius - rimPx) })
+        const screen = el(d, "screen", { left: px(rimPx + bezelPx), top: px(rimPx + bezelPx), width: px(screenW), height: px(screenH), borderRadius: px(radius - rimPx - bezelPx * 0.6) }, `<img src="${src}">`)
+        const sw = Math.min(screenW, screenH)
+        if (f.cutout === "punch") el(screen, "cutout", { width: px(sw * 0.042), height: px(sw * 0.042), borderRadius: "50%", left: px(screenW / 2 - sw * 0.021), top: px(sw * 0.03), boxShadow: `0 0 0 ${px(sw * 0.004)} #1b1f1d` })
+        if (f.cutout === "island") el(screen, "cutout", { width: px(sw * 0.31), height: px(sw * 0.092), borderRadius: px(sw * 0.05), left: px(screenW / 2 - sw * 0.155), top: px(sw * 0.027) })
+        if (f.hinge) el(screen, "hinge", { left: px(screenW / 2 - sw * 0.006), width: px(sw * 0.012) })
+        return { height }
+      }
+
+      window.render = function (shot, slot, images, web) {
+        const [{ src, w: imgW, h: imgH }] = images
+        const [W, H] = slot.size
+        const clear = slot.layout === "bare" || slot.layout === "hero"
+        for (const e of [document.documentElement, document.body]) e.style.background = clear ? "transparent" : ""
+        document.body.style.width = px(W)
+        document.body.style.height = px(H)
+        const canvas = document.getElementById("canvas")
+        canvas.innerHTML = ""
+        Object.assign(canvas.style, { width: px(W), height: px(H), background: clear ? "none" : "" })
+
+        if (slot.layout === "bare") {
+          const { height } = device(canvas, slot.frame, src, imgW, imgH, 0, 0, W)
+          canvas.querySelector(".device").style.filter = "none"
+          canvas.style.height = document.body.style.height = px(height)
+          return
+        }
+        if (slot.layout === "hero") {
+          const win = el(canvas, "browser", { left: px(20), top: px(20), width: px(2170), height: px(1190) })
+          el(win, "bar", {}, `<i></i><i></i><i></i><span>app.sverto.com</span>`)
+          el(win, "page", {}, `<img src="${web}">`)
+          const phones = [
+            { image: images[0], frame: "iphone", x: 1480, y: 426, width: 446, label: "iPhone" },
+            { image: images[1], frame: "pixel", x: 1956, y: 374, width: 424, label: "Android" },
+          ]
+          for (const p of phones) {
+            const { height } = device(canvas, p.frame, p.image.src, p.image.w, p.image.h, p.x, p.y, p.width)
+            el(canvas, "label", { left: px(p.x), top: px(p.y + height + 18), width: px(p.width) }, p.label)
+          }
+          return
+        }
+
+        if (slot.layout === "tall") {
+          const u = W / 1080
+          rings(canvas, W, H, u)
+          logo(canvas, 70 * u, 58 * u, u)
+          const box = copy(canvas, shot, 70 * u, 175 * u, W - 140 * u, u, { eyebrow: 24, headline: 118, subhead: 42 })
+          const bottom = box.offsetTop + box.offsetHeight
+          if (shot.placement === "tilted") {
+            device(canvas, slot.frame, src, imgW, imgH, W * 0.27, bottom + 170 * u, W * 0.98, -9)
+            el(canvas, "tagline", { fontSize: px(19 * u), left: px(64 * u), top: px(H - 70 * u) }, TAGLINE.toUpperCase())
+          } else {
+            const width = W * 0.8
+            device(canvas, slot.frame, src, imgW, imgH, (W - width) / 2, bottom + 80 * u, width)
+          }
+        } else if (slot.layout === "band") {
+          const u = H / 1200
+          rings(canvas, W, H, u)
+          logo(canvas, 80 * u, 54 * u, u)
+          const box = copy(canvas, shot, 80 * u, 150 * u, W * 0.6, u, { eyebrow: 22, headline: 92, subhead: 38 })
+          const bottom = box.offsetTop + box.offsetHeight
+          const { height } = device(canvas, slot.frame, src, imgW, imgH, (W - W * 0.92) / 2, bottom + 55 * u, W * 0.92)
+          if (shot.placement === "whole") {
+            const fit = (H - bottom - 85 * u) / height
+            const width = W * 0.92 * fit
+            Object.assign(canvas.querySelector(".device").style, { transform: `scale(${fit})`, left: px((W - width) / 2) })
+          }
+          if (shot.placement === "lifted") {
+            const shift = H - 70 * u - bottom
+            box.style.top = px(box.offsetTop + shift)
+            const mark = canvas.querySelector(".logo")
+            Object.assign(mark.style, { top: px(box.offsetTop + box.offsetHeight - mark.offsetHeight), left: px(W - 80 * u - mark.offsetWidth) })
+            canvas.querySelector(".device").style.top = px(box.offsetTop - 55 * u - height)
+          }
+        } else if (slot.layout === "side") {
+          const u = H / 1080
+          rings(canvas, W, H, u)
+          logo(canvas, 64 * u, 56 * u, u)
+          const textW = W * 0.3
+          const box = copy(canvas, shot, 64 * u, 0, textW, u, { eyebrow: 20, headline: 84, subhead: 32 })
+          box.style.top = px((H - box.offsetHeight) / 2 - 20 * u)
+          const left = 64 * u + textW + 60 * u
+          const width = Math.min(W - left - 60 * u, (H * 0.88 * imgW) / imgH)
+          const { height } = device(canvas, slot.frame, src, imgW, imgH, left, 0, width)
+          canvas.querySelector(".device").style.top = px((H - height) / 2)
+        } else if (slot.layout === "feature") {
+          const u = H / 500
+          rings(canvas, W, H, u * 0.9)
+          const x = 80 * u
+          logo(canvas, x, 80 * u, u * 0.62)
+          const mark = canvas.querySelector(".logo")
+          el(canvas, "eyebrow", { position: "absolute", left: px(mark.offsetLeft + mark.offsetWidth + 22 * u), top: px(mark.offsetTop + mark.offsetHeight / 2 - 8 * u), fontSize: px(13 * u) }, shot.eyebrow)
+          copy(canvas, { ...shot, eyebrow: "" }, x, 140 * u, W * 0.55, u, { eyebrow: 13, headline: 64, subhead: 20 })
+          const cardW = 300 * u
+          const scale = cardW / imgW
+          const top = imgH * 0.135
+          const visible = 400 * u
+          el(canvas, "card", { left: px(W - 80 * u - cardW), top: px((H - visible) / 2), width: px(cardW), height: px(visible), borderRadius: px(22 * u), backgroundImage: `url("${src}")`, backgroundSize: `${px(cardW)} auto`, backgroundPosition: `0 ${px(-top * scale)}` })
+        }
+      }
+    </script>
+  </body>
+</html>

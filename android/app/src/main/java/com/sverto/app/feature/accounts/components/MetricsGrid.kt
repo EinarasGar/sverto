@@ -3,6 +3,7 @@
 package com.sverto.app.feature.accounts.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -18,6 +19,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.sverto.app.core.layout.LocalShellLayout
+import com.sverto.app.core.layout.ShellLayout
 
 data class MetricItem(
     val label: String,
@@ -30,10 +33,19 @@ fun MetricsGrid(
     items: List<MetricItem>,
     modifier: Modifier = Modifier,
 ) {
-    val rows = items.chunked(2)
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
+        val columns = if (LocalShellLayout.current != ShellLayout.Compact && maxWidth >= 560.dp) 4 else 2
+        MetricRows(items.chunked(columns), columns)
+    }
+}
 
+@Composable
+private fun MetricRows(
+    rows: List<List<MetricItem>>,
+    columns: Int,
+) {
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         rows.forEach { rowItems ->
@@ -47,7 +59,7 @@ fun MetricsGrid(
                         modifier = Modifier.weight(1f),
                     )
                 }
-                if (rowItems.size < 2) {
+                repeat(columns - rowItems.size) {
                     Spacer(modifier = Modifier.weight(1f))
                 }
             }

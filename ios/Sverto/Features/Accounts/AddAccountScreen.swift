@@ -54,11 +54,11 @@ private struct AddAccountForm: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle(model.isEditing ? "Edit account" : "Add account")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden()
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", action: cancel)
+                    .modifier(discardDialog(.trigger))
                     .tint(.primary)
                     .disabled(model.isSaving)
             }
@@ -74,10 +74,7 @@ private struct AddAccountForm: View {
                 .accessibilityLabel(model.isSaving ? "Saving account" : "Save account")
             }
         }
-        .confirmationDialog("Discard changes?", isPresented: $isConfirmingDiscard, titleVisibility: .visible) {
-            Button("Discard changes", role: .destructive) { shell.pop() }
-            Button("Keep editing", role: .cancel) {}
-        }
+        .modifier(discardDialog(.screen))
         .sheet(isPresented: $isAddingIdentifier) {
             AddIdentifierSheet { kind, raw in
                 model.addIdentifier(kind: kind, raw: raw)
@@ -176,6 +173,13 @@ private struct AddAccountForm: View {
             }
         }
         .accessibilityAddTraits(isSelected ? .isSelected : [])
+    }
+
+    private func discardDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Discard changes?", isPresented: $isConfirmingDiscard) {
+            Button("Discard changes", role: .destructive) { shell.pop() }
+            Button("Keep editing", role: .cancel) {}
+        }
     }
 
     private func cancel() {

@@ -3,9 +3,27 @@ import SwiftUI
 
 struct RouteDestination: View {
     let route: AppRoute
+    @Environment(\.detailColumnRoot) private var detailColumnRoot
 
     var body: some View {
-        screen.offlineBannerInset()
+        // showFromRoot swaps the route at the same path index, and SwiftUI would keep the old screen's state there.
+        screen
+            .id(route)
+            .offlineBannerInset()
+            .maxContentWidth(route.takesFocus ? Layout.readableWidth : Layout.contentWidth)
+            .navigationBarBackButtonHidden(hidesBackButton)
+    }
+
+    // A value set here overrides one set inside the screen, so forms hide their back button here too.
+    private var hidesBackButton: Bool {
+        if route == detailColumnRoot { return true }
+        switch route {
+        case .createTransaction, .editTransaction, .createTransactionGroup, .editTransactionGroup,
+             .groupAddTransaction, .groupEditTransaction, .addAccount, .editAccount, .addProperty:
+            return true
+        default:
+            return false
+        }
     }
 
     @ViewBuilder

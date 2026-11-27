@@ -24,6 +24,7 @@ final class AccountsViewModel {
     private let store: AppStore
     private var bridge: AccountsObserverBridge?
     private var hasLoaded = false
+    private var visibleScreens = 0
 
     init(store: AppStore) {
         self.store = store
@@ -41,7 +42,10 @@ final class AccountsViewModel {
         }
     }
 
+    // The tab root is briefly on screen twice while it moves between the stack and the list column,
+    // so the observer stops only when the last copy disappears.
     func start() async {
+        visibleScreens += 1
         observeIfNeeded()
         guard !hasLoaded else { return }
         hasLoaded = true
@@ -49,7 +53,8 @@ final class AccountsViewModel {
     }
 
     func stop() {
-        guard bridge != nil else { return }
+        visibleScreens = max(0, visibleScreens - 1)
+        guard visibleScreens == 0, bridge != nil else { return }
         bridge = nil
         store.unobserveAccounts()
     }

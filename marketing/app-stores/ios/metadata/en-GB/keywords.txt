@@ -1,0 +1,1 @@
+portfolio,expense,money,stock,etf,dividend,wealth,currency,multi,crypto,receipt,manager,asset,share

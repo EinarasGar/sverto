@@ -4,6 +4,7 @@ import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibilityScope
 import androidx.compose.animation.ExperimentalSharedTransitionApi
 import androidx.compose.animation.SharedTransitionScope
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -65,9 +66,11 @@ fun AccountsScreen(
     onAccountClick: (AccountListItem) -> Unit,
     onAddAccount: () -> Unit,
     onAddProperty: () -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
+    openId: String?,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
     modifier: Modifier = Modifier,
+    scrollState: ScrollState = rememberScrollState(),
     viewModel: AccountsViewModel = viewModel(factory = SvertoViewModelFactory),
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
@@ -112,7 +115,7 @@ fun AccountsScreen(
                     Modifier
                         .fillMaxSize()
                         .padding(horizontal = 16.dp)
-                        .verticalScroll(rememberScrollState()),
+                        .verticalScroll(scrollState),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 Spacer(Modifier.height(8.dp))
@@ -130,6 +133,7 @@ fun AccountsScreen(
                         AccountsContent(
                             state = state,
                             onAccountClick = onAccountClick,
+                            openId = openId,
                             sharedTransitionScope = sharedTransitionScope,
                             animatedVisibilityScope = animatedVisibilityScope,
                         )
@@ -233,8 +237,9 @@ private fun ErrorState(
 private fun AccountsContent(
     state: AccountsState,
     onAccountClick: (AccountListItem) -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
+    openId: String?,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
 ) {
     val sections =
         remember(state.accounts) {
@@ -254,6 +259,7 @@ private fun AccountsContent(
             accounts = accounts,
             baseTicker = state.baseTicker,
             onAccountClick = onAccountClick,
+            openId = openId,
             sharedTransitionScope = sharedTransitionScope,
             animatedVisibilityScope = animatedVisibilityScope,
         )
@@ -267,8 +273,9 @@ private fun AccountTypeSection(
     accounts: List<AccountListItem>,
     baseTicker: String,
     onAccountClick: (AccountListItem) -> Unit,
-    sharedTransitionScope: SharedTransitionScope,
-    animatedVisibilityScope: AnimatedVisibilityScope,
+    openId: String?,
+    sharedTransitionScope: SharedTransitionScope?,
+    animatedVisibilityScope: AnimatedVisibilityScope?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
@@ -282,6 +289,7 @@ private fun AccountTypeSection(
                 account = account,
                 baseTicker = baseTicker,
                 onClick = { onAccountClick(account) },
+                open = openId != null && (account.id == openId || account.property?.propertyId == openId),
                 sharedTransitionScope = sharedTransitionScope,
                 animatedVisibilityScope = animatedVisibilityScope,
             )

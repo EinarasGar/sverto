@@ -1,0 +1,109 @@
+STORES = File.expand_path("..", __dir__)
+APP_ID = "com.sverto.app"
+PLAY_NOTE_MAX = 500
+
+skip_docs
+
+def env_true?(name)
+  ENV.fetch(name, "").casecmp?("true")
+end
+
+# Each tool treats every folder in these roots as a store language, and a second folder publishes a second listing.
+def single_language!(roots)
+  found = roots.to_h do |root|
+    folders = Dir.exist?(root) ? Dir.children(root).sort.select { |name| File.directory?(File.join(root, name)) } : []
+    [root, folders.reject { |name| name.start_with?(".") || name == "review_information" }]
+  end
+  languages = found.values.flatten.uniq
+  return languages.first if languages.size == 1 && found.values.all? { |folders| folders.size == 1 }
+
+  listing = found.map { |root, folders| "  #{root.delete_prefix("#{STORES}/")}: #{folders.empty? ? "none" : folders.join(", ")}" }
+  UI.user_error!("Each of these folders must hold exactly one language folder, with the same name:\n#{listing.join("\n")}\n" \
+                 "Keep one language (make store-locale renames it) and move or delete the others.")
+end
+
+platform :android do
+  desc "Production release, listing text, images and release notes in one edit. Without PLAY_AAB only the listing goes."
+  desc "Logs in with PLAY_JSON_KEY, or Application Default Credentials when it is unset."
+  desc "PLAY_VALIDATE_ONLY=true has Google validate the edit and publishes nothing."
+  lane :release do
+    metadata = File.join(STORES, "android/metadata")
+    single_language!([metadata])
+    Dir[File.join(metadata, "*/changelogs/*.txt")].each do |note|
+      length = File.read(note, encoding: "UTF-8").length
+      UI.user_error!("#{note} is #{length} characters; Google Play allows #{PLAY_NOTE_MAX}") if length > PLAY_NOTE_MAX
+    end
+
+    aab = ENV.fetch("PLAY_AAB", "")
+    json_key = ENV.fetch("PLAY_JSON_KEY", "")
+    bundle = aab.empty? ? { skip_upload_aab: true, skip_upload_changelogs: true } : {
+      aab: aab,
+      mapping: ENV.fetch("PLAY_MAPPING"),
+      in_app_update_priority: ENV.fetch("PLAY_UPDATE_PRIORITY").to_i
+    }
+
+    upload_to_play_store(
+      package_name: APP_ID,
+      track: "production",
+      release_status: "completed",
+      metadata_path: metadata,
+      skip_upload_apk: true,
+      sync_image_upload: true,
+      changes_not_sent_for_review: false,
+      validate_only: env_true?("PLAY_VALIDATE_ONLY"),
+      **(json_key.empty? ? {} : { json_key: json_key }),
+      **bundle
+    )
+  end
+end
+
+platform :ios do
+  desc "Listing text, and screenshots when IOS_UPLOAD_SCREENSHOTS=true, onto IOS_APP_VERSION (or the current editable version). No binary, no submission."
+  desc "IOS_INCLUDE_DUO=true adds the iPhone Duo screenshots. APP_STORE_CONNECT_KEY_JSON (a key JSON file) replaces the three APP_STORE_CONNECT_KEY* variables."
+  lane :listing do
+    user = ENV.fetch("APP_REVIEW_DEMO_USER", "")
+    password = ENV.fetch("APP_REVIEW_DEMO_PASSWORD", "")
+    UI.user_error!("Set both APP_REVIEW_DEMO_USER and APP_REVIEW_DEMO_PASSWORD: App Review needs the demo login, and deliver fails on a version without review details") if user.empty? || password.empty?
+
+    metadata = File.join(STORES, "ios/metadata")
+    upload_screenshots = env_true?("IOS_UPLOAD_SCREENSHOTS")
+    screenshot_roots = []
+    if upload_screenshots
+      screenshot_roots << File.join(STORES, "ios/screenshots")
+      screenshot_roots << File.join(STORES, "ios/screenshots-duo") if env_true?("IOS_INCLUDE_DUO")
+    end
+    language = single_language!([metadata, *screenshot_roots])
+
+    shots = Dir.mktmpdir("ios-screenshots")
+    screenshot_roots.each do |root|
+      FileUtils.mkdir_p(File.join(shots, language))
+      FileUtils.cp(Dir[File.join(root, language, "*.{png,jpg,jpeg}")], File.join(shots, language))
+    end
+
+    version = ENV.fetch("IOS_APP_VERSION", "")
+    key_json = ENV.fetch("APP_STORE_CONNECT_KEY_JSON", "")
+    auth = key_json.empty? ? {
+      api_key: app_store_connect_api_key(
+        key_id: ENV.fetch("APP_STORE_CONNECT_KEY_ID"),
+        issuer_id: ENV.fetch("APP_STORE_CONNECT_ISSUER_ID"),
+        key_content: ENV.fetch("APP_STORE_CONNECT_KEY")
+      )
+    } : { api_key_path: key_json }
+
+    upload_to_app_store(
+      **auth,
+      app_identifier: APP_ID,
+      metadata_path: metadata,
+      screenshots_path: shots,
+      skip_binary_upload: true,
+      skip_screenshots: !upload_screenshots,
+      overwrite_screenshots: true,
+      submit_for_review: false,
+      force: true,
+      run_precheck_before_submit: false,
+      precheck_include_in_app_purchases: false,
+      app_review_information: { demo_user: user, demo_password: password },
+      **(version.empty? ? {} : { app_version: version })
+    )
+  end
+end

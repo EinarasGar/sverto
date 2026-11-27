@@ -1,6 +1,7 @@
 package com.sverto.app.feature.aichat
 
 import android.net.Uri
+import android.view.KeyEvent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -36,10 +37,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isShiftPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import com.sverto.app.core.layout.LocalShellLayout
+import com.sverto.app.core.layout.ShellLayout
 
 @Composable
 fun MessageInputBar(
@@ -54,6 +63,7 @@ fun MessageInputBar(
     selectedFileUris: List<Uri> = emptyList(),
     onRemoveAttachment: (Uri) -> Unit = {},
 ) {
+    val compact = LocalShellLayout.current == ShellLayout.Compact
     // Floating composer: no solid bar — a subtle gradient scrim lets the list fade out behind the
     // rounded pill (Gemini-style) instead of a hard divider.
     Column(
@@ -64,7 +74,11 @@ fun MessageInputBar(
                     Brush.verticalGradient(
                         // Fade toward surfaceContainerLow (a different role than the screen
                         // background) so the composer reads as lifted above the message list.
-                        listOf(Color.Transparent, MaterialTheme.colorScheme.surfaceContainerLow),
+                        // Wide windows cap this column, where the tint would show side edges.
+                        listOf(
+                            Color.Transparent,
+                            if (compact) MaterialTheme.colorScheme.surfaceContainerLow else MaterialTheme.colorScheme.surfaceContainer,
+                        ),
                     ),
                 ).padding(start = 12.dp, end = 12.dp, top = 24.dp, bottom = 12.dp),
     ) {
@@ -86,10 +100,25 @@ fun MessageInputBar(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.Bottom,
         ) {
+            val canSend = text.isNotBlank() || hasAttachments
+            val sendOnEnter = canSend && !isStreaming
             OutlinedTextField(
                 value = text,
                 onValueChange = onTextChange,
-                modifier = Modifier.weight(1f),
+                modifier =
+                    Modifier.weight(1f).then(
+                        if (compact) {
+                            Modifier
+                        } else {
+                            Modifier.onPreviewKeyEvent { event ->
+                                val enter = event.key == Key.Enter || event.key == Key.NumPadEnter
+                                val softKeyboard = event.nativeKeyEvent.flags and KeyEvent.FLAG_SOFT_KEYBOARD != 0
+                                val hardwareEnter = enter && !event.isShiftPressed && !softKeyboard
+                                if (hardwareEnter && event.type == KeyEventType.KeyDown && sendOnEnter) onSend()
+                                hardwareEnter
+                            }
+                        },
+                    ),
                 placeholder = { Text("Message AI…") },
                 leadingIcon = {
                     IconButton(onClick = onAddAttachment) {
@@ -115,7 +144,7 @@ fun MessageInputBar(
 
             SendButton(
                 isStreaming = isStreaming,
-                enabled = text.isNotBlank() || hasAttachments,
+                enabled = canSend,
                 onSend = onSend,
                 onStop = onStop,
             )

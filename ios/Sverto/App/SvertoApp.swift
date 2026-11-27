@@ -43,6 +43,7 @@ struct SvertoApp: App {
                 .modifier(ClerkEnvironment(isConfigured: services.environment.isClerkConfigured))
                 .tint(Color.accentColor)
         }
+        .commands { AppCommands() }
         .onChange(of: scenePhase) { _, phase in
             if phase == .active {
                 services.connectivity.refreshAfterForeground()

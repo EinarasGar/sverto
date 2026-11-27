@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.unit.dp
+import com.sverto.app.core.layout.chartHeight
 
 @Composable
 fun shimmerBrush(): Brush {
@@ -80,7 +81,7 @@ fun PortfolioChartSkeleton(modifier: Modifier = Modifier) {
         Box(
             Modifier
                 .fillMaxWidth()
-                .height(180.dp)
+                .height(chartHeight())
                 .background(brush),
         )
 

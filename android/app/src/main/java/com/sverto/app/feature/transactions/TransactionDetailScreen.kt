@@ -75,6 +75,7 @@ import java.util.Locale
 fun TransactionDetailScreen(
     transaction: TransactionListItem,
     isInGroup: Boolean,
+    showBack: Boolean,
     onBack: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -109,6 +110,7 @@ fun TransactionDetailScreen(
                 ) {
                     HeroHeader(
                         transaction = transaction,
+                        showBack = showBack,
                         onBack = onBack,
                     )
 
@@ -278,6 +280,7 @@ fun TransactionDetailScreen(
 @Composable
 private fun HeroHeader(
     transaction: TransactionListItem,
+    showBack: Boolean,
     onBack: () -> Unit,
 ) {
     Box(
@@ -316,23 +319,25 @@ private fun HeroHeader(
             )
         }
 
-        FilledTonalIconButton(
-            onClick = onBack,
-            colors =
-                IconButtonDefaults.filledTonalIconButtonColors(
-                    containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f),
-                ),
-            modifier =
-                Modifier
-                    .align(Alignment.TopStart)
-                    .statusBarsPadding()
-                    .padding(start = 16.dp, top = 12.dp)
-                    .size(46.dp),
-        ) {
-            Icon(
-                imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                contentDescription = "Back",
-            )
+        if (showBack) {
+            FilledTonalIconButton(
+                onClick = onBack,
+                colors =
+                    IconButtonDefaults.filledTonalIconButtonColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer.copy(alpha = 0.9f),
+                    ),
+                modifier =
+                    Modifier
+                        .align(Alignment.TopStart)
+                        .statusBarsPadding()
+                        .padding(start = 16.dp, top = 12.dp)
+                        .size(46.dp),
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                    contentDescription = "Back",
+                )
+            }
         }
 
         Surface(

@@ -16,13 +16,15 @@ struct MetricItem: Identifiable {
 struct MetricGrid: View {
     private let items: [MetricItem]
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var sizeClass
+    @State private var width: CGFloat = 0
 
     init(items: [MetricItem]) {
         self.items = items
     }
 
     private var columns: Int {
-        dynamicTypeSize.isAccessibilitySize ? 1 : 2
+        if dynamicTypeSize.isAccessibilitySize { 1 } else if sizeClass == .regular, width >= 560 { 4 } else { 2 }
     }
 
     private var rows: [[MetricItem]] {
@@ -43,6 +45,7 @@ struct MetricGrid: View {
                 .fixedSize(horizontal: false, vertical: true)
             }
         }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width.rounded() } action: { width = $0 }
     }
 }
 

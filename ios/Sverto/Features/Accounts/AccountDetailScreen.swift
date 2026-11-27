@@ -58,16 +58,10 @@ private struct AccountDetailContent: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     menu
                         .tint(.primary)
+                        .modifier(deleteDialog(.trigger))
                 }
             }
-            .confirmationDialog("Delete account", isPresented: $isConfirmingDelete, titleVisibility: .visible) {
-                Button("Delete", role: .destructive) {
-                    Task { await deleteAccount() }
-                }
-                Button("Cancel", role: .cancel) {}
-            } message: {
-                Text("Are you sure you want to delete this account? This action cannot be undone.")
-            }
+            .modifier(deleteDialog(.screen))
             .sheet(item: keyPrompt) { prompt in
                 TransientKeySheet(
                     onSave: { key in
@@ -101,9 +95,20 @@ private struct AccountDetailContent: View {
                 isConfirmingDelete = true
             }
         } label: {
-            Image(systemName: "ellipsis")
+            ToolbarSymbol("More options", systemImage: "ellipsis")
         }
         .accessibilityLabel("More options")
+    }
+
+    private func deleteDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Delete account", isPresented: $isConfirmingDelete) {
+            Button("Delete", role: .destructive) {
+                Task { await deleteAccount() }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Are you sure you want to delete this account? This action cannot be undone.")
+        }
     }
 
     @ViewBuilder

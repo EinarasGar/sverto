@@ -13,16 +13,21 @@ struct RootView: View {
                 LoadingScreen()
             case .welcome:
                 WelcomeScreen()
+                    .maxContentWidth(Layout.readableWidth)
             case let .serverUrl(lastUrl, status):
                 ServerUrlScreen(lastUrl: lastUrl, status: status)
+                    .maxContentWidth(Layout.readableWidth)
             case let .connectError(message):
                 ConnectErrorScreen(message: message)
             case let .signIn(isSubmitting, errorMessage):
                 PasswordSignInScreen(isSubmitting: isSubmitting, errorMessage: errorMessage)
+                    .maxContentWidth(Layout.readableWidth)
             case .signUp:
                 PasswordSignUpScreen()
+                    .maxContentWidth(Layout.readableWidth)
             case .clerkLogin:
                 WelcomeScreen()
+                    .maxContentWidth(Layout.readableWidth)
             case let .signedIn(generation):
                 SignedInGate()
                     .id(generation)

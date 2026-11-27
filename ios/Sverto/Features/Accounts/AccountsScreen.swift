@@ -17,8 +17,27 @@ private struct AccountsList: View {
         _model = State(initialValue: AccountsViewModel(store: store))
     }
 
+    private var openAccountId: String? {
+        switch shell.accountsPath.first {
+        case let .accountDetail(accountId, _, _): accountId
+        case let .propertyDetail(propertyId, _): propertyId
+        default: nil
+        }
+    }
+
     var body: some View {
-        content
+        @Bindable var shell = shell
+        ListDetailStack(
+            path: $shell.accountsPath,
+            placeholderTitle: "No account selected",
+            placeholderSystemImage: AppTab.accounts.systemImage
+        ) { isListColumn in
+            screen(highlightedId: isListColumn ? openAccountId : nil, isListColumn: isListColumn)
+        }
+    }
+
+    private func screen(highlightedId: String?, isListColumn: Bool) -> some View {
+        content(highlightedId: highlightedId, isListColumn: isListColumn)
             .navigationTitle("Accounts")
             .navigationBarTitleDisplayMode(.large)
             .toolbar {
@@ -31,27 +50,30 @@ private struct AccountsList: View {
                             shell.push(.addProperty)
                         }
                     } label: {
-                        Image(systemName: "plus")
+                        ToolbarSymbol("Add", systemImage: "plus")
                     }
                     .tint(.primary)
                     .accessibilityLabel("Add")
                 }
                 ProfileToolbar()
             }
+            .onChange(of: shell.refreshRequests) {
+                if shell.selectedTab == .accounts { Task { await model.refresh() } }
+            }
             .task { await model.start() }
             .onDisappear { model.stop() }
     }
 
     @ViewBuilder
-    private var content: some View {
+    private func content(highlightedId: String?, isListColumn: Bool) -> some View {
         if model.showsSkeleton {
             AccountsSkeleton()
         } else {
-            accountsList
+            accountsList(highlightedId: highlightedId, isListColumn: isListColumn)
         }
     }
 
-    private var accountsList: some View {
+    private func accountsList(highlightedId: String?, isListColumn: Bool) -> some View {
         List {
             if model.state.accounts.isEmpty {
                 Section {
@@ -65,11 +87,16 @@ private struct AccountsList: View {
             ForEach(model.sections) { section in
                 Section(AccountTypeVisuals.label(section.typeId)) {
                     ForEach(section.accounts, id: \.id) { account in
-                        AccountCard(account: account, baseTicker: model.state.baseTicker) {
+                        AccountCard(
+                            account: account,
+                            baseTicker: model.state.baseTicker,
+                            isHighlighted: highlightedId != nil && highlightedId == (account.property?.propertyId ?? account.id),
+                            showsChevron: !isListColumn
+                        ) {
                             if let property = account.property {
-                                shell.push(.propertyDetail(propertyId: property.propertyId, name: account.name))
+                                shell.showFromRoot(.propertyDetail(propertyId: property.propertyId, name: account.name))
                             } else {
-                                shell.push(.accountDetail(
+                                shell.showFromRoot(.accountDetail(
                                     accountId: account.id,
                                     accountName: account.name,
                                     accountTypeId: account.accountTypeId
@@ -81,6 +108,7 @@ private struct AccountsList: View {
             }
         }
         .listStyle(.insetGrouped)
+        .keepsRootScrollOffset()
         .refreshable { await model.refresh() }
     }
 

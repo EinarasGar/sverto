@@ -1,0 +1,694 @@
+{
+  "slots": {
+    "iphone": {
+      "size": [1320, 2868],
+      "layout": "tall",
+      "frame": "iphone",
+      "capture": "ios-iphone"
+    },
+    "ipad": {
+      "size": [2752, 2064],
+      "layout": "band",
+      "frame": "tablet",
+      "capture": "ios-ipad"
+    },
+    "duo-outer": {
+      "size": [1398, 2034],
+      "layout": "tall",
+      "frame": "duo",
+      "capture": "ios-duo-closed"
+    },
+    "duo-inner": {
+      "size": [2853, 2007],
+      "layout": "band",
+      "frame": "fold",
+      "capture": "ios-duo-open"
+    },
+    "phone": {
+      "size": [1080, 1920],
+      "layout": "tall",
+      "frame": "pixel",
+      "capture": "android-phone"
+    },
+    "tablet-7": {
+      "size": [1920, 1200],
+      "layout": "band",
+      "frame": "tablet",
+      "capture": "android-tablet"
+    },
+    "tablet-10": {
+      "size": [2560, 1600],
+      "layout": "band",
+      "frame": "tablet",
+      "capture": "android-tablet"
+    },
+    "foldable-square": {
+      "size": [2106, 2106],
+      "layout": "band",
+      "frame": "fold",
+      "capture": "android-fold-open"
+    },
+    "foldable-wide": {
+      "size": [2688, 2016],
+      "layout": "side",
+      "frame": "fold",
+      "capture": "android-fold-open"
+    },
+    "foldable-outer": {
+      "size": [1260, 2016],
+      "layout": "tall",
+      "frame": "pixel",
+      "capture": "android-fold-closed"
+    },
+    "feature-graphic": {
+      "size": [1024, 500],
+      "layout": "feature",
+      "frame": "card",
+      "capture": "android-phone"
+    },
+    "readme-ios": {
+      "size": [900, 0],
+      "layout": "bare",
+      "frame": "iphone",
+      "capture": "ios-iphone"
+    },
+    "readme-android": {
+      "size": [900, 0],
+      "layout": "bare",
+      "frame": "pixel",
+      "capture": "android-phone"
+    },
+    "readme-hero": {
+      "size": [2400, 1440],
+      "layout": "hero",
+      "frame": "iphone",
+      "captures": ["ios-iphone", "android-phone"],
+      "web": "marketing/landing/public/shots/ledger-dark.png"
+    }
+  },
+  "shots": [
+    {
+      "slot": "iphone",
+      "name": "net-worth",
+      "screen": "portfolio-top",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries. ETFs.", "One ledger."],
+      "subhead": "Spending, investments and net worth in one place.",
+      "placement": "tilted"
+    },
+    {
+      "slot": "iphone",
+      "name": "transactions",
+      "screen": "transactions-list",
+      "eyebrow": "Expense tracker",
+      "headline": ["Every expense.", "Every investment."],
+      "subhead": "Groceries and ETF buys in the same transaction history.",
+      "placement": "upright"
+    },
+    {
+      "slot": "iphone",
+      "name": "currencies",
+      "screen": "currency-page",
+      "eyebrow": "Multi-currency",
+      "headline": ["Pounds, euros, dollars.", "One total."],
+      "subhead": "Each amount stays in its own currency. Totals use yours.",
+      "placement": "upright"
+    },
+    {
+      "slot": "iphone",
+      "name": "holding",
+      "screen": "holding-detail",
+      "eyebrow": "Portfolio tracker",
+      "headline": ["Know what you own.", "And what it cost."],
+      "subhead": "Cost basis, gains and every purchase lot, oldest first.",
+      "placement": "upright"
+    },
+    {
+      "slot": "iphone",
+      "name": "statement-import",
+      "screen": "statement-import",
+      "eyebrow": "Statement import",
+      "headline": ["Import a bank statement.", "Approve what goes in."],
+      "subhead": "CSV, PDF or a screenshot. Nothing is saved unreviewed.",
+      "placement": "upright"
+    },
+    {
+      "slot": "iphone",
+      "name": "receipt",
+      "screen": "receipt-quick-upload",
+      "eyebrow": "Receipt scanner",
+      "headline": ["Snap a receipt.", "Get every item."],
+      "subhead": "One transaction per item, ready for you to review.",
+      "placement": "upright"
+    },
+    {
+      "slot": "iphone",
+      "name": "property",
+      "screen": "property",
+      "eyebrow": "Property and debts",
+      "headline": ["Home, mortgage, loans.", "In your net worth."],
+      "subhead": "A property counts at its value minus its linked loans.",
+      "placement": "upright"
+    },
+    {
+      "slot": "iphone",
+      "name": "myra",
+      "screen": "myra",
+      "eyebrow": "Myra, your assistant",
+      "headline": ["Ask Myra.", "Answers from your ledger."],
+      "subhead": "It drafts entries too. Nothing is saved until you approve.",
+      "placement": "upright"
+    },
+    {
+      "slot": "ipad",
+      "name": "net-worth",
+      "screen": "two-pane-portfolio",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries. ETFs.", "One ledger."],
+      "subhead": "Your net worth and your holdings, on one screen.",
+      "placement": "upright"
+    },
+    {
+      "slot": "ipad",
+      "name": "transactions",
+      "screen": "two-pane-transaction-buy",
+      "eyebrow": "Expense tracker",
+      "headline": ["Every expense.", "Every investment."],
+      "subhead": "Pick a transaction. Its detail opens beside the list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "ipad",
+      "name": "currencies",
+      "screen": "two-pane-currency",
+      "eyebrow": "Multi-currency",
+      "headline": ["Pounds, euros, dollars.", "One total."],
+      "subhead": "Each amount stays in its own currency. Totals use yours.",
+      "placement": "whole"
+    },
+    {
+      "slot": "ipad",
+      "name": "accounts",
+      "screen": "two-pane-account",
+      "eyebrow": "Every account",
+      "headline": ["Every account.", "Side by side."],
+      "subhead": "Bank, savings, broker, pension and property in one list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "ipad",
+      "name": "statement-import",
+      "screen": "statement-import",
+      "eyebrow": "Statement import",
+      "headline": ["Import a bank statement.", "Approve what goes in."],
+      "subhead": "CSV, PDF or a screenshot. Nothing is saved unreviewed.",
+      "placement": "whole"
+    },
+    {
+      "slot": "ipad",
+      "name": "receipt",
+      "screen": "receipt-quick-upload",
+      "eyebrow": "Receipt scanner",
+      "headline": ["Snap a receipt.", "Get every item."],
+      "subhead": "One transaction per item, ready for you to review.",
+      "placement": "whole"
+    },
+    {
+      "slot": "ipad",
+      "name": "property",
+      "screen": "two-pane-property",
+      "eyebrow": "Property and debts",
+      "headline": ["Home, mortgage, loans.", "In your net worth."],
+      "subhead": "A property counts at its value minus its linked loans.",
+      "placement": "upright"
+    },
+    {
+      "slot": "ipad",
+      "name": "myra",
+      "screen": "two-pane-myra",
+      "eyebrow": "Myra, your assistant",
+      "headline": ["Ask Myra.", "Answers from your ledger."],
+      "subhead": "It drafts entries too. Nothing is saved until you approve.",
+      "placement": "lifted"
+    },
+    {
+      "slot": "duo-outer",
+      "name": "net-worth",
+      "screen": "portfolio-top",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries. ETFs.", "One ledger."],
+      "subhead": "Spending, investments and net worth in one place.",
+      "placement": "tilted"
+    },
+    {
+      "slot": "duo-outer",
+      "name": "transactions",
+      "screen": "transactions-list",
+      "eyebrow": "Expense tracker",
+      "headline": ["Every expense.", "Every investment."],
+      "subhead": "Groceries and ETF buys in the same transaction history.",
+      "placement": "upright"
+    },
+    {
+      "slot": "duo-outer",
+      "name": "currencies",
+      "screen": "currency-page",
+      "eyebrow": "Multi-currency",
+      "headline": ["Pounds, euros, dollars.", "One total."],
+      "subhead": "Each amount stays in its own currency. Totals use yours.",
+      "placement": "upright"
+    },
+    {
+      "slot": "duo-outer",
+      "name": "statement-import",
+      "screen": "statement-import",
+      "eyebrow": "Statement import",
+      "headline": ["Import a bank statement.", "Approve what goes in."],
+      "subhead": "CSV, PDF or a screenshot. Nothing is saved unreviewed.",
+      "placement": "upright"
+    },
+    {
+      "slot": "duo-outer",
+      "name": "receipt",
+      "screen": "receipt-quick-upload",
+      "eyebrow": "Receipt scanner",
+      "headline": ["Snap a receipt.", "Get every item."],
+      "subhead": "One transaction per item, ready for you to review.",
+      "placement": "upright"
+    },
+    {
+      "slot": "duo-inner",
+      "name": "net-worth",
+      "screen": "two-pane-portfolio",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries. ETFs.", "One ledger."],
+      "subhead": "Unfold to see your net worth and holdings together.",
+      "placement": "upright"
+    },
+    {
+      "slot": "duo-inner",
+      "name": "transactions",
+      "screen": "two-pane-transaction-buy",
+      "eyebrow": "Expense tracker",
+      "headline": ["Every expense.", "Every investment."],
+      "subhead": "Pick a transaction. Its detail opens beside the list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "duo-inner",
+      "name": "accounts",
+      "screen": "two-pane-account",
+      "eyebrow": "Every account",
+      "headline": ["Every account.", "Side by side."],
+      "subhead": "Bank, savings, broker, pension and property in one list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "duo-inner",
+      "name": "property",
+      "screen": "two-pane-property",
+      "eyebrow": "Property and debts",
+      "headline": ["Home, mortgage, loans.", "In your net worth."],
+      "subhead": "A property counts at its value minus its linked loans.",
+      "placement": "upright"
+    },
+    {
+      "slot": "duo-inner",
+      "name": "myra",
+      "screen": "two-pane-myra",
+      "eyebrow": "Myra, your assistant",
+      "headline": ["Ask Myra.", "Answers from your ledger."],
+      "subhead": "It drafts entries too. Nothing is saved until you approve.",
+      "placement": "lifted"
+    },
+    {
+      "slot": "phone",
+      "name": "net-worth",
+      "screen": "portfolio-top",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries. ETFs.", "One ledger."],
+      "subhead": "Spending, investments and net worth in one place.",
+      "placement": "tilted"
+    },
+    {
+      "slot": "phone",
+      "name": "transactions",
+      "screen": "transactions-list",
+      "eyebrow": "Expense tracker",
+      "headline": ["Every expense.", "Every investment."],
+      "subhead": "Groceries and ETF buys in the same transaction history.",
+      "placement": "upright"
+    },
+    {
+      "slot": "phone",
+      "name": "currencies",
+      "screen": "currency-page",
+      "eyebrow": "Multi-currency",
+      "headline": ["Pounds, euros, dollars.", "One total."],
+      "subhead": "Each amount stays in its own currency. Totals use yours.",
+      "placement": "upright"
+    },
+    {
+      "slot": "phone",
+      "name": "holding",
+      "screen": "holding-detail",
+      "eyebrow": "Portfolio tracker",
+      "headline": ["Know what you own.", "And what it cost."],
+      "subhead": "Cost basis, gains and every purchase lot, oldest first.",
+      "placement": "upright"
+    },
+    {
+      "slot": "phone",
+      "name": "statement-import",
+      "screen": "statement-import",
+      "eyebrow": "Statement import",
+      "headline": ["Import a bank statement.", "Approve what goes in."],
+      "subhead": "CSV, PDF or a screenshot. Nothing is saved unreviewed.",
+      "placement": "upright"
+    },
+    {
+      "slot": "phone",
+      "name": "receipt",
+      "screen": "receipt-quick-upload",
+      "eyebrow": "Receipt scanner",
+      "headline": ["Snap a receipt.", "Get every item."],
+      "subhead": "One transaction per item, ready for you to review.",
+      "placement": "upright"
+    },
+    {
+      "slot": "phone",
+      "name": "property",
+      "screen": "property",
+      "eyebrow": "Property and debts",
+      "headline": ["Home, mortgage, loans.", "In your net worth."],
+      "subhead": "A property counts at its value minus its linked loans.",
+      "placement": "upright"
+    },
+    {
+      "slot": "phone",
+      "name": "myra",
+      "screen": "myra",
+      "eyebrow": "Myra, your assistant",
+      "headline": ["Ask Myra.", "Answers from your ledger."],
+      "subhead": "It drafts entries too. Nothing is saved until you approve.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-7",
+      "name": "net-worth",
+      "screen": "two-pane-portfolio",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries. ETFs.", "One ledger."],
+      "subhead": "Your net worth and your holdings, on one screen.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-7",
+      "name": "transactions",
+      "screen": "two-pane-transaction-buy",
+      "eyebrow": "Expense tracker",
+      "headline": ["Every expense.", "Every investment."],
+      "subhead": "Pick a transaction. Its detail opens beside the list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-7",
+      "name": "currencies",
+      "screen": "two-pane-currency",
+      "eyebrow": "Multi-currency",
+      "headline": ["Pounds, euros, dollars.", "One total."],
+      "subhead": "Each amount stays in its own currency. Totals use yours.",
+      "placement": "whole"
+    },
+    {
+      "slot": "tablet-7",
+      "name": "accounts",
+      "screen": "two-pane-account",
+      "eyebrow": "Every account",
+      "headline": ["Every account.", "Side by side."],
+      "subhead": "Bank, savings, broker, pension and property in one list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-7",
+      "name": "statement-import",
+      "screen": "statement-import",
+      "eyebrow": "Statement import",
+      "headline": ["Import a bank statement.", "Approve what goes in."],
+      "subhead": "CSV, PDF or a screenshot. Nothing is saved unreviewed.",
+      "placement": "whole"
+    },
+    {
+      "slot": "tablet-7",
+      "name": "receipt",
+      "screen": "receipt-quick-upload",
+      "eyebrow": "Receipt scanner",
+      "headline": ["Snap a receipt.", "Get every item."],
+      "subhead": "One transaction per item, ready for you to review.",
+      "placement": "whole"
+    },
+    {
+      "slot": "tablet-7",
+      "name": "property",
+      "screen": "two-pane-property",
+      "eyebrow": "Property and debts",
+      "headline": ["Home, mortgage, loans.", "In your net worth."],
+      "subhead": "A property counts at its value minus its linked loans.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-7",
+      "name": "myra",
+      "screen": "two-pane-myra",
+      "eyebrow": "Myra, your assistant",
+      "headline": ["Ask Myra.", "Answers from your ledger."],
+      "subhead": "It drafts entries too. Nothing is saved until you approve.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-10",
+      "name": "net-worth",
+      "screen": "two-pane-portfolio",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries. ETFs.", "One ledger."],
+      "subhead": "Your net worth and your holdings, on one screen.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-10",
+      "name": "transactions",
+      "screen": "two-pane-transaction-buy",
+      "eyebrow": "Expense tracker",
+      "headline": ["Every expense.", "Every investment."],
+      "subhead": "Pick a transaction. Its detail opens beside the list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-10",
+      "name": "currencies",
+      "screen": "two-pane-currency",
+      "eyebrow": "Multi-currency",
+      "headline": ["Pounds, euros, dollars.", "One total."],
+      "subhead": "Each amount stays in its own currency. Totals use yours.",
+      "placement": "whole"
+    },
+    {
+      "slot": "tablet-10",
+      "name": "accounts",
+      "screen": "two-pane-account",
+      "eyebrow": "Every account",
+      "headline": ["Every account.", "Side by side."],
+      "subhead": "Bank, savings, broker, pension and property in one list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-10",
+      "name": "statement-import",
+      "screen": "statement-import",
+      "eyebrow": "Statement import",
+      "headline": ["Import a bank statement.", "Approve what goes in."],
+      "subhead": "CSV, PDF or a screenshot. Nothing is saved unreviewed.",
+      "placement": "whole"
+    },
+    {
+      "slot": "tablet-10",
+      "name": "receipt",
+      "screen": "receipt-quick-upload",
+      "eyebrow": "Receipt scanner",
+      "headline": ["Snap a receipt.", "Get every item."],
+      "subhead": "One transaction per item, ready for you to review.",
+      "placement": "whole"
+    },
+    {
+      "slot": "tablet-10",
+      "name": "property",
+      "screen": "two-pane-property",
+      "eyebrow": "Property and debts",
+      "headline": ["Home, mortgage, loans.", "In your net worth."],
+      "subhead": "A property counts at its value minus its linked loans.",
+      "placement": "upright"
+    },
+    {
+      "slot": "tablet-10",
+      "name": "myra",
+      "screen": "two-pane-myra",
+      "eyebrow": "Myra, your assistant",
+      "headline": ["Ask Myra.", "Answers from your ledger."],
+      "subhead": "It drafts entries too. Nothing is saved until you approve.",
+      "placement": "upright"
+    },
+    {
+      "slot": "foldable-square",
+      "name": "net-worth",
+      "screen": "two-pane-portfolio",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries. ETFs.", "One ledger."],
+      "subhead": "Unfold to see your net worth and holdings together.",
+      "placement": "upright"
+    },
+    {
+      "slot": "foldable-wide",
+      "name": "transactions",
+      "screen": "two-pane-transaction-buy",
+      "eyebrow": "Expense tracker",
+      "headline": ["Every expense.", "Every investment."],
+      "subhead": "Pick a transaction. Its detail opens beside the list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "foldable-outer",
+      "name": "currencies",
+      "screen": "currency-page",
+      "eyebrow": "Multi-currency",
+      "headline": ["Pounds, euros, dollars.", "One total."],
+      "subhead": "Each amount stays in its own currency. Totals use yours.",
+      "placement": "upright"
+    },
+    {
+      "slot": "foldable-wide",
+      "name": "accounts",
+      "screen": "two-pane-account",
+      "eyebrow": "Every account",
+      "headline": ["Every account.", "Side by side."],
+      "subhead": "Bank, savings, broker, pension and property in one list.",
+      "placement": "upright"
+    },
+    {
+      "slot": "foldable-outer",
+      "name": "statement-import",
+      "screen": "statement-import",
+      "eyebrow": "Statement import",
+      "headline": ["Import a bank statement.", "Approve what goes in."],
+      "subhead": "CSV, PDF or a screenshot. Nothing is saved unreviewed.",
+      "placement": "upright"
+    },
+    {
+      "slot": "foldable-outer",
+      "name": "receipt",
+      "screen": "receipt-quick-upload",
+      "eyebrow": "Receipt scanner",
+      "headline": ["Snap a receipt.", "Get every item."],
+      "subhead": "One transaction per item, ready for you to review.",
+      "placement": "upright"
+    },
+    {
+      "slot": "foldable-wide",
+      "name": "property",
+      "screen": "two-pane-property",
+      "eyebrow": "Property and debts",
+      "headline": ["Home, mortgage, loans.", "In your net worth."],
+      "subhead": "A property counts at its value minus its linked loans.",
+      "placement": "upright"
+    },
+    {
+      "slot": "foldable-wide",
+      "name": "myra",
+      "screen": "two-pane-myra",
+      "eyebrow": "Myra, your assistant",
+      "headline": ["Ask Myra.", "Answers from your ledger."],
+      "subhead": "It drafts entries too. Nothing is saved until you approve.",
+      "placement": "upright"
+    },
+    {
+      "slot": "feature-graphic",
+      "name": "feature-graphic",
+      "screen": "portfolio-top",
+      "eyebrow": "Net worth tracker",
+      "headline": ["Groceries.", "ETFs.", "One ledger."],
+      "subhead": "Spending, investments and net worth in every currency.",
+      "placement": "upright"
+    },
+    {
+      "slot": "readme-ios",
+      "name": "ios-portfolio",
+      "screen": "portfolio-top",
+      "eyebrow": "",
+      "headline": [],
+      "subhead": "",
+      "placement": "upright"
+    },
+    {
+      "slot": "readme-ios",
+      "name": "ios-transactions",
+      "screen": "transactions-list",
+      "eyebrow": "",
+      "headline": [],
+      "subhead": "",
+      "placement": "upright"
+    },
+    {
+      "slot": "readme-ios",
+      "name": "ios-asset-lots",
+      "screen": "holding-detail",
+      "eyebrow": "",
+      "headline": [],
+      "subhead": "",
+      "placement": "upright"
+    },
+    {
+      "slot": "readme-android",
+      "name": "android-portfolio",
+      "screen": "portfolio-top",
+      "eyebrow": "",
+      "headline": [],
+      "subhead": "",
+      "placement": "upright"
+    },
+    {
+      "slot": "readme-android",
+      "name": "android-transactions",
+      "screen": "transactions-list",
+      "eyebrow": "",
+      "headline": [],
+      "subhead": "",
+      "placement": "upright"
+    },
+    {
+      "slot": "readme-android",
+      "name": "android-asset-lots",
+      "screen": "holding-detail",
+      "eyebrow": "",
+      "headline": [],
+      "subhead": "",
+      "placement": "upright"
+    },
+    {
+      "slot": "readme-android",
+      "name": "android-myra",
+      "screen": "myra-approval",
+      "eyebrow": "",
+      "headline": [],
+      "subhead": "",
+      "placement": "upright"
+    },
+    {
+      "slot": "readme-hero",
+      "name": "hero",
+      "screen": "portfolio-top",
+      "eyebrow": "",
+      "headline": [],
+      "subhead": "",
+      "placement": "upright"
+    }
+  ]
+}

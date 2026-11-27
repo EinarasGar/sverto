@@ -68,7 +68,7 @@ private struct ImportSessionContent: View {
                         Menu {
                             Button("Delete import", systemImage: "trash", role: .destructive) { confirmsDelete = true }
                         } label: {
-                            Image(systemName: "ellipsis")
+                            ToolbarSymbol("More options", systemImage: "ellipsis")
                         }
                         .tint(.primary)
                         .accessibilityLabel("More options")

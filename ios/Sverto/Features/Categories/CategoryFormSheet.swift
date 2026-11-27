@@ -89,6 +89,7 @@ struct CategoryFormSheet: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel", action: cancel)
+                        .modifier(discardDialog(.trigger))
                         .tint(.primary)
                         .disabled(isSaving)
                 }
@@ -115,13 +116,17 @@ struct CategoryFormSheet: View {
             .sheet(isPresented: $isIconPickerPresented) {
                 LucideIconPickerSheet(selected: icon) { icon = $0 }
             }
-            .confirmationDialog("Discard changes?", isPresented: $isConfirmingDiscard, titleVisibility: .visible) {
-                Button("Discard changes", role: .destructive) { dismiss() }
-                Button("Keep editing", role: .cancel) {}
-            }
+            .modifier(discardDialog(.screen))
         }
         .interactiveDismissDisabled(hasChanges || isSaving)
         .presentationDetents(dynamicTypeSize.isAccessibilitySize ? [.large] : [.medium, .large], selection: $detent)
+    }
+
+    private func discardDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Discard changes?", isPresented: $isConfirmingDiscard) {
+            Button("Discard changes", role: .destructive) { dismiss() }
+            Button("Keep editing", role: .cancel) {}
+        }
     }
 
     private func cancel() {

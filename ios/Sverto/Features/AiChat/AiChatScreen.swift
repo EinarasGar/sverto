@@ -12,13 +12,37 @@ struct AiChatScreen: View {
 private struct AiChatContent: View {
     @State private var model: AiChatViewModel
     @State private var isConversationsPresented = false
+    @State private var width = CGFloat.infinity
+    @State private var fold: CGRect?
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     init(store: AppStore) {
         _model = State(initialValue: AiChatViewModel(store: store))
     }
 
+    private var showsConversationsColumn: Bool {
+        sizeClass == .regular && width >= Layout.minListDetailWidth
+    }
+
     var body: some View {
+        HStack(spacing: 0) {
+            if showsConversationsColumn {
+                ConversationsList(model: model) {}
+                    .frame(width: fold?.minX ?? min(max((width * 0.3).rounded(), 300), 360))
+                ColumnSeparator(fold: fold)
+            }
+            thread
+                .maxContentWidth(Layout.readableWidth)
+        }
+        .onGeometryChange(for: CGFloat.self) { $0.size.width.rounded() } action: { width = $0 }
+        .onVerticalFoldChange { fold = $0 }
+        .onChange(of: showsConversationsColumn) { _, shows in
+            if shows { isConversationsPresented = false }
+        }
+    }
+
+    private var thread: some View {
         Group {
             if model.historyState == .loading {
                 ProgressView("Loading conversation…")
@@ -71,14 +95,16 @@ private struct AiChatContent: View {
         .navigationTitle("Myra")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
-            ToolbarItem(placement: .topBarLeading) {
-                Button {
-                    isConversationsPresented = true
-                } label: {
-                    Image(systemName: "sidebar.left")
+            if !showsConversationsColumn {
+                ToolbarItem(placement: .topBarLeading) {
+                    Button {
+                        isConversationsPresented = true
+                    } label: {
+                        ToolbarSymbol("Conversations", systemImage: "sidebar.left")
+                    }
+                    .accessibilityLabel("Conversations")
+                    .tint(.primary)
                 }
-                .accessibilityLabel("Conversations")
-                .tint(.primary)
             }
             ProfileToolbar()
         }

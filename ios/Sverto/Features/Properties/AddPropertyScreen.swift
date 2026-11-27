@@ -40,11 +40,11 @@ private struct AddPropertyForm: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Add property")
         .navigationBarTitleDisplayMode(.inline)
-        .navigationBarBackButtonHidden()
         .toolbar(.hidden, for: .tabBar)
         .toolbar {
             ToolbarItem(placement: .cancellationAction) {
                 Button("Cancel", action: cancel)
+                    .modifier(discardDialog(.trigger))
                     .tint(.primary)
                     .disabled(model.isSaving)
             }
@@ -64,10 +64,7 @@ private struct AddPropertyForm: View {
                 Button("Done") { focusedField = nil }
             }
         }
-        .confirmationDialog("Discard changes?", isPresented: $isConfirmingDiscard, titleVisibility: .visible) {
-            Button("Discard changes", role: .destructive) { shell.pop() }
-            Button("Keep editing", role: .cancel) {}
-        }
+        .modifier(discardDialog(.screen))
         .sheet(isPresented: $isCurrencyPickerPresented) {
             CurrencyPickerSheet(title: "Currency", selectedId: model.currency?.id) { currency in
                 model.currency = currency
@@ -166,6 +163,13 @@ private struct AddPropertyForm: View {
             } else {
                 Text("Linked loans count towards the property's equity and leave your accounts list.")
             }
+        }
+    }
+
+    private func discardDialog(_ source: DialogSource) -> some ViewModifier {
+        ConfirmationDialog(source, title: "Discard changes?", isPresented: $isConfirmingDiscard) {
+            Button("Discard changes", role: .destructive) { shell.pop() }
+            Button("Keep editing", role: .cancel) {}
         }
     }
 

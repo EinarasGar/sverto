@@ -30,7 +30,7 @@ private struct CustomAssetsList: View {
                     Button {
                         isCreatePresented = true
                     } label: {
-                        Image(systemName: "plus")
+                        ToolbarSymbol("Add asset", systemImage: "plus")
                     }
                     .tint(.primary)
                     .accessibilityLabel("Add asset")
@@ -48,18 +48,25 @@ private struct CustomAssetsList: View {
                     try await model.createAsset(name: name, ticker: ticker, assetType: assetType, baseAssetId: baseAssetId)
                 }
             }
-            .confirmationDialog(
-                "Delete this asset?",
-                isPresented: Binding(get: { assetPendingDeletion != nil }, set: { if !$0 { assetPendingDeletion = nil } }),
-                titleVisibility: .visible,
-                presenting: assetPendingDeletion
-            ) { asset in
-                Button("Delete \(asset.ticker.isEmpty ? asset.name : asset.ticker)", role: .destructive) {
-                    Task { await model.deleteAsset(id: asset.id) }
-                }
-            } message: { _ in
-                Text("Its pairs and rates are removed as well. This can't be undone.")
+            .modifier(deleteDialog(.screen))
+    }
+
+    private func deleteDialog(_ source: DialogSource, for row: AssetSummary? = nil) -> some ViewModifier {
+        ConfirmationDialog(
+            source: source,
+            title: "Delete this asset?",
+            isPresented: Binding(
+                get: { assetPendingDeletion != nil && (row == nil || assetPendingDeletion?.id == row?.id) },
+                set: { if !$0 { assetPendingDeletion = nil } }
+            ),
+            item: assetPendingDeletion
+        ) { asset in
+            Button("Delete \(asset.ticker.isEmpty ? asset.name : asset.ticker)", role: .destructive) {
+                Task { await model.deleteAsset(id: asset.id) }
             }
+        } message: { _ in
+            Text("Its pairs and rates are removed as well. This can't be undone.")
+        }
     }
 
     @ViewBuilder
@@ -91,6 +98,7 @@ private struct CustomAssetsList: View {
                         assetPendingDeletion = asset
                     }
                 }
+                .modifier(deleteDialog(.trigger, for: asset))
             }
             .listStyle(.insetGrouped)
         }

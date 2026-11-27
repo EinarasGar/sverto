@@ -1,5 +1,6 @@
 package com.sverto.app.feature.aichat
 
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -19,6 +20,7 @@ import androidx.compose.material3.NavigationDrawerItemDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import uniffi.sverto_core.ConversationItem
@@ -35,6 +37,28 @@ fun ConversationDrawer(
     ModalDrawerSheet(
         modifier = modifier.width(304.dp),
     ) {
+        ConversationList(
+            conversations = conversations,
+            activeConversationId = activeConversationId,
+            activeContainerColor = MaterialTheme.colorScheme.surfaceBright,
+            onSelect = onSelect,
+            onCreate = onCreate,
+            onDelete = onDelete,
+        )
+    }
+}
+
+@Composable
+fun ConversationList(
+    conversations: List<ConversationItem>,
+    activeConversationId: String?,
+    activeContainerColor: Color,
+    onSelect: (String) -> Unit,
+    onCreate: () -> Unit,
+    onDelete: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(modifier = modifier) {
         Spacer(Modifier.height(16.dp))
 
         // New chat action (Gemini-style compose button).
@@ -88,7 +112,7 @@ fun ConversationDrawer(
                     },
                     colors =
                         NavigationDrawerItemDefaults.colors(
-                            selectedContainerColor = MaterialTheme.colorScheme.surfaceBright,
+                            selectedContainerColor = activeContainerColor,
                         ),
                     modifier = Modifier.padding(NavigationDrawerItemDefaults.ItemPadding),
                 )

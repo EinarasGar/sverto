@@ -54,7 +54,7 @@ private struct PropertyValuationsContent: View {
                     Button {
                         sheet = .add
                     } label: {
-                        Image(systemName: "plus")
+                        ToolbarSymbol("Add valuation", systemImage: "plus")
                     }
                     .tint(.primary)
                     .accessibilityLabel("Add valuation")

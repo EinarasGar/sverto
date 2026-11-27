@@ -17,6 +17,7 @@ struct ChartView: View {
     @State private var seriesCache = ChartSeriesCache()
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     init(
         periods: [ChartPeriodData],
@@ -94,7 +95,7 @@ struct ChartView: View {
             ChartPlot(series: series, selection: selection, isPositive: summary.isPositive)
                 .equatable()
                 .id(selectedPeriod)
-                .frame(height: 180)
+                .frame(height: sizeClass == .regular ? 240 : 180)
                 .padding(.horizontal, -plotOutset)
                 .accessibilityValue(formatValue(summary.currentValue))
             if showsPeriodPicker {
@@ -175,6 +176,7 @@ struct ChartSkeleton: View {
     var showHeadline = true
     var showsPeriodPicker = true
     var plotOutset: CGFloat = 0
+    @Environment(\.horizontalSizeClass) private var sizeClass
 
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
@@ -185,7 +187,7 @@ struct ChartSkeleton: View {
                 }
                 .padding(.horizontal, -plotOutset)
             }
-            SkeletonBlock(height: 180)
+            SkeletonBlock(height: sizeClass == .regular ? 240 : 180)
                 .padding(.horizontal, -plotOutset)
             if showsPeriodPicker {
                 HStack(spacing: 8) {
